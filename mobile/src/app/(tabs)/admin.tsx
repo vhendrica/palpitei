@@ -461,51 +461,53 @@ function JogoAdmin({
                   A API não tem mercados extras para esse jogo.
                 </T>
               ) : null}
-              {daApi.mercados.map((m, i) => {
-                const ja = ms.some(
-                  (x) =>
-                    x.grupo.trim().toUpperCase() === m.grupo &&
-                    x.descricao.trim().toUpperCase() === m.descricao,
-                );
-                const novoGrupo =
-                  i === 0 || daApi.mercados[i - 1].grupo !== m.grupo;
+              {agruparMercados(daApi.mercados).map((g) => {
+                const tem = (o: { descricao: string }) =>
+                  ms.some(
+                    (x) =>
+                      x.grupo.trim().toUpperCase() === g.grupo &&
+                      x.descricao.trim().toUpperCase() === o.descricao,
+                  );
+                const ja = g.opcoes.every(tem);
+                const casas = Math.min(...g.opcoes.map((o) => o.casas));
                 return (
-                  <View key={`${m.grupo}|${m.descricao}`}>
-                    {novoGrupo ? (
-                      <T className="mt-2 font-mont-xb text-xs">{m.grupo}</T>
-                    ) : null}
-                    <Pressable
-                      disabled={ja}
-                      onPress={() =>
-                        setMs((s) => [
-                          ...s,
-                          {
-                            grupo: m.grupo,
-                            descricao: m.descricao,
-                            multiplicador: String(m.multiplicador),
-                          },
-                        ])
-                      }
-                      className={`flex-row items-center justify-between border-b border-line py-1.5 ${ja ? "opacity-40" : ""}`}
-                    >
-                      <T className="flex-1 text-sm">
-                        {m.descricao}
+                  <Pressable
+                    key={g.grupo}
+                    disabled={ja}
+                    onPress={() =>
+                      setMs((s) => [
+                        ...s,
+                        ...g.opcoes
+                          .filter((o) => !tem(o))
+                          .map((o) => ({
+                            grupo: g.grupo,
+                            descricao: o.descricao,
+                            multiplicador: String(o.multiplicador),
+                          })),
+                      ])
+                    }
+                    className={`border-b border-line py-2 ${ja ? "opacity-40" : ""}`}
+                  >
+                    <View className="flex-row items-center">
+                      <T className="flex-1 font-mont-xb text-xs">
+                        {g.grupo}
                         <T className="text-[11px] text-muted">
                           {" "}
-                          ({m.casas} {m.casas === 1 ? "casa" : "casas"})
+                          ({casas} {casas === 1 ? "casa" : "casas"})
                         </T>
-                      </T>
-                      <T className="ml-2 font-odds text-base text-primary">
-                        {fmtOdd(m.multiplicador)}
                       </T>
                       <Ionicons
                         name={ja ? "checkmark" : "add-circle-outline"}
                         size={18}
                         color={C.primary}
-                        style={{ marginLeft: 6 }}
                       />
-                    </Pressable>
-                  </View>
+                    </View>
+                    <T className="mt-0.5 text-sm">
+                      {g.opcoes
+                        .map((o) => `${o.descricao} ${fmtOdd(o.multiplicador)}`)
+                        .join("  |  ")}
+                    </T>
+                  </Pressable>
                 );
               })}
             </View>
