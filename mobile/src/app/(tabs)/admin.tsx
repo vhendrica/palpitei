@@ -788,7 +788,6 @@ function AbaConfig({ run }: { run: Run }) {
       </View>
 
       <SectionTitle>Regras</SectionTitle>
-      {campo("qtd_jogos_dia", "Jogos por múltipla")}
       {campo("custo_entrada_pontos", "Entrada (PONTOS)")}
       {campo("fichas_por_entrada", "Fichas por entrada")}
       {campo("pontos_boas_vindas", "Bônus de cadastro (PONTOS)")}

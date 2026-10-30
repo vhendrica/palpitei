@@ -90,15 +90,15 @@ export async function removerFixture(db: Db, id: string) {
 }
 
 /**
- * Monta a múltipla do dia com exatamente `config.qtd_jogos_dia` jogos do pool. Cria a liga se não existir.
+ * Monta a múltipla do dia com os jogos escolhidos do pool (1 ou mais; o admin decide quantos). Cria a liga se não existir.
  * Mantém jogos (e mercados) que continuam selecionados. Bloqueado depois que alguém entrou.
  */
 export async function selecionarJogos(sql: Db, input: { data: unknown; fixture_ids: unknown; premio_desc?: unknown }) {
   const data = validarDataISO(input.data);
   if (!Array.isArray(input.fixture_ids)) throw new RuleError('Envie os jogos selecionados.');
   const ids = [...new Set(input.fixture_ids.map((x) => Number(x)))];
+  if (ids.length === 0 || ids.some((id) => !Number.isSafeInteger(id) || id <= 0)) throw new RuleError('Selecione pelo menos 1 jogo.');
   const config = await getConfig(sql);
-  if (ids.length !== config.qtd_jogos_dia) throw new RuleError(`Selecione exatamente ${config.qtd_jogos_dia} jogos.`);
 
   const ligaId = await sql.begin(async (tx: Tx) => {
     const pool = await tx`select * from fixtures_dia where data = ${data} and fixture_id in ${tx(ids)}`;

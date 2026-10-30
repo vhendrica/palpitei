@@ -63,8 +63,8 @@ test('fluxo completo: admin monta a múltipla, usuário entra, distribui, rankin
     assert.equal(f.status, 200, JSON.stringify(f.body));
   }
   assert.equal((await call('GET', `/admin/fixtures?data=${HOJE}`, undefined, adminToken)).body.fixtures.length, 4);
-  const errado = await call('POST', '/admin/liga/selecionar', { data: HOJE, fixture_ids: [9000, 9001] }, adminToken);
-  assert.equal(errado.body.error, 'Selecione exatamente 3 jogos.');
+  const errado = await call('POST', '/admin/liga/selecionar', { data: HOJE, fixture_ids: [] }, adminToken);
+  assert.equal(errado.body.error, 'Selecione pelo menos 1 jogo.');
   const sel = await call('POST', '/admin/liga/selecionar', { data: HOJE, fixture_ids: [9000, 9001, 9002], premio_desc: 'Voucher' }, adminToken);
   assert.equal(sel.status, 200);
   assert.equal(sel.body.jogos.length, 3);
