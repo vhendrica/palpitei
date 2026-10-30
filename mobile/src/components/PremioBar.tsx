@@ -13,9 +13,11 @@ export const fmtReais = (n: number) =>
 export function PremioBar({
   premio,
   finalizada,
+  descricao,
 }: {
   premio: Premio;
   finalizada?: boolean;
+  descricao?: string | null;
 }) {
   const { palette: C } = useTheme();
   const { meta, palpiteiros, premio_atual, meta_atingida, faltam_meta } =
@@ -32,9 +34,14 @@ export function PremioBar({
           <T className="font-mont-b text-[10px] uppercase tracking-widest text-muted">
             {finalizada ? "Prêmio final" : "Prêmio do campeão"}
           </T>
-          <T className="font-odds text-2xl text-gold">
-            {premio_atual > 0 ? fmtReais(premio_atual) : "—"}
-          </T>
+          {descricao ? (
+            <T className="font-mont-xb text-lg text-gold">{descricao}</T>
+          ) : null}
+          {premio_atual > 0 || !descricao ? (
+            <T className="font-odds text-2xl text-gold">
+              {premio_atual > 0 ? fmtReais(premio_atual) : "—"}
+            </T>
+          ) : null}
         </View>
         <View className="items-end">
           <T className="font-odds text-xl">{fmtPts(palpiteiros)}</T>

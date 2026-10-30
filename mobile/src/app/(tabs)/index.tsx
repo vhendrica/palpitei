@@ -245,10 +245,8 @@ export default function HomeMultipla() {
             <PremioBar
               premio={home.premio}
               finalizada={home.liga.status === "finalizada"}
+              descricao={home.liga.premio_desc}
             />
-            {home.liga.premio_desc ? (
-              <T className="mt-2 text-xs text-muted">{home.liga.premio_desc}</T>
-            ) : null}
 
             <Card className="mt-3">
               {!user ? (
