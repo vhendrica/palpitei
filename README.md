@@ -85,7 +85,7 @@ mobile/ (Expo)  ──HTTP + Bearer token──▶  supabase/functions/api (Edge
 
 | Variável | Descrição |
 | --- | --- |
-| `EXPO_PUBLIC_API_URL` | URL da API, ex.: `https://<ref>.supabase.co/functions/v1/api` (padrão `http://localhost:8787`). |
+| `EXPO_PUBLIC_API_URL` | URL da API (projeto atual em `mobile/.env.example`; padrão `http://localhost:8787`). |
 
 **Scripts locais** (`supabase/`): `DATABASE_URL` (Postgres), `ADMIN_WHATSAPP` (seed), `PORT` (dev server).
 
