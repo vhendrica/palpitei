@@ -1,0 +1,13 @@
+# Config do Supabase CLI (`supabase start` / `supabase functions serve`). Gerado à mão; ver README.
+project_id = "palpit"
+
+[api]
+enabled = true
+port = 54321
+
+[db]
+port = 54322
+major_version = 15
+
+[functions.api]
+verify_jwt = false
