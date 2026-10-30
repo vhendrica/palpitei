@@ -2,6 +2,7 @@ import * as admin from './admin.ts';
 import * as auth from './auth.ts';
 import type { Db } from './db.ts';
 import { ForbiddenError, NotFoundError, RuleError } from './errors.ts';
+import { importarOdds, type OddsConfig } from './odds.ts';
 import { apostar, entrarNaLiga, finalizarLiga, getLigaPorData } from './rules.ts';
 import { home, jogosComMercados, perfil, rankingDoDia } from './services.ts';
 import { hojeISO } from './validation.ts';
@@ -14,6 +15,7 @@ export type ApiDeps = {
   /** Data "de hoje" (YYYY-MM-DD). Injetável para testes. */
   hoje?: () => string;
   corsOrigin?: string;
+  odds?: OddsConfig;
 };
 
 type Ctx = {
@@ -81,6 +83,10 @@ export function createApi(deps: ApiDeps) {
     ['GET', /^\/admin\/fixtures$/, async (c) => {
       await c.requireAdmin();
       return { fixtures: await admin.listarFixtures(sql, c.query.get('data') ?? hoje()) };
+    }],
+    ['POST', /^\/admin\/fixtures\/importar$/, async (c) => {
+      await c.requireAdmin();
+      return importarOdds(sql, deps.odds, (await c.body()).data ?? hoje());
     }],
     ['POST', /^\/admin\/fixtures$/, async (c) => (await c.requireAdmin(), admin.upsertFixture(sql, await c.body()))],
     ['DELETE', /^\/admin\/fixtures\/([^/]+)$/, async (c) => {

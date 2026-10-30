@@ -57,6 +57,8 @@ const mapFixture = (f: Record<string, unknown>) => ({
   horario: iso(f.horario as Date)!,
   campeonato: f.campeonato as string,
   selecionado: !!f.selecionado,
+  fonte: (f.fonte as string) ?? 'manual',
+  mercados_sugeridos: (f.mercados_sugeridos ?? []) as { descricao: string; multiplicador: number }[],
 });
 
 export async function listarFixtures(db: Db, data: string) {
@@ -126,6 +128,19 @@ export async function selecionarJogos(sql: Db, input: { data: unknown; fixture_i
         on conflict (liga_id, fixture_id) do update set
           time_casa = excluded.time_casa, time_fora = excluded.time_fora, horario = excluded.horario,
           campeonato = excluded.campeonato`;
+      // Jogo sem mercados ganha os sugeridos pelas odds importadas (o admin ainda pode editar).
+      const sugeridos = (f.mercados_sugeridos ?? []) as { descricao: string; multiplicador: number }[];
+      if (sugeridos.length) {
+        const [j] = await tx`
+          select j.id from jogos j where j.liga_id = ${liga.id} and j.fixture_id = ${f.fixture_id}
+            and not exists (select 1 from mercados m where m.jogo_id = j.id)`;
+        if (j) {
+          await tx`insert into mercados ${tx(
+            sugeridos.map((m, ordem) => ({ jogo_id: j.id, descricao: m.descricao, multiplicador: m.multiplicador, ordem })),
+            'jogo_id', 'descricao', 'multiplicador', 'ordem',
+          )}`;
+        }
+      }
     }
     await tx`update fixtures_dia set selecionado = (fixture_id = any(${ids}::bigint[])) where data = ${data}`;
     return liga.id as string;

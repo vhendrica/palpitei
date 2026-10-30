@@ -101,6 +101,8 @@ export type Fixture = {
   horario: string;
   campeonato: string;
   selecionado: boolean;
+  fonte?: string;
+  mercados_sugeridos?: { descricao: string; multiplicador: number }[];
 };
 
 export type Config = {

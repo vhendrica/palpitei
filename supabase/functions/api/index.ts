@@ -15,6 +15,9 @@ const handle = createApi({
   send: createWhatsappSender(env),
   otp: { expor: otpMockAtivo(env) && env('OTP_EXPOR_CODIGO') === 'true' },
   corsOrigin: env('CORS_ORIGIN') ?? '*',
+  odds: env('THE_ODDS_API_KEY')
+    ? { apiKey: env('THE_ODDS_API_KEY')!, esportes: env('THE_ODDS_API_SPORTS')?.split(',').map((s) => s.trim()) }
+    : undefined,
 });
 
 Deno.serve(handle);

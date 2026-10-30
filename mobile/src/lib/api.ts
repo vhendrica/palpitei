@@ -80,6 +80,8 @@ export const api = {
     salvarEscada: (faixas: { usuarios_min: number; valor: number }[]) =>
       req<{ premio_escada: Faixa[] }>('PUT', '/admin/premio-escada', { faixas }),
     fixtures: (data: string) => req<{ fixtures: Fixture[] }>('GET', `/admin/fixtures?data=${data}`),
+    importarOdds: (data: string) =>
+      req<{ importados: { fixture_id: number }[]; creditos_restantes: number | null }>('POST', '/admin/fixtures/importar', { data }),
     salvarFixture: (f: Omit<Fixture, 'id' | 'selecionado'>) => req<Fixture>('POST', '/admin/fixtures', f),
     removerFixture: (id: string) => req<{ ok: true }>('DELETE', `/admin/fixtures/${id}`),
     liga: (data: string) => req<LigaAdmin>('GET', `/admin/liga?data=${data}`),

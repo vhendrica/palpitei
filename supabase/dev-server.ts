@@ -17,6 +17,9 @@ const handle = createApi({
   sql,
   send: createWhatsappSender(env),
   otp: { expor: otpMockAtivo(env) && env('OTP_EXPOR_CODIGO') !== 'false' },
+  odds: env('THE_ODDS_API_KEY')
+    ? { apiKey: env('THE_ODDS_API_KEY')!, esportes: env('THE_ODDS_API_SPORTS')?.split(',').map((s) => s.trim()) }
+    : undefined,
 });
 const port = Number(env('PORT') ?? 8787);
 

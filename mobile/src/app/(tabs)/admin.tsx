@@ -466,9 +466,25 @@ function AbaPool({
       >
         Pool do dia
       </SectionTitle>
+      <Button
+        title="Importar jogos e odds do dia (The Odds API)"
+        variant="outline"
+        className="mb-3"
+        onPress={() =>
+          run(async () => {
+            const r = await api.admin.importarOdds(data);
+            await load();
+            const creditos =
+              r.creditos_restantes == null
+                ? ""
+                : ` Créditos restantes: ${r.creditos_restantes}.`;
+            return `${r.importados.length} jogos importados com odds.${creditos}`;
+          })
+        }
+      />
       {fixtures.length === 0 ? (
         <T className="text-sm text-muted">
-          Nenhum jogo no pool. Cadastre abaixo.
+          Nenhum jogo no pool. Importe da API ou cadastre abaixo.
         </T>
       ) : null}
       {fixtures.map((f) => (
@@ -480,8 +496,15 @@ function AbaPool({
               label={`${f.time_casa} x ${f.time_fora}`}
             />
             <T className="-mt-2 ml-9 text-[11px] text-muted">
-              #{f.fixture_id} • {f.campeonato} • {fmtData(f.horario)}
+              {f.campeonato} • {fmtData(f.horario)}
             </T>
+            {f.mercados_sugeridos?.length ? (
+              <T className="ml-9 mt-1 text-[11px] text-muted">
+                {f.mercados_sugeridos
+                  .map((m) => `${m.descricao} ${m.multiplicador.toFixed(2)}`)
+                  .join(" • ")}
+              </T>
+            ) : null}
           </View>
           <Pressable
             className="p-2"
