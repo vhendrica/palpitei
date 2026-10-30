@@ -18,10 +18,12 @@ export type Palette = {
   gold: string;
   check: string;
   logoBadge: string;
-  brand: string;
+  logoP: string;
+  logoCheck: string;
+  logoText: string;
 };
 
-/** Marca PALPIT: verde #00C447 sobre preto. light = padrão claro com header preto; dark = modo noturno. */
+/** light = padrão claro (header verde, selo branco). dark = modo noturno, marca PALPIT verde #00C447 sobre preto. */
 export const PALETTES: Record<Scheme, Palette> = {
   light: {
     bg: '#EEF0F2',
@@ -30,16 +32,18 @@ export const PALETTES: Record<Scheme, Palette> = {
     line: '#DCDFE3',
     fg: '#1A1A1A',
     muted: '#6B7280',
-    primary: '#009A3A',
+    primary: '#14805E',
     onPrimary: '#FFFFFF',
-    header: '#000000',
+    header: '#126E51',
     onHeader: '#FFFFFF',
-    headerAccent: '#00C447',
+    headerAccent: '#FFDF1B',
     danger: '#D93445',
     gold: '#B7791F',
-    check: '#00C447',
-    logoBadge: '#000000',
-    brand: '#00C447',
+    check: '#00C46A',
+    logoBadge: '#FFFFFF',
+    logoP: '#1A1A1A',
+    logoCheck: '#00C46A',
+    logoText: '#FFFFFF',
   },
   dark: {
     bg: '#121212',
@@ -57,7 +61,9 @@ export const PALETTES: Record<Scheme, Palette> = {
     gold: '#FFC83D',
     check: '#00C447',
     logoBadge: '#000000',
-    brand: '#00C447',
+    logoP: '#00C447',
+    logoCheck: '#00C447',
+    logoText: '#00C447',
   },
 };
 
