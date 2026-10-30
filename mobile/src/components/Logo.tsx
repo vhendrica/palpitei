@@ -1,50 +1,20 @@
 import { View } from "react-native";
-import Svg, { Path, Rect } from "react-native-svg";
+import Svg, { Path } from "react-native-svg";
 
 import { useTheme } from "../store/Theme";
 import { T } from "./ui";
 
 const P_PATH =
-  "M24 16 H55 C68 16 78 26 78 38 C78 50 68 60 55 60 H41 V84 H24 Z M41 30 V46 H54 C58.5 46 62 42.5 62 38 C62 33.5 58.5 30 54 30 Z";
-const CHECK_PATH = "M48 66 L60 78 L86 50";
+  "M275 527 H565 C678 527 768 619 768 732 C768 845 678 937 565 937 H447 V817 H565 C608 817 643 779 643 732 C643 685 608 647 565 647 H402 V1111 H275 Z";
+const CHECK_PATH = "M807 851 L896 771 L987 899 L1460 465 L987 1103 Z";
 
-/** Marca Palpitei: "P" com um sinal de certo verde. */
+/** Marca PALPIT: "P" com o sinal de certo, verde sobre preto. */
 export function LogoMark({ size = 32 }: { size?: number }) {
   const { palette } = useTheme();
   return (
-    <Svg width={size} height={size} viewBox="0 0 100 100">
-      <Rect
-        x={0}
-        y={0}
-        width={100}
-        height={100}
-        rx={24}
-        fill={palette.logoBadge}
-      />
-      <Path
-        d={P_PATH}
-        fill={palette.fg}
-        fillRule="evenodd"
-        transform="translate(6 4) scale(0.88)"
-      />
-      <Path
-        d={CHECK_PATH}
-        transform="translate(6 4) scale(0.88)"
-        fill="none"
-        stroke={palette.logoBadge}
-        strokeWidth={20}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <Path
-        d={CHECK_PATH}
-        transform="translate(6 4) scale(0.88)"
-        fill="none"
-        stroke={palette.check}
-        strokeWidth={10}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+    <Svg width={size * 1.8} height={size} viewBox="255 445 1225 680">
+      <Path d={P_PATH} fill={palette.brand} />
+      <Path d={CHECK_PATH} fill={palette.brand} />
     </Svg>
   );
 }
@@ -53,11 +23,11 @@ export function Logo({ size = "md" }: { size?: "md" | "lg" }) {
   const lg = size === "lg";
   return (
     <View className="flex-row items-center">
-      <LogoMark size={lg ? 44 : 30} />
+      <LogoMark size={lg ? 30 : 20} />
       <T
-        className={`ml-2 font-mont-xb text-onHeader ${lg ? "text-3xl" : "text-xl"}`}
+        className={`ml-2 font-mont-xb tracking-widest text-brand ${lg ? "text-3xl" : "text-xl"}`}
       >
-        Palpitei
+        PALPIT
       </T>
     </View>
   );
