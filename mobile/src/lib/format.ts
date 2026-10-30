@@ -21,3 +21,18 @@ export const STATUS_LABEL = {
   em_andamento: 'AO VIVO',
   finalizada: 'FINALIZADA',
 } as const;
+
+export function fmtCpf(raw: string) {
+  const d = raw.replace(/\D/g, '').slice(0, 11);
+  return d
+    .replace(/^(\d{3})(\d)/, '$1.$2')
+    .replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
+    .replace(/\.(\d{3})(\d{1,2})$/, '.$1-$2');
+}
+
+export function fmtDataNasc(raw: string) {
+  const d = raw.replace(/\D/g, '').slice(0, 8);
+  if (d.length <= 2) return d;
+  if (d.length <= 4) return `${d.slice(0, 2)}/${d.slice(2)}`;
+  return `${d.slice(0, 2)}/${d.slice(2, 4)}/${d.slice(4)}`;
+}

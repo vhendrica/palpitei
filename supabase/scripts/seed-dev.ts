@@ -19,12 +19,13 @@ await sql`
           now(), 'dev', now(), 'dev', now())
   on conflict (whatsapp) do update set is_admin = true, ativado_em = coalesce(users.ativado_em, now())`;
 
-const horario = (h: number) => new Date(`${hoje}T${String(h).padStart(2, '0')}:00:00-03:00`).toISOString();
+// Jogos começam daqui a algumas horas, para o palpite ficar aberto durante o desenvolvimento.
+const horario = (h: number) => new Date(Date.now() + h * 3600_000).toISOString();
 const pool = [
-  [1001, 'Fortaleza', 'Ceará', 21, 'Brasileirão Série A'],
-  [1002, 'Flamengo', 'Palmeiras', 22, 'Brasileirão Série A'],
-  [1003, 'Ferroviário', 'Floresta', 23, 'Série C'],
-  [1004, 'Bahia', 'Sport', 23, 'Copa do Nordeste'],
+  [1001, 'Fortaleza', 'Ceará', 2, 'Brasileirão Série A'],
+  [1002, 'Flamengo', 'Palmeiras', 3, 'Brasileirão Série A'],
+  [1003, 'Ferroviário', 'Floresta', 4, 'Série C'],
+  [1004, 'Bahia', 'Sport', 4, 'Copa do Nordeste'],
 ] as const;
 for (const [fixture_id, time_casa, time_fora, h, campeonato] of pool) {
   await upsertFixture(sql, { fixture_id, time_casa, time_fora, horario: horario(h), campeonato, data: hoje });

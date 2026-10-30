@@ -14,14 +14,13 @@ import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo } from "react";
 
-import { DemoBridge } from "../components/DemoBridge";
 import { AppStoreProvider, useApp } from "../store/AppStore";
 import { ThemeStoreProvider, useTheme } from "../store/Theme";
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 function RootNavigator() {
-  const { ready, user } = useApp();
+  const { ready } = useApp();
   const { ready: themeReady, scheme, palette } = useTheme();
   const [fontsLoaded] = useFonts({
     Montserrat_400Regular,
@@ -56,20 +55,16 @@ function RootNavigator() {
   return (
     <ThemeProvider value={navTheme}>
       <StatusBar style="light" />
-      <DemoBridge />
       <Stack
         screenOptions={{
           headerShown: false,
           contentStyle: { backgroundColor: palette.bg },
         }}
       >
-        <Stack.Protected guard={!!user}>
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="liga/[id]" />
-        </Stack.Protected>
-        <Stack.Protected guard={!user}>
-          <Stack.Screen name="onboarding" />
-        </Stack.Protected>
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="entrar" />
+        <Stack.Screen name="cadastro" />
+        <Stack.Screen name="codigo" />
       </Stack>
     </ThemeProvider>
   );

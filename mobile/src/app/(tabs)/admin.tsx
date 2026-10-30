@@ -1,0 +1,701 @@
+import Ionicons from "@expo/vector-icons/Ionicons";
+import { Redirect } from "expo-router";
+import { useCallback, useEffect, useState } from "react";
+import { Pressable, ScrollView, TextInput, View } from "react-native";
+
+import { AppHeader } from "../../components/AppHeader";
+import { Checkbox, ErrorBox, Field } from "../../components/Form";
+import { fmtReais } from "../../components/PremioBar";
+import {
+  Button,
+  Card,
+  SectionTitle,
+  StatusBadge,
+  T,
+} from "../../components/ui";
+import { api, ApiError } from "../../lib/api";
+import { fmtData, fmtOdd } from "../../lib/format";
+import { errorMessage, useApp } from "../../store/AppStore";
+import { useTheme } from "../../store/Theme";
+import type { Config, Fixture, Jogo, LigaAdmin } from "../../types";
+
+type Aba = "liga" | "pool" | "config";
+
+const hojeLocal = () =>
+  new Date(Date.now() - 3 * 3600_000).toISOString().slice(0, 10);
+
+export default function Admin() {
+  const { user, refreshHome } = useApp();
+  const [aba, setAba] = useState<Aba>("liga");
+  const [data, setData] = useState(hojeLocal());
+  const [erro, setErro] = useState<string | null>(null);
+  const [ok, setOk] = useState<string | null>(null);
+
+  if (!user?.is_admin) return <Redirect href="/" />;
+
+  /** Executa uma ação admin mostrando erro/sucesso; atualiza a home do app depois. */
+  const run = async (fn: () => Promise<string | void>) => {
+    setErro(null);
+    setOk(null);
+    try {
+      const msg = await fn();
+      if (msg) setOk(msg);
+      refreshHome();
+    } catch (e) {
+      setErro(errorMessage(e));
+    }
+  };
+
+  return (
+    <View className="flex-1 bg-bg">
+      <AppHeader title="Admin" />
+      <View className="flex-row border-b border-line bg-card">
+        {(
+          [
+            ["liga", "Múltipla"],
+            ["pool", "Pool de jogos"],
+            ["config", "Prêmio e config"],
+          ] as const
+        ).map(([k, label]) => (
+          <Pressable
+            key={k}
+            onPress={() => setAba(k)}
+            className={`flex-1 items-center py-3 ${aba === k ? "border-b-2 border-primary" : ""}`}
+          >
+            <T
+              className={`font-mont-b text-xs ${aba === k ? "text-primary" : "text-muted"}`}
+            >
+              {label}
+            </T>
+          </Pressable>
+        ))}
+      </View>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 48 }}>
+        {aba !== "config" ? (
+          <Field
+            label="Data (AAAA-MM-DD)"
+            icon="calendar-outline"
+            value={data}
+            onChangeText={setData}
+          />
+        ) : null}
+        <ErrorBox erro={erro} />
+        {ok ? (
+          <T className="mt-3 font-mont-b text-sm text-primary">{ok}</T>
+        ) : null}
+        {aba === "liga" ? <AbaLiga data={data} run={run} /> : null}
+        {aba === "pool" ? (
+          <AbaPool data={data} run={run} onMontada={() => setAba("liga")} />
+        ) : null}
+        {aba === "config" ? <AbaConfig run={run} /> : null}
+      </ScrollView>
+    </View>
+  );
+}
+
+type Run = (fn: () => Promise<string | void>) => Promise<void>;
+
+function AbaLiga({ data, run }: { data: string; run: Run }) {
+  const [la, setLa] = useState<LigaAdmin | null>(null);
+  const [vencedores, setVencedores] = useState<Record<string, boolean>>({});
+  const [premioDesc, setPremioDesc] = useState("");
+
+  const load = useCallback(
+    () =>
+      run(async () => {
+        const r = await api.admin.liga(data);
+        setLa(r);
+        setPremioDesc(r.liga?.premio_desc ?? "");
+        setVencedores({});
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [data],
+  );
+  useEffect(() => {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(data)) load();
+  }, [data, load]);
+
+  if (!la) return null;
+  if (!la.liga) {
+    return (
+      <Card className="mt-4">
+        <T className="font-mont-b text-sm">
+          Nenhuma múltipla montada para {data}.
+        </T>
+        <T className="mt-1 text-xs text-muted">
+          Vá em “Pool de jogos”, selecione os jogos e monte a múltipla.
+        </T>
+      </Card>
+    );
+  }
+  const liga = la.liga;
+  const fechada = liga.status === "finalizada";
+
+  return (
+    <>
+      <Card className="mt-4">
+        <View className="flex-row items-center justify-between">
+          <T className="font-mont-xb text-base">Múltipla de {liga.data}</T>
+          <StatusBadge status={liga.status} />
+        </View>
+        <T className="mt-1 text-sm text-muted">
+          {la.palpiteiros} palpiteiros • entrada {liga.custo_entrada} PONTOS →{" "}
+          {liga.fichas_por_entrada} FICHAS
+          {liga.premio_final != null
+            ? ` • prêmio final ${fmtReais(liga.premio_final)}`
+            : ""}
+        </T>
+        {!fechada ? (
+          <>
+            <Field
+              label="Descrição do prêmio"
+              value={premioDesc}
+              onChangeText={setPremioDesc}
+              placeholder="Ex.: voucher no parceiro X"
+            />
+            <View className="flex-row">
+              <Button
+                title="Salvar"
+                variant="ghost"
+                className="mr-2 flex-1"
+                onPress={() =>
+                  run(async () => {
+                    setLa(
+                      await api.admin.atualizarLiga(liga.id, {
+                        premio_desc: premioDesc || null,
+                      }),
+                    );
+                    return "Prêmio atualizado.";
+                  })
+                }
+              />
+              <Button
+                title={liga.status === "aberta" ? "Fechar apostas" : "Reabrir"}
+                variant="outline"
+                className="flex-1"
+                onPress={() =>
+                  run(async () => {
+                    setLa(
+                      await api.admin.atualizarLiga(liga.id, {
+                        status:
+                          liga.status === "aberta" ? "em_andamento" : "aberta",
+                      }),
+                    );
+                  })
+                }
+              />
+            </View>
+          </>
+        ) : null}
+      </Card>
+
+      <SectionTitle>Jogos</SectionTitle>
+      {la.jogos.map((j) => (
+        <JogoAdmin
+          key={j.id}
+          jogo={j}
+          fechada={fechada}
+          vencedores={vencedores}
+          setVencedor={(id, v) => setVencedores((s) => ({ ...s, [id]: v }))}
+          onDestaque={() =>
+            run(async () => {
+              setLa(await api.admin.destaque(j.id));
+              return "Jogo do dia marcado.";
+            })
+          }
+          onSalvarMercados={(ms) =>
+            run(async () => {
+              setLa(await api.admin.mercados(j.id, ms));
+              return "Mercados salvos.";
+            })
+          }
+        />
+      ))}
+
+      {!fechada ? (
+        <Card className="mt-2">
+          <T className="font-mont-b text-sm">Finalizar</T>
+          <T className="mt-1 text-xs text-muted">
+            Marque os mercados vencedores nos jogos acima. O prêmio final é
+            gravado pela escada (limitado à meta) e o voucher vai pro 1º lugar.
+          </T>
+          <Button
+            title="Finalizar múltipla"
+            variant="danger"
+            className="mt-3"
+            onPress={() =>
+              run(async () => {
+                const ids = Object.entries(vencedores)
+                  .filter(([, v]) => v)
+                  .map(([id]) => id);
+                const r = await api.admin.finalizar(liga.id, ids);
+                setLa(await api.admin.liga(data));
+                return r.voucher
+                  ? `Finalizada. Prêmio ${fmtReais(r.premio_final)} — voucher ${r.voucher.codigo}.`
+                  : `Finalizada sem voucher (prêmio ${fmtReais(r.premio_final)}).`;
+              })
+            }
+          />
+        </Card>
+      ) : null}
+    </>
+  );
+}
+
+type MercadoDraft = { id?: string; descricao: string; multiplicador: string };
+
+function JogoAdmin({
+  jogo,
+  fechada,
+  vencedores,
+  setVencedor,
+  onDestaque,
+  onSalvarMercados,
+}: {
+  jogo: Jogo;
+  fechada: boolean;
+  vencedores: Record<string, boolean>;
+  setVencedor: (id: string, v: boolean) => void;
+  onDestaque: () => void;
+  onSalvarMercados: (
+    ms: { id?: string; descricao: string; multiplicador: number }[],
+  ) => void;
+}) {
+  const { palette: C } = useTheme();
+  const [editando, setEditando] = useState(false);
+  const [ms, setMs] = useState<MercadoDraft[]>([]);
+
+  const abrirEditor = () => {
+    setMs(
+      jogo.mercados.map((m) => ({
+        id: m.id,
+        descricao: m.descricao,
+        multiplicador: String(m.multiplicador),
+      })),
+    );
+    setEditando(true);
+  };
+
+  return (
+    <Card className={`mb-3 ${jogo.destaque ? "border-2 border-primary" : ""}`}>
+      <View className="flex-row items-start justify-between">
+        <View className="flex-1">
+          <T className="text-[11px] uppercase tracking-widest text-muted">
+            #{jogo.fixture_id} • {jogo.campeonato} • {fmtData(jogo.horario)}
+          </T>
+          <T className="mt-1 font-mont-xb text-base">
+            {jogo.time_casa} x {jogo.time_fora}
+          </T>
+        </View>
+        {!fechada ? (
+          <Pressable
+            onPress={onDestaque}
+            className="p-1"
+            accessibilityLabel="Marcar jogo do dia"
+          >
+            <Ionicons
+              name={jogo.destaque ? "star" : "star-outline"}
+              size={22}
+              color={C.primary}
+            />
+          </Pressable>
+        ) : null}
+      </View>
+
+      {!editando ? (
+        <View className="mt-2">
+          {jogo.mercados.map((m) => (
+            <View
+              key={m.id}
+              className="flex-row items-center justify-between border-b border-line py-1.5"
+            >
+              {fechada ? (
+                <T className="flex-1 text-sm">
+                  {m.resultado_final ? "✓ " : ""}
+                  {m.descricao}
+                </T>
+              ) : (
+                <View className="flex-1">
+                  <Checkbox
+                    checked={!!vencedores[m.id]}
+                    onChange={(v) => setVencedor(m.id, v)}
+                    label={m.descricao}
+                  />
+                </View>
+              )}
+              <T className="ml-2 font-odds text-base text-primary">
+                {fmtOdd(m.multiplicador)}
+              </T>
+            </View>
+          ))}
+          {!fechada ? (
+            <Button
+              title="Editar mercados"
+              variant="ghost"
+              icon="create-outline"
+              className="mt-2"
+              onPress={abrirEditor}
+            />
+          ) : null}
+        </View>
+      ) : (
+        <View className="mt-2">
+          {ms.map((m, i) => (
+            <View
+              key={m.id ?? `novo-${i}`}
+              className="mb-2 flex-row items-center"
+            >
+              <TextInput
+                className="mr-2 flex-1 rounded-lg border border-line bg-cardAlt px-2 py-2 font-mont-sb text-sm text-fg"
+                value={m.descricao}
+                placeholder="Descrição"
+                placeholderTextColor={C.muted}
+                onChangeText={(t) =>
+                  setMs((s) =>
+                    s.map((x, k) => (k === i ? { ...x, descricao: t } : x)),
+                  )
+                }
+              />
+              <TextInput
+                className="w-20 rounded-lg border border-line bg-cardAlt px-2 py-2 font-odds text-sm text-fg"
+                value={m.multiplicador}
+                placeholder="2.00"
+                keyboardType="decimal-pad"
+                placeholderTextColor={C.muted}
+                onChangeText={(t) =>
+                  setMs((s) =>
+                    s.map((x, k) => (k === i ? { ...x, multiplicador: t } : x)),
+                  )
+                }
+              />
+              <Pressable
+                onPress={() => setMs((s) => s.filter((_, k) => k !== i))}
+                className="ml-1 p-1"
+              >
+                <Ionicons name="trash-outline" size={18} color={C.danger} />
+              </Pressable>
+            </View>
+          ))}
+          <Button
+            title="Adicionar mercado"
+            variant="ghost"
+            icon="add"
+            onPress={() =>
+              setMs((s) => [...s, { descricao: "", multiplicador: "" }])
+            }
+          />
+          <View className="mt-2 flex-row">
+            <Button
+              title="Cancelar"
+              variant="outline"
+              className="mr-2 flex-1"
+              onPress={() => setEditando(false)}
+            />
+            <Button
+              title="Salvar"
+              className="flex-1"
+              onPress={() => {
+                onSalvarMercados(
+                  ms.map((m) => ({
+                    id: m.id,
+                    descricao: m.descricao,
+                    multiplicador: Number(m.multiplicador.replace(",", ".")),
+                  })),
+                );
+                setEditando(false);
+              }}
+            />
+          </View>
+        </View>
+      )}
+    </Card>
+  );
+}
+
+function AbaPool({
+  data,
+  run,
+  onMontada,
+}: {
+  data: string;
+  run: Run;
+  onMontada: () => void;
+}) {
+  const [fixtures, setFixtures] = useState<Fixture[]>([]);
+  const [sel, setSel] = useState<Record<number, boolean>>({});
+  const [novo, setNovo] = useState({
+    fixture_id: "",
+    time_casa: "",
+    time_fora: "",
+    hora: "",
+    campeonato: "",
+  });
+
+  const load = useCallback(
+    () =>
+      run(async () => {
+        const r = await api.admin.fixtures(data);
+        setFixtures(r.fixtures);
+        setSel(
+          Object.fromEntries(
+            r.fixtures
+              .filter((f) => f.selecionado)
+              .map((f) => [f.fixture_id, true]),
+          ),
+        );
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [data],
+  );
+  useEffect(() => {
+    if (/^\d{4}-\d{2}-\d{2}$/.test(data)) load();
+  }, [data, load]);
+
+  const selecionados = Object.entries(sel)
+    .filter(([, v]) => v)
+    .map(([id]) => Number(id));
+
+  return (
+    <>
+      <SectionTitle
+        right={
+          <T className="text-xs text-muted">
+            {selecionados.length} selecionados
+          </T>
+        }
+      >
+        Pool do dia
+      </SectionTitle>
+      {fixtures.length === 0 ? (
+        <T className="text-sm text-muted">
+          Nenhum jogo no pool. Cadastre abaixo.
+        </T>
+      ) : null}
+      {fixtures.map((f) => (
+        <Card key={f.id} className="mb-2 flex-row items-center">
+          <View className="flex-1">
+            <Checkbox
+              checked={!!sel[f.fixture_id]}
+              onChange={(v) => setSel((s) => ({ ...s, [f.fixture_id]: v }))}
+              label={`${f.time_casa} x ${f.time_fora}`}
+            />
+            <T className="-mt-2 ml-9 text-[11px] text-muted">
+              #{f.fixture_id} • {f.campeonato} • {fmtData(f.horario)}
+            </T>
+          </View>
+          <Pressable
+            className="p-2"
+            onPress={() =>
+              run(async () => {
+                await api.admin.removerFixture(f.id);
+                await load();
+              })
+            }
+          >
+            <Ionicons name="trash-outline" size={18} color="#999" />
+          </Pressable>
+        </Card>
+      ))}
+      <Button
+        title="Montar múltipla com selecionados"
+        className="mt-2"
+        disabled={selecionados.length === 0}
+        onPress={() =>
+          run(async () => {
+            await api.admin.selecionar(data, selecionados);
+            onMontada();
+            return "Múltipla montada. Agora defina mercados e o jogo do dia.";
+          })
+        }
+      />
+
+      <SectionTitle>Adicionar jogo ao pool</SectionTitle>
+      <Field
+        label="Fixture ID (API-Football)"
+        keyboardType="number-pad"
+        value={novo.fixture_id}
+        onChangeText={(t) => setNovo({ ...novo, fixture_id: t })}
+      />
+      <Field
+        label="Mandante"
+        value={novo.time_casa}
+        onChangeText={(t) => setNovo({ ...novo, time_casa: t })}
+      />
+      <Field
+        label="Visitante"
+        value={novo.time_fora}
+        onChangeText={(t) => setNovo({ ...novo, time_fora: t })}
+      />
+      <Field
+        label="Horário (HH:MM, Brasília)"
+        value={novo.hora}
+        onChangeText={(t) => setNovo({ ...novo, hora: t })}
+        placeholder="21:30"
+      />
+      <Field
+        label="Campeonato"
+        value={novo.campeonato}
+        onChangeText={(t) => setNovo({ ...novo, campeonato: t })}
+      />
+      <Button
+        title="Adicionar"
+        variant="outline"
+        onPress={() =>
+          run(async () => {
+            if (!/^\d{2}:\d{2}$/.test(novo.hora))
+              throw new ApiError("Horário inválido. Use HH:MM.", 400);
+            await api.admin.salvarFixture({
+              fixture_id: Number(novo.fixture_id),
+              time_casa: novo.time_casa,
+              time_fora: novo.time_fora,
+              campeonato: novo.campeonato,
+              data,
+              horario: new Date(`${data}T${novo.hora}:00-03:00`).toISOString(),
+            });
+            setNovo({
+              fixture_id: "",
+              time_casa: "",
+              time_fora: "",
+              hora: "",
+              campeonato: "",
+            });
+            await load();
+            return "Jogo adicionado ao pool.";
+          })
+        }
+      />
+    </>
+  );
+}
+
+function AbaConfig({ run }: { run: Run }) {
+  const { palette: C } = useTheme();
+  const [cfg, setCfg] = useState<Record<keyof Config, string> | null>(null);
+  const [faixas, setFaixas] = useState<
+    { usuarios_min: string; valor: string }[]
+  >([]);
+
+  useEffect(() => {
+    run(async () => {
+      const r = await api.admin.config();
+      setCfg({
+        qtd_jogos_dia: String(r.config.qtd_jogos_dia),
+        fichas_por_entrada: String(r.config.fichas_por_entrada),
+        custo_entrada_pontos: String(r.config.custo_entrada_pontos),
+        pontos_boas_vindas: String(r.config.pontos_boas_vindas),
+      });
+      setFaixas(
+        r.premio_escada.map((f) => ({
+          usuarios_min: String(f.usuarios_min),
+          valor: String(f.valor),
+        })),
+      );
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  if (!cfg) return null;
+  const campo = (k: keyof Config, label: string) => (
+    <Field
+      label={label}
+      keyboardType="number-pad"
+      value={cfg[k]}
+      onChangeText={(t) => setCfg({ ...cfg, [k]: t })}
+    />
+  );
+
+  return (
+    <>
+      <SectionTitle>Escada de prêmio</SectionTitle>
+      <T className="mb-2 text-xs text-muted">
+        Palpiteiros (quem pagou a entrada) → valor. A última faixa é a META e o
+        teto do prêmio.
+      </T>
+      {faixas.map((f, i) => (
+        <View key={i} className="mb-2 flex-row items-center">
+          <T className="w-14 text-xs text-muted">
+            {i === faixas.length - 1 ? "META" : `${i + 1}ª`}
+          </T>
+          <TextInput
+            className="mr-2 flex-1 rounded-lg border border-line bg-card px-2 py-2 font-odds text-sm text-fg"
+            value={f.usuarios_min}
+            keyboardType="number-pad"
+            placeholder="palpiteiros"
+            placeholderTextColor={C.muted}
+            onChangeText={(t) =>
+              setFaixas((s) =>
+                s.map((x, k) => (k === i ? { ...x, usuarios_min: t } : x)),
+              )
+            }
+          />
+          <TextInput
+            className="flex-1 rounded-lg border border-line bg-card px-2 py-2 font-odds text-sm text-fg"
+            value={f.valor}
+            keyboardType="decimal-pad"
+            placeholder="R$"
+            placeholderTextColor={C.muted}
+            onChangeText={(t) =>
+              setFaixas((s) =>
+                s.map((x, k) => (k === i ? { ...x, valor: t } : x)),
+              )
+            }
+          />
+          <Pressable
+            onPress={() => setFaixas((s) => s.filter((_, k) => k !== i))}
+            className="ml-1 p-1"
+          >
+            <Ionicons name="trash-outline" size={18} color={C.danger} />
+          </Pressable>
+        </View>
+      ))}
+      <View className="flex-row">
+        <Button
+          title="Faixa"
+          icon="add"
+          variant="ghost"
+          className="mr-2 flex-1"
+          onPress={() =>
+            setFaixas((s) => [...s, { usuarios_min: "", valor: "" }])
+          }
+        />
+        <Button
+          title="Salvar escada"
+          className="flex-1"
+          onPress={() =>
+            run(async () => {
+              await api.admin.salvarEscada(
+                faixas.map((f) => ({
+                  usuarios_min: Number(f.usuarios_min),
+                  valor: Number(f.valor.replace(",", ".")),
+                })),
+              );
+              return "Escada salva.";
+            })
+          }
+        />
+      </View>
+
+      <SectionTitle>Regras</SectionTitle>
+      {campo("qtd_jogos_dia", "Jogos por múltipla")}
+      {campo("custo_entrada_pontos", "Entrada (PONTOS)")}
+      {campo("fichas_por_entrada", "Fichas por entrada")}
+      {campo("pontos_boas_vindas", "Bônus de cadastro (PONTOS)")}
+      <T className="mb-3 text-xs text-muted">
+        Entrada e fichas valem para as próximas múltiplas montadas.
+      </T>
+      <Button
+        title="Salvar regras"
+        onPress={() =>
+          run(async () => {
+            await api.admin.salvarConfig(
+              Object.fromEntries(
+                Object.entries(cfg).map(([k, v]) => [k, Number(v)]),
+              ) as Partial<Config>,
+            );
+            return "Regras salvas.";
+          })
+        }
+      />
+    </>
+  );
+}
