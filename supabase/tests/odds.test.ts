@@ -39,11 +39,11 @@ const fakeFetch = (async () =>
 test('mercadosDoEvento usa a mediana das casas', () => {
   const m = mercadosDoEvento(EVENTOS[0]);
   assert.deepEqual(m, [
-    { descricao: 'VITÓRIA CORINTHIANS', multiplicador: 1.85 },
-    { descricao: 'EMPATE', multiplicador: 3.5 },
-    { descricao: 'VITÓRIA MIRASSOL', multiplicador: 4.5 },
-    { descricao: 'MAIS DE 2.5 GOLS', multiplicador: 2 },
-    { descricao: 'MENOS DE 2.5 GOLS', multiplicador: 1.8 },
+    { grupo: 'RESULTADO', descricao: 'CORINTHIANS', multiplicador: 1.85 },
+    { grupo: 'RESULTADO', descricao: 'EMPATE', multiplicador: 3.5 },
+    { grupo: 'RESULTADO', descricao: 'MIRASSOL', multiplicador: 4.5 },
+    { grupo: 'GOLS 2.5', descricao: 'MAIS DE 2.5', multiplicador: 2 },
+    { grupo: 'GOLS 2.5', descricao: 'MENOS DE 2.5', multiplicador: 1.8 },
   ]);
 });
 
@@ -68,8 +68,9 @@ test('montar a múltipla cria os mercados sugeridos pelas odds', async () => {
   const la = await selecionarJogos(sql, { data: '2030-03-10', fixture_ids: ids });
   assert.equal(la.jogos.length, 3);
   const corinthians = la.jogos.find((j: any) => j.time_casa === 'Corinthians')!;
-  assert.deepEqual(corinthians.mercados.map((m: any) => [m.descricao, m.multiplicador]), [
-    ['VITÓRIA CORINTHIANS', 1.85], ['EMPATE', 3.5], ['VITÓRIA MIRASSOL', 4.5], ['MAIS DE 2.5 GOLS', 2], ['MENOS DE 2.5 GOLS', 1.8],
+  assert.deepEqual(corinthians.mercados.map((m: any) => [m.grupo, m.descricao, m.multiplicador]), [
+    ['RESULTADO', 'CORINTHIANS', 1.85], ['RESULTADO', 'EMPATE', 3.5], ['RESULTADO', 'MIRASSOL', 4.5],
+    ['GOLS 2.5', 'MAIS DE 2.5', 2], ['GOLS 2.5', 'MENOS DE 2.5', 1.8],
   ]);
   // Remontar não duplica mercados.
   const la2 = await selecionarJogos(sql, { data: '2030-03-10', fixture_ids: ids });
@@ -96,15 +97,15 @@ const EXTRAS = {
 
 test('mercadosExtrasDoEvento: Pinnacle como referência, só linhas .5, ordem estável', () => {
   assert.deepEqual(mercadosExtrasDoEvento(EXTRAS).map((m) => [m.grupo, m.descricao, m.multiplicador, m.casas]), [
-    ['Ambos marcam', 'AMBOS MARCAM: SIM', 1.75, 2],
-    ['Ambos marcam', 'AMBOS MARCAM: NÃO', 2.07, 2],
-    ['Dupla chance', 'CORINTHIANS OU EMPATE', 1.07, 1],
-    ['Dupla chance', 'MIRASSOL OU EMPATE', 2.84, 1],
-    ['Dupla chance', 'MIRASSOL OU CORINTHIANS', 1.27, 1],
-    ['Empate anula', 'CORINTHIANS (EMPATE ANULA)', 1.1, 1],
-    ['Empate anula', 'MIRASSOL (EMPATE ANULA)', 7.23, 1],
-    ['Gols (mais/menos)', 'MAIS DE 2.5 GOLS', 2.19, 2],
-    ['Gols (mais/menos)', 'MENOS DE 2.5 GOLS', 1.7, 1],
+    ['AMBOS MARCAM', 'SIM', 1.75, 2],
+    ['AMBOS MARCAM', 'NÃO', 2.07, 2],
+    ['DUPLA CHANCE', 'CORINTHIANS OU EMPATE', 1.07, 1],
+    ['DUPLA CHANCE', 'MIRASSOL OU EMPATE', 2.84, 1],
+    ['DUPLA CHANCE', 'MIRASSOL OU CORINTHIANS', 1.27, 1],
+    ['EMPATE ANULA', 'CORINTHIANS', 1.1, 1],
+    ['EMPATE ANULA', 'MIRASSOL', 7.23, 1],
+    ['GOLS 2.5', 'MAIS DE 2.5', 2.19, 2],
+    ['GOLS 2.5', 'MENOS DE 2.5', 1.7, 1],
   ]);
 });
 

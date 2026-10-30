@@ -58,7 +58,7 @@ const mapFixture = (f: Record<string, unknown>) => ({
   campeonato: f.campeonato as string,
   selecionado: !!f.selecionado,
   fonte: (f.fonte as string) ?? 'manual',
-  mercados_sugeridos: (f.mercados_sugeridos ?? []) as { descricao: string; multiplicador: number }[],
+  mercados_sugeridos: (f.mercados_sugeridos ?? []) as { grupo?: string; descricao: string; multiplicador: number }[],
 });
 
 export async function listarFixtures(db: Db, data: string) {
@@ -129,15 +129,15 @@ export async function selecionarJogos(sql: Db, input: { data: unknown; fixture_i
           time_casa = excluded.time_casa, time_fora = excluded.time_fora, horario = excluded.horario,
           campeonato = excluded.campeonato`;
       // Jogo sem mercados ganha os sugeridos pelas odds importadas (o admin ainda pode editar).
-      const sugeridos = (f.mercados_sugeridos ?? []) as { descricao: string; multiplicador: number }[];
+      const sugeridos = (f.mercados_sugeridos ?? []) as { grupo?: string; descricao: string; multiplicador: number }[];
       if (sugeridos.length) {
         const [j] = await tx`
           select j.id from jogos j where j.liga_id = ${liga.id} and j.fixture_id = ${f.fixture_id}
             and not exists (select 1 from mercados m where m.jogo_id = j.id)`;
         if (j) {
           await tx`insert into mercados ${tx(
-            sugeridos.map((m, ordem) => ({ jogo_id: j.id, descricao: m.descricao, multiplicador: m.multiplicador, ordem })),
-            'jogo_id', 'descricao', 'multiplicador', 'ordem',
+            sugeridos.map((m, ordem) => ({ jogo_id: j.id, grupo: m.grupo ?? '', descricao: m.descricao, multiplicador: m.multiplicador, ordem })),
+            'jogo_id', 'grupo', 'descricao', 'multiplicador', 'ordem',
           )}`;
         }
       }
@@ -182,7 +182,9 @@ export async function definirMercados(sql: Db, jogoId: string, mercadosInput: un
     const multiplicador = Math.round(Number(m?.multiplicador) * 100) / 100;
     if (!(multiplicador >= 1.01 && multiplicador <= 1000)) throw new RuleError('Multiplicador inválido.');
     if (m?.id != null && !isUuid(m.id)) throw new RuleError('Mercado inválido para esse palpite.');
-    return { id: (m?.id as string) ?? null, descricao: texto(m?.descricao, 'Descrição').toUpperCase(), multiplicador, ordem: i };
+    const grupo = m?.grupo == null ? '' : String(m.grupo).trim().toUpperCase();
+    if (grupo.length > 40) throw new RuleError('Nome do mercado muito longo.');
+    return { id: (m?.id as string) ?? null, grupo, descricao: texto(m?.descricao, 'Descrição').toUpperCase(), multiplicador, ordem: i };
   });
 
   const ligaId = await sql.begin(async (tx: Tx) => {
@@ -207,17 +209,17 @@ export async function definirMercados(sql: Db, jogoId: string, mercadosInput: un
     for (const it of itens) {
       const atual = it.id ? porId.get(it.id) : null;
       if (atual) {
-        const mudou = atual.descricao !== it.descricao || num(atual.multiplicador) !== it.multiplicador;
+        const mudou = atual.grupo !== it.grupo || atual.descricao !== it.descricao || num(atual.multiplicador) !== it.multiplicador;
         if (mudou && atual.tem_apostas) {
           throw new RuleError(`O mercado "${atual.descricao}" já recebeu fichas e não pode ser alterado.`);
         }
         await tx`
-          update mercados set descricao = ${it.descricao}, multiplicador = ${it.multiplicador}, ordem = ${it.ordem}
+          update mercados set grupo = ${it.grupo}, descricao = ${it.descricao}, multiplicador = ${it.multiplicador}, ordem = ${it.ordem}
           where id = ${it.id}`;
       } else {
         await tx`
-          insert into mercados (jogo_id, descricao, multiplicador, ordem)
-          values (${jogoId}, ${it.descricao}, ${it.multiplicador}, ${it.ordem})`;
+          insert into mercados (jogo_id, grupo, descricao, multiplicador, ordem)
+          values (${jogoId}, ${it.grupo}, ${it.descricao}, ${it.multiplicador}, ${it.ordem})`;
       }
     }
     return j.liga_id as string;

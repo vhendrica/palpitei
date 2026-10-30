@@ -35,11 +35,11 @@ const [liga] = await sql`select id from ligas where data = ${hoje}`;
 if (!liga) {
   const montada = await selecionarJogos(sql, { data: hoje, fixture_ids: [1001, 1002, 1003], premio_desc: 'Voucher PALPIT' });
   const mercados = (casa: string, fora: string) => [
-    { descricao: `${casa} vence`, multiplicador: 2.1 },
-    { descricao: 'Empate', multiplicador: 3.2 },
-    { descricao: `${fora} vence`, multiplicador: 3.5 },
-    { descricao: 'Ambos marcam', multiplicador: 1.85 },
-    { descricao: 'Mais de 2.5 gols', multiplicador: 2.4 },
+    { grupo: 'Resultado', descricao: casa, multiplicador: 2.1 },
+    { grupo: 'Resultado', descricao: 'Empate', multiplicador: 3.2 },
+    { grupo: 'Resultado', descricao: fora, multiplicador: 3.5 },
+    { grupo: 'Ambos marcam', descricao: 'Sim', multiplicador: 1.85 },
+    { grupo: 'Ambos marcam', descricao: 'Não', multiplicador: 1.95 },
   ];
   for (const j of montada.jogos) await definirMercados(sql, j.id, mercados(j.time_casa, j.time_fora));
   await marcarDestaque(sql, montada.jogos.find((j) => j.fixture_id === 1001)!.id);

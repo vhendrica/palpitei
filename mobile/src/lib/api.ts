@@ -95,7 +95,7 @@ export const api = {
         mercados: { grupo: string; descricao: string; multiplicador: number; casas: number }[];
         creditos_restantes: number | null;
       }>('GET', `/admin/jogos/${jogoId}/mercados-api`),
-    mercados: (jogoId: string, mercados: { id?: string; descricao: string; multiplicador: number }[]) =>
+    mercados: (jogoId: string, mercados: { id?: string; grupo: string; descricao: string; multiplicador: number }[]) =>
       req<LigaAdmin>('PUT', `/admin/jogos/${jogoId}/mercados`, { mercados }),
     finalizar: (ligaId: string, mercados_vencedores: string[]) =>
       req<{ premio_final: number; palpiteiros: number; voucher: { codigo: string; valor: number } | null }>(

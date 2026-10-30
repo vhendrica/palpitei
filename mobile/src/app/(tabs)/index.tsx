@@ -18,12 +18,14 @@ import {
 import { fmtData, fmtPts } from "../../lib/format";
 import { errorMessage, useApp } from "../../store/AppStore";
 import { useTheme } from "../../store/Theme";
+import { agruparMercados } from "../../types";
 import type { Jogo } from "../../types";
 
 export default function HomeMultipla() {
   const { palette: C } = useTheme();
   const { home, homeErro, refreshHome, user, entrarNaLiga, apostar } = useApp();
   const [refreshing, setRefreshing] = useState(false);
+  const [foco, setFoco] = useState<Record<string, string>>({});
   const draftKey = `${home?.liga?.id}:${user?.id}`;
   const [draftState, setDraftState] = useState<{
     key: string;
@@ -136,38 +138,76 @@ export default function HomeMultipla() {
           {j.time_casa} x {j.time_fora}
         </T>
         <View className="mt-3">
-          {j.mercados.map((m) => {
-            const minhas = m.minhas_fichas ?? 0;
-            const novo = draft[m.id] ?? 0;
-            const resultado =
-              home.liga?.status === "finalizada"
-                ? m.resultado_final
-                  ? "green"
-                  : minhas > 0
-                    ? "red"
-                    : null
-                : null;
+          {agruparMercados(j.mercados).map((g) => {
+            const focoId = foco[`${j.id}|${g.grupo}`];
+            const focado = g.opcoes.find((m) => m.id === focoId);
+            const confirmadas = g.opcoes.filter(
+              (m) => (m.minhas_fichas ?? 0) > 0,
+            );
             return (
-              <View key={m.id} className="mb-2">
-                <BetButton
-                  descricao={m.descricao}
-                  multiplicador={m.multiplicador}
-                  selected={minhas + novo > 0}
-                  resultado={resultado}
-                  disabled
-                />
-                {minhas > 0 || podeApostar ? (
-                  <View className="mt-1 flex-row items-center justify-between px-1">
-                    <T className="text-xs text-muted">
-                      {minhas > 0 ? `${minhas} fichas confirmadas` : " "}
+              <View key={g.grupo} className="mb-3">
+                {g.grupo ? (
+                  <T className="mb-1.5 font-mont-xb text-xs uppercase tracking-widest text-muted">
+                    {g.grupo}
+                  </T>
+                ) : null}
+                <View className="flex-row flex-wrap" style={{ gap: 6 }}>
+                  {g.opcoes.map((m) => {
+                    const minhas = m.minhas_fichas ?? 0;
+                    const novo = draft[m.id] ?? 0;
+                    const resultado =
+                      home.liga?.status === "finalizada"
+                        ? m.resultado_final
+                          ? "green"
+                          : minhas > 0
+                            ? "red"
+                            : null
+                        : null;
+                    return (
+                      <View
+                        key={m.id}
+                        style={{ flexGrow: 1, flexBasis: "30%" }}
+                      >
+                        <BetButton
+                          compact
+                          descricao={
+                            novo > 0 ? `${m.descricao} • +${novo}` : m.descricao
+                          }
+                          multiplicador={m.multiplicador}
+                          selected={minhas + novo > 0 || m.id === focoId}
+                          resultado={resultado}
+                          disabled={!podeApostar}
+                          onPress={() =>
+                            setFoco((f) => ({
+                              ...f,
+                              [`${j.id}|${g.grupo}`]: m.id,
+                            }))
+                          }
+                        />
+                      </View>
+                    );
+                  })}
+                </View>
+                {confirmadas.length > 0 ? (
+                  <T className="mt-1 px-1 text-xs text-muted">
+                    {confirmadas
+                      .map((m) => `${m.minhas_fichas} fichas em ${m.descricao}`)
+                      .join(" • ")}{" "}
+                    (confirmadas)
+                  </T>
+                ) : null}
+                {podeApostar && focado ? (
+                  <View className="mt-1.5 flex-row items-center justify-between px-1">
+                    <T className="flex-1 text-xs text-muted" numberOfLines={1}>
+                      Fichas em {focado.descricao}
                     </T>
-                    {podeApostar ? (
-                      <Stepper
-                        value={novo}
-                        max={livres}
-                        onChange={(v) => setDraft((d) => ({ ...d, [m.id]: v }))}
-                      />
-                    ) : null}
+                    <Stepper
+                      value={draft[focado.id] ?? 0}
+                      max={livres}
+                      onChange={(v) =>
+                        setDraft((d) => ({ ...d, [focado.id]: v }))
+                      }
+                    />
                   </View>
                 ) : null}
               </View>

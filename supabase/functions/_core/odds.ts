@@ -25,7 +25,7 @@ type Evento = {
   away_team: string;
   bookmakers: { key?: string; markets: { key: string; outcomes: Outcome[] }[] }[];
 };
-export type MercadoSugerido = { descricao: string; multiplicador: number };
+export type MercadoSugerido = { grupo: string; descricao: string; multiplicador: number };
 
 const mediana = (xs: number[]) => {
   const s = [...xs].sort((a, b) => a - b);
@@ -45,16 +45,20 @@ export function mercadosDoEvento(e: Evento): MercadoSugerido[] {
       }
     }
   }
-  const desc: Record<string, string> = {
-    CASA: `VITÓRIA ${e.home_team}`.toUpperCase(),
-    EMPATE: 'EMPATE',
-    FORA: `VITÓRIA ${e.away_team}`.toUpperCase(),
-    OVER: `MAIS DE ${LINHA_GOLS} GOLS`,
-    UNDER: `MENOS DE ${LINHA_GOLS} GOLS`,
+  const op: Record<string, [string, string]> = {
+    CASA: ['RESULTADO', e.home_team.toUpperCase()],
+    EMPATE: ['RESULTADO', 'EMPATE'],
+    FORA: ['RESULTADO', e.away_team.toUpperCase()],
+    OVER: [`GOLS ${LINHA_GOLS}`, `MAIS DE ${LINHA_GOLS}`],
+    UNDER: [`GOLS ${LINHA_GOLS}`, `MENOS DE ${LINHA_GOLS}`],
   };
-  return Object.keys(desc)
+  return Object.keys(op)
     .filter((k) => precos.get(k)?.length)
-    .map((k) => ({ descricao: desc[k], multiplicador: Math.max(1.01, Math.round(mediana(precos.get(k)!) * 100) / 100) }));
+    .map((k) => ({
+      grupo: op[k][0],
+      descricao: op[k][1],
+      multiplicador: Math.max(1.01, Math.round(mediana(precos.get(k)!) * 100) / 100),
+    }));
 }
 
 /** fixture_id numérico estável a partir do id hex do evento (cabe em bigint/Number). */
@@ -100,13 +104,13 @@ export async function importarOdds(db: Db, cfg: OddsConfig | undefined, dataInpu
   return { importados, creditos_restantes: restantes };
 }
 
-export type MercadoApi = MercadoSugerido & { grupo: string; casas: number };
+export type MercadoApi = MercadoSugerido & { casas: number };
 const MERCADOS_EXTRAS = ['btts', 'double_chance', 'draw_no_bet', 'alternate_totals'];
 const GRUPOS: Record<string, string> = {
-  btts: 'Ambos marcam',
-  double_chance: 'Dupla chance',
-  draw_no_bet: 'Empate anula',
-  alternate_totals: 'Gols (mais/menos)',
+  btts: 'AMBOS MARCAM',
+  double_chance: 'DUPLA CHANCE',
+  draw_no_bet: 'EMPATE ANULA',
+  alternate_totals: 'GOLS',
 };
 
 /** Odds dos mercados extras de um evento: Pinnacle como referência; sem ela, mediana das casas. */
@@ -118,24 +122,26 @@ export function mercadosExtrasDoEvento(e: Evento): MercadoApi[] {
       if (!GRUPOS[m.key]) continue;
       for (const o of m.outcomes) {
         let descricao: string;
+        let grupo = GRUPOS[m.key];
         let ordem = MERCADOS_EXTRAS.indexOf(m.key) * 1000;
         if (m.key === 'btts') {
-          descricao = `AMBOS MARCAM: ${o.name === 'Yes' ? 'SIM' : 'NÃO'}`;
+          descricao = o.name === 'Yes' ? 'SIM' : 'NÃO';
           ordem += o.name === 'Yes' ? 0 : 1;
         } else if (m.key === 'double_chance') {
           descricao = o.name.split(' or ').map(nome).join(' OU ');
           ordem += descricao.includes('EMPATE') ? (descricao.includes(e.home_team.toUpperCase()) ? 0 : 1) : 2;
         } else if (m.key === 'draw_no_bet') {
-          descricao = `${nome(o.name)} (EMPATE ANULA)`;
+          descricao = nome(o.name);
           ordem += o.name === e.home_team ? 0 : 1;
         } else {
           // Só linhas .5: no PALPIT não existe devolução (push) de linha inteira/asiática.
           if (o.point == null || Math.abs((o.point % 1) - 0.5) > 1e-9) continue;
-          descricao = `${o.name === 'Over' ? 'MAIS' : 'MENOS'} DE ${o.point} GOLS`;
+          grupo = `GOLS ${o.point}`;
+          descricao = `${o.name === 'Over' ? 'MAIS' : 'MENOS'} DE ${o.point}`;
           ordem += o.point * 10 + (o.name === 'Over' ? 0 : 1);
         }
-        const k = `${m.key}|${descricao}`;
-        const item = acc.get(k) ?? { grupo: GRUPOS[m.key], descricao, ordem, precos: [] };
+        const k = `${grupo}|${descricao}`;
+        const item = acc.get(k) ?? { grupo, descricao, ordem, precos: [] };
         item.precos.push(o.price);
         if (b.key === 'pinnacle') item.pinnacle = o.price;
         acc.set(k, item);

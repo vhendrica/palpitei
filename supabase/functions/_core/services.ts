@@ -15,6 +15,7 @@ import { hojeISO } from './validation.ts';
 
 export type MercadoView = {
   id: string;
+  grupo: string;
   descricao: string;
   multiplicador: number;
   resultado_final: boolean;
@@ -69,6 +70,7 @@ export async function jogosComMercados(db: Db, ligaId: string, userId?: string |
       .filter((m) => m.jogo_id === j.id)
       .map((m) => ({
         id: m.id as string,
+        grupo: (m.grupo as string) ?? '',
         descricao: m.descricao as string,
         multiplicador: num(m.multiplicador),
         resultado_final: !!m.resultado_final,

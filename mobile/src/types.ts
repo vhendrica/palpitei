@@ -1,5 +1,5 @@
 // Tipos das respostas da API (supabase/functions/_core).
-export type LigaStatus = 'aberta' | 'em_andamento' | 'finalizada';
+export type LigaStatus = "aberta" | "em_andamento" | "finalizada";
 
 export type User = {
   id: string;
@@ -23,6 +23,7 @@ export type Liga = {
 
 export type Mercado = {
   id: string;
+  grupo: string;
   descricao: string;
   multiplicador: number;
   resultado_final: boolean;
@@ -40,6 +41,17 @@ export type Jogo = {
   comecou: boolean;
   mercados: Mercado[];
 };
+
+/** Agrupa mercados consecutivos pelo nome do mercado (grupo); as linhas são as opções. */
+export function agruparMercados<M extends { grupo: string }>(ms: M[]) {
+  const out: { grupo: string; opcoes: M[] }[] = [];
+  for (const m of ms) {
+    const g = out.find((x) => x.grupo === m.grupo);
+    if (g) g.opcoes.push(m);
+    else out.push({ grupo: m.grupo, opcoes: [m] });
+  }
+  return out;
+}
 
 export type Faixa = { ordem: number; usuarios_min: number; valor: number };
 
@@ -67,7 +79,12 @@ export type MinhaSituacao =
 export type Home = {
   data: string;
   regras: { custo_entrada_pontos: number; fichas_por_entrada: number };
-  usuario: { id: string; nome: string; saldo_pontos: number; is_admin: boolean } | null;
+  usuario: {
+    id: string;
+    nome: string;
+    saldo_pontos: number;
+    is_admin: boolean;
+  } | null;
   liga: Liga | null;
   jogos: Jogo[];
   premio: Premio;
@@ -86,11 +103,26 @@ export type RankingRow = {
 
 export type Perfil = {
   user: User;
-  vouchers: { codigo: string; valor: number; resgatado: boolean; data: string }[];
-  historico: { liga_id: string; data: string; status: LigaStatus; fichas_total: number }[];
+  vouchers: {
+    codigo: string;
+    valor: number;
+    resgatado: boolean;
+    data: string;
+  }[];
+  historico: {
+    liga_id: string;
+    data: string;
+    status: LigaStatus;
+    fichas_total: number;
+  }[];
 };
 
-export type CodigoEnviado = { whatsapp: string; destino: string; expires_at: string; dev_codigo?: string };
+export type CodigoEnviado = {
+  whatsapp: string;
+  destino: string;
+  expires_at: string;
+  dev_codigo?: string;
+};
 
 export type Fixture = {
   id: string;
@@ -102,7 +134,11 @@ export type Fixture = {
   campeonato: string;
   selecionado: boolean;
   fonte?: string;
-  mercados_sugeridos?: { descricao: string; multiplicador: number }[];
+  mercados_sugeridos?: {
+    grupo?: string;
+    descricao: string;
+    multiplicador: number;
+  }[];
 };
 
 export type Config = {
@@ -112,4 +148,8 @@ export type Config = {
   pontos_boas_vindas: number;
 };
 
-export type LigaAdmin = { liga: Liga | null; palpiteiros: number; jogos: Jogo[] };
+export type LigaAdmin = {
+  liga: Liga | null;
+  palpiteiros: number;
+  jogos: Jogo[];
+};

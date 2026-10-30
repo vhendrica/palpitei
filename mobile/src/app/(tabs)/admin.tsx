@@ -17,6 +17,7 @@ import { api, ApiError } from "../../lib/api";
 import { fmtData, fmtOdd } from "../../lib/format";
 import { errorMessage, useApp } from "../../store/AppStore";
 import { useTheme } from "../../store/Theme";
+import { agruparMercados } from "../../types";
 import type { Config, Fixture, Jogo, LigaAdmin } from "../../types";
 
 type Aba = "liga" | "pool" | "config";
@@ -242,7 +243,12 @@ function AbaLiga({ data, run }: { data: string; run: Run }) {
   );
 }
 
-type MercadoDraft = { id?: string; descricao: string; multiplicador: string };
+type MercadoDraft = {
+  id?: string;
+  grupo: string;
+  descricao: string;
+  multiplicador: string;
+};
 
 function JogoAdmin({
   jogo,
@@ -258,7 +264,12 @@ function JogoAdmin({
   setVencedor: (id: string, v: boolean) => void;
   onDestaque: () => void;
   onSalvarMercados: (
-    ms: { id?: string; descricao: string; multiplicador: number }[],
+    ms: {
+      id?: string;
+      grupo: string;
+      descricao: string;
+      multiplicador: number;
+    }[],
   ) => void;
 }) {
   const { palette: C } = useTheme();
@@ -286,6 +297,7 @@ function JogoAdmin({
     setMs(
       jogo.mercados.map((m) => ({
         id: m.id,
+        grupo: m.grupo,
         descricao: m.descricao,
         multiplicador: String(m.multiplicador),
       })),
@@ -321,28 +333,35 @@ function JogoAdmin({
 
       {!editando ? (
         <View className="mt-2">
-          {jogo.mercados.map((m) => (
-            <View
-              key={m.id}
-              className="flex-row items-center justify-between border-b border-line py-1.5"
-            >
-              {fechada ? (
-                <T className="flex-1 text-sm">
-                  {m.resultado_final ? "✓ " : ""}
-                  {m.descricao}
-                </T>
-              ) : (
-                <View className="flex-1">
-                  <Checkbox
-                    checked={!!vencedores[m.id]}
-                    onChange={(v) => setVencedor(m.id, v)}
-                    label={m.descricao}
-                  />
+          {agruparMercados(jogo.mercados).map((g) => (
+            <View key={g.grupo} className="mt-1">
+              {g.grupo ? (
+                <T className="mt-1 font-mont-xb text-xs uppercase">{g.grupo}</T>
+              ) : null}
+              {g.opcoes.map((m) => (
+                <View
+                  key={m.id}
+                  className="flex-row items-center justify-between border-b border-line py-1.5"
+                >
+                  {fechada ? (
+                    <T className="flex-1 text-sm">
+                      {m.resultado_final ? "✓ " : ""}
+                      {m.descricao}
+                    </T>
+                  ) : (
+                    <View className="flex-1">
+                      <Checkbox
+                        checked={!!vencedores[m.id]}
+                        onChange={(v) => setVencedor(m.id, v)}
+                        label={m.descricao}
+                      />
+                    </View>
+                  )}
+                  <T className="ml-2 font-odds text-base text-primary">
+                    {fmtOdd(m.multiplicador)}
+                  </T>
                 </View>
-              )}
-              <T className="ml-2 font-odds text-base text-primary">
-                {fmtOdd(m.multiplicador)}
-              </T>
+              ))}
             </View>
           ))}
           {!fechada ? (
@@ -364,8 +383,19 @@ function JogoAdmin({
             >
               <TextInput
                 className="mr-2 flex-1 rounded-lg border border-line bg-cardAlt px-2 py-2 font-mont-sb text-sm text-fg"
+                value={m.grupo}
+                placeholder="Mercado (ex.: Resultado)"
+                placeholderTextColor={C.muted}
+                onChangeText={(t) =>
+                  setMs((s) =>
+                    s.map((x, k) => (k === i ? { ...x, grupo: t } : x)),
+                  )
+                }
+              />
+              <TextInput
+                className="mr-2 flex-1 rounded-lg border border-line bg-cardAlt px-2 py-2 font-mont-sb text-sm text-fg"
                 value={m.descricao}
-                placeholder="Descrição"
+                placeholder="Opção (ex.: Empate)"
                 placeholderTextColor={C.muted}
                 onChangeText={(t) =>
                   setMs((s) =>
@@ -398,15 +428,20 @@ function JogoAdmin({
             variant="ghost"
             icon="add"
             onPress={() =>
-              setMs((s) => [...s, { descricao: "", multiplicador: "" }])
+              setMs((s) => [
+                ...s,
+                {
+                  grupo: s[s.length - 1]?.grupo ?? "",
+                  descricao: "",
+                  multiplicador: "",
+                },
+              ])
             }
           />
           {!daApi ? (
             <Button
               title={
-                buscando
-                  ? "Buscando…"
-                  : "Ver mais mercados da API (4 créditos)"
+                buscando ? "Buscando…" : "Ver mais mercados da API (4 créditos)"
               }
               variant="outline"
               icon="cloud-download-outline"
@@ -428,12 +463,14 @@ function JogoAdmin({
               ) : null}
               {daApi.mercados.map((m, i) => {
                 const ja = ms.some(
-                  (x) => x.descricao.trim().toUpperCase() === m.descricao,
+                  (x) =>
+                    x.grupo.trim().toUpperCase() === m.grupo &&
+                    x.descricao.trim().toUpperCase() === m.descricao,
                 );
                 const novoGrupo =
                   i === 0 || daApi.mercados[i - 1].grupo !== m.grupo;
                 return (
-                  <View key={m.descricao}>
+                  <View key={`${m.grupo}|${m.descricao}`}>
                     {novoGrupo ? (
                       <T className="mt-2 font-mont-xb text-xs">{m.grupo}</T>
                     ) : null}
@@ -443,6 +480,7 @@ function JogoAdmin({
                         setMs((s) => [
                           ...s,
                           {
+                            grupo: m.grupo,
                             descricao: m.descricao,
                             multiplicador: String(m.multiplicador),
                           },
@@ -487,6 +525,7 @@ function JogoAdmin({
                 onSalvarMercados(
                   ms.map((m) => ({
                     id: m.id,
+                    grupo: m.grupo,
                     descricao: m.descricao,
                     multiplicador: Number(m.multiplicador.replace(",", ".")),
                   })),
@@ -590,7 +629,7 @@ function AbaPool({
             {f.mercados_sugeridos?.length ? (
               <T className="ml-9 mt-1 text-[11px] text-muted">
                 {f.mercados_sugeridos
-                  .map((m) => `${m.descricao} ${m.multiplicador.toFixed(2)}`)
+                  .map((m) => `${m.descricao} ${fmtOdd(m.multiplicador)}`)
                   .join(" • ")}
               </T>
             ) : null}
