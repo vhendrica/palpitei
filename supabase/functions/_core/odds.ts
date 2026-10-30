@@ -23,7 +23,7 @@ type Evento = {
   commence_time: string;
   home_team: string;
   away_team: string;
-  bookmakers: { markets: { key: string; outcomes: Outcome[] }[] }[];
+  bookmakers: { key?: string; markets: { key: string; outcomes: Outcome[] }[] }[];
 };
 export type MercadoSugerido = { descricao: string; multiplicador: number };
 
@@ -85,16 +85,93 @@ export async function importarOdds(db: Db, cfg: OddsConfig | undefined, dataInpu
       const mercados = mercadosDoEvento(e);
       const [row] = await db`
         insert into fixtures_dia (fixture_id, data, time_casa, time_fora, horario, campeonato, fonte, externo_id,
-                                  mercados_sugeridos, odds_atualizadas_em)
+                                  externo_esporte, mercados_sugeridos, odds_atualizadas_em)
         values (${fixtureIdDoEvento(e.id)}, ${data}, ${e.home_team}, ${e.away_team}, ${e.commence_time},
-                ${NOMES[e.sport_key] ?? e.sport_title}, 'the_odds_api', ${e.id}, ${db.json(mercados)}, now())
+                ${NOMES[e.sport_key] ?? e.sport_title}, 'the_odds_api', ${e.id}, ${e.sport_key}, ${db.json(mercados)}, now())
         on conflict (externo_id) do update set
           data = excluded.data, time_casa = excluded.time_casa, time_fora = excluded.time_fora,
           horario = excluded.horario, campeonato = excluded.campeonato,
+          externo_esporte = excluded.externo_esporte,
           mercados_sugeridos = excluded.mercados_sugeridos, odds_atualizadas_em = now()
         returning fixture_id`;
       importados.push({ fixture_id: Number(row.fixture_id), time_casa: e.home_team, time_fora: e.away_team, mercados: mercados.length });
     }
   }
   return { importados, creditos_restantes: restantes };
+}
+
+export type MercadoApi = MercadoSugerido & { grupo: string; casas: number };
+const MERCADOS_EXTRAS = ['btts', 'double_chance', 'draw_no_bet', 'alternate_totals'];
+const GRUPOS: Record<string, string> = {
+  btts: 'Ambos marcam',
+  double_chance: 'Dupla chance',
+  draw_no_bet: 'Empate anula',
+  alternate_totals: 'Gols (mais/menos)',
+};
+
+/** Odds dos mercados extras de um evento: Pinnacle como referência; sem ela, mediana das casas. */
+export function mercadosExtrasDoEvento(e: Evento): MercadoApi[] {
+  const nome = (n: string) => (n === 'Draw' ? 'EMPATE' : n.toUpperCase());
+  const acc = new Map<string, { grupo: string; descricao: string; ordem: number; precos: number[]; pinnacle?: number }>();
+  for (const b of e.bookmakers) {
+    for (const m of b.markets) {
+      if (!GRUPOS[m.key]) continue;
+      for (const o of m.outcomes) {
+        let descricao: string;
+        let ordem = MERCADOS_EXTRAS.indexOf(m.key) * 1000;
+        if (m.key === 'btts') {
+          descricao = `AMBOS MARCAM: ${o.name === 'Yes' ? 'SIM' : 'NÃO'}`;
+          ordem += o.name === 'Yes' ? 0 : 1;
+        } else if (m.key === 'double_chance') {
+          descricao = o.name.split(' or ').map(nome).join(' OU ');
+          ordem += descricao.includes('EMPATE') ? (descricao.includes(e.home_team.toUpperCase()) ? 0 : 1) : 2;
+        } else if (m.key === 'draw_no_bet') {
+          descricao = `${nome(o.name)} (EMPATE ANULA)`;
+          ordem += o.name === e.home_team ? 0 : 1;
+        } else {
+          // Só linhas .5: no PALPIT não existe devolução (push) de linha inteira/asiática.
+          if (o.point == null || Math.abs((o.point % 1) - 0.5) > 1e-9) continue;
+          descricao = `${o.name === 'Over' ? 'MAIS' : 'MENOS'} DE ${o.point} GOLS`;
+          ordem += o.point * 10 + (o.name === 'Over' ? 0 : 1);
+        }
+        const k = `${m.key}|${descricao}`;
+        const item = acc.get(k) ?? { grupo: GRUPOS[m.key], descricao, ordem, precos: [] };
+        item.precos.push(o.price);
+        if (b.key === 'pinnacle') item.pinnacle = o.price;
+        acc.set(k, item);
+      }
+    }
+  }
+  return [...acc.values()]
+    .sort((a, b) => a.ordem - b.ordem)
+    .map((i) => ({
+      grupo: i.grupo,
+      descricao: i.descricao,
+      multiplicador: Math.max(1.01, Math.round((i.pinnacle ?? mediana(i.precos)) * 100) / 100),
+      casas: i.precos.length,
+    }));
+}
+
+/** Busca na The Odds API os mercados extras de um jogo da múltipla (custa 4 créditos por chamada). */
+export async function mercadosDaApi(db: Db, cfg: OddsConfig | undefined, jogoId: string) {
+  if (!cfg?.apiKey) throw new RuleError('Integração de odds não configurada (THE_ODDS_API_KEY).');
+  if (!/^[0-9a-f-]{36}$/i.test(jogoId)) throw new RuleError('Jogo não encontrado.');
+  const [j] = await db`
+    select f.externo_id, f.externo_esporte from jogos j
+    left join fixtures_dia f on f.fixture_id = j.fixture_id
+    where j.id = ${jogoId}`;
+  if (!j) throw new RuleError('Jogo não encontrado.');
+  if (!j.externo_id) throw new RuleError('Esse jogo foi cadastrado na mão; não há odds da API para ele.');
+  const esporte = (j.externo_esporte as string | null) ?? ESPORTES_PADRAO[0];
+  const url =
+    `https://api.the-odds-api.com/v4/sports/${encodeURIComponent(esporte)}/events/${encodeURIComponent(j.externo_id)}/odds` +
+    `?apiKey=${encodeURIComponent(cfg.apiKey)}&regions=eu&markets=${MERCADOS_EXTRAS.join(',')}&oddsFormat=decimal`;
+  const res = await (cfg.fetch ?? fetch)(url);
+  if (!res.ok) {
+    console.error('[odds] falha extras', res.status, (await res.text().catch(() => '')).slice(0, 200));
+    if (res.status === 404) throw new RuleError('A API não tem mais esse jogo (já começou ou foi removido).');
+    throw new RuleError(res.status === 401 ? 'Chave da The Odds API inválida ou sem créditos.' : 'Falha ao buscar odds. Tente de novo.');
+  }
+  const r = res.headers.get('x-requests-remaining');
+  return { mercados: mercadosExtrasDoEvento((await res.json()) as Evento), creditos_restantes: r == null ? null : Number(r) };
 }

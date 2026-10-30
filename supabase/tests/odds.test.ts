@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { after, before, beforeEach, test } from 'node:test';
 
 import { selecionarJogos } from '../functions/_core/admin.ts';
-import { fixtureIdDoEvento, importarOdds, mercadosDoEvento } from '../functions/_core/odds.ts';
+import { fixtureIdDoEvento, importarOdds, mercadosDaApi, mercadosDoEvento, mercadosExtrasDoEvento } from '../functions/_core/odds.ts';
 import { limpar, setupDb, type Sql } from './helpers.ts';
 
 let sql: Sql;
@@ -74,4 +74,53 @@ test('montar a múltipla cria os mercados sugeridos pelas odds', async () => {
   // Remontar não duplica mercados.
   const la2 = await selecionarJogos(sql, { data: '2030-03-10', fixture_ids: ids });
   assert.equal(la2.jogos.find((j: any) => j.time_casa === 'Corinthians')!.mercados.length, 5);
+});
+
+const EXTRAS = {
+  ...EVENTOS[0],
+  bookmakers: [
+    { key: 'coolbet', markets: [
+      { key: 'alternate_totals', outcomes: [{ name: 'Over', price: 1.35, point: 2.5 }, { name: 'Over', price: 1.82, point: 3.0 }] },
+    ] },
+    { key: 'pinnacle', markets: [
+      { key: 'btts', outcomes: [{ name: 'Yes', price: 1.75 }, { name: 'No', price: 2.07 }] },
+      { key: 'double_chance', outcomes: [
+        { name: 'Mirassol or Draw', price: 2.84 }, { name: 'Corinthians or Draw', price: 1.07 }, { name: 'Mirassol or Corinthians', price: 1.27 },
+      ] },
+      { key: 'draw_no_bet', outcomes: [{ name: 'Mirassol', price: 7.23 }, { name: 'Corinthians', price: 1.1 }] },
+      { key: 'alternate_totals', outcomes: [{ name: 'Over', price: 2.19, point: 2.5 }, { name: 'Under', price: 1.7, point: 2.5 }] },
+    ] },
+    { key: 'matchbook', markets: [{ key: 'btts', outcomes: [{ name: 'Yes', price: 2.06 }, { name: 'No', price: 1.69 }] }] },
+  ],
+};
+
+test('mercadosExtrasDoEvento: Pinnacle como referência, só linhas .5, ordem estável', () => {
+  assert.deepEqual(mercadosExtrasDoEvento(EXTRAS).map((m) => [m.grupo, m.descricao, m.multiplicador, m.casas]), [
+    ['Ambos marcam', 'AMBOS MARCAM: SIM', 1.75, 2],
+    ['Ambos marcam', 'AMBOS MARCAM: NÃO', 2.07, 2],
+    ['Dupla chance', 'CORINTHIANS OU EMPATE', 1.07, 1],
+    ['Dupla chance', 'MIRASSOL OU EMPATE', 2.84, 1],
+    ['Dupla chance', 'MIRASSOL OU CORINTHIANS', 1.27, 1],
+    ['Empate anula', 'CORINTHIANS (EMPATE ANULA)', 1.1, 1],
+    ['Empate anula', 'MIRASSOL (EMPATE ANULA)', 7.23, 1],
+    ['Gols (mais/menos)', 'MAIS DE 2.5 GOLS', 2.19, 2],
+    ['Gols (mais/menos)', 'MENOS DE 2.5 GOLS', 1.7, 1],
+  ]);
+});
+
+test('mercadosDaApi busca o evento do jogo e recusa jogo manual', async () => {
+  await importarOdds(sql, { apiKey: 'k', fetch: fakeFetch }, '2030-03-10');
+  await sql`insert into fixtures_dia (fixture_id, data, time_casa, time_fora, horario, campeonato)
+            values (999, '2030-03-10', 'A', 'B', '2030-03-10T20:00:00Z', 'Manual')`;
+  const ids = [fixtureIdDoEvento(EVENTOS[0].id), fixtureIdDoEvento(EVENTOS[1].id), 999];
+  const la = await selecionarJogos(sql, { data: '2030-03-10', fixture_ids: ids });
+  let url = '';
+  const f = (async (u: string) => ((url = u), new Response(JSON.stringify(EXTRAS), { headers: { 'x-requests-remaining': '470' } }))) as unknown as typeof fetch;
+  const corinthians = la.jogos.find((j: any) => j.time_casa === 'Corinthians')!;
+  const r = await mercadosDaApi(sql, { apiKey: 'k', fetch: f }, corinthians.id);
+  assert.match(url, /soccer_brazil_campeonato\/events\/aaaa1111bbbb2222cccc3333dddd4444\/odds/);
+  assert.equal(r.mercados.length, 9);
+  assert.equal(r.creditos_restantes, 470);
+  const manual = la.jogos.find((j: any) => j.time_casa === 'A')!;
+  await assert.rejects(mercadosDaApi(sql, { apiKey: 'k', fetch: f }, manual.id), /cadastrado na mão/);
 });

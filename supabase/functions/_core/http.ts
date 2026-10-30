@@ -2,7 +2,7 @@ import * as admin from './admin.ts';
 import * as auth from './auth.ts';
 import type { Db } from './db.ts';
 import { ForbiddenError, NotFoundError, RuleError } from './errors.ts';
-import { importarOdds, type OddsConfig } from './odds.ts';
+import { importarOdds, mercadosDaApi, type OddsConfig } from './odds.ts';
 import { apostar, entrarNaLiga, finalizarLiga, getLigaPorData } from './rules.ts';
 import { home, jogosComMercados, perfil, rankingDoDia } from './services.ts';
 import { hojeISO } from './validation.ts';
@@ -106,6 +106,7 @@ export function createApi(deps: ApiDeps) {
       return finalizarLiga(sql, c.params[0], ((await c.body()).mercados_vencedores ?? []) as string[]);
     }],
     ['POST', /^\/admin\/jogos\/([^/]+)\/destaque$/, async (c) => (await c.requireAdmin(), admin.marcarDestaque(sql, c.params[0]))],
+    ['GET', /^\/admin\/jogos\/([^/]+)\/mercados-api$/, async (c) => (await c.requireAdmin(), mercadosDaApi(sql, deps.odds, c.params[0]))],
     ['PUT', /^\/admin\/jogos\/([^/]+)\/mercados$/, async (c) => {
       await c.requireAdmin();
       return admin.definirMercados(sql, c.params[0], (await c.body()).mercados);

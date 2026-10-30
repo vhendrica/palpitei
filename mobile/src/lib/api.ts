@@ -90,6 +90,11 @@ export const api = {
     atualizarLiga: (id: string, body: { status?: string; premio_desc?: string | null }) =>
       req<LigaAdmin>('PATCH', `/admin/liga/${id}`, body),
     destaque: (jogoId: string) => req<LigaAdmin>('POST', `/admin/jogos/${jogoId}/destaque`),
+    mercadosApi: (jogoId: string) =>
+      req<{
+        mercados: { grupo: string; descricao: string; multiplicador: number; casas: number }[];
+        creditos_restantes: number | null;
+      }>('GET', `/admin/jogos/${jogoId}/mercados-api`),
     mercados: (jogoId: string, mercados: { id?: string; descricao: string; multiplicador: number }[]) =>
       req<LigaAdmin>('PUT', `/admin/jogos/${jogoId}/mercados`, { mercados }),
     finalizar: (ligaId: string, mercados_vencedores: string[]) =>

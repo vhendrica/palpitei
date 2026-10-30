@@ -264,6 +264,23 @@ function JogoAdmin({
   const { palette: C } = useTheme();
   const [editando, setEditando] = useState(false);
   const [ms, setMs] = useState<MercadoDraft[]>([]);
+  const [daApi, setDaApi] = useState<Awaited<
+    ReturnType<typeof api.admin.mercadosApi>
+  > | null>(null);
+  const [buscando, setBuscando] = useState(false);
+  const [erroApi, setErroApi] = useState<string | null>(null);
+
+  const buscarDaApi = async () => {
+    setBuscando(true);
+    setErroApi(null);
+    try {
+      setDaApi(await api.admin.mercadosApi(jogo.id));
+    } catch (e) {
+      setErroApi(errorMessage(e));
+    } finally {
+      setBuscando(false);
+    }
+  };
 
   const abrirEditor = () => {
     setMs(
@@ -384,6 +401,78 @@ function JogoAdmin({
               setMs((s) => [...s, { descricao: "", multiplicador: "" }])
             }
           />
+          {!daApi ? (
+            <Button
+              title={
+                buscando
+                  ? "Buscando…"
+                  : "Ver mais mercados da API (4 créditos)"
+              }
+              variant="outline"
+              icon="cloud-download-outline"
+              className="mt-1"
+              onPress={buscando ? undefined : buscarDaApi}
+            />
+          ) : (
+            <View className="mt-2 rounded-lg border border-line p-2">
+              <T className="mb-1 text-[11px] uppercase tracking-widest text-muted">
+                Mercados da API — toque para adicionar
+                {daApi.creditos_restantes != null
+                  ? ` • ${daApi.creditos_restantes} créditos`
+                  : ""}
+              </T>
+              {daApi.mercados.length === 0 ? (
+                <T className="text-sm text-muted">
+                  A API não tem mercados extras para esse jogo.
+                </T>
+              ) : null}
+              {daApi.mercados.map((m, i) => {
+                const ja = ms.some(
+                  (x) => x.descricao.trim().toUpperCase() === m.descricao,
+                );
+                const novoGrupo =
+                  i === 0 || daApi.mercados[i - 1].grupo !== m.grupo;
+                return (
+                  <View key={m.descricao}>
+                    {novoGrupo ? (
+                      <T className="mt-2 font-mont-xb text-xs">{m.grupo}</T>
+                    ) : null}
+                    <Pressable
+                      disabled={ja}
+                      onPress={() =>
+                        setMs((s) => [
+                          ...s,
+                          {
+                            descricao: m.descricao,
+                            multiplicador: String(m.multiplicador),
+                          },
+                        ])
+                      }
+                      className={`flex-row items-center justify-between border-b border-line py-1.5 ${ja ? "opacity-40" : ""}`}
+                    >
+                      <T className="flex-1 text-sm">
+                        {m.descricao}
+                        <T className="text-[11px] text-muted">
+                          {" "}
+                          ({m.casas} {m.casas === 1 ? "casa" : "casas"})
+                        </T>
+                      </T>
+                      <T className="ml-2 font-odds text-base text-primary">
+                        {fmtOdd(m.multiplicador)}
+                      </T>
+                      <Ionicons
+                        name={ja ? "checkmark" : "add-circle-outline"}
+                        size={18}
+                        color={C.primary}
+                        style={{ marginLeft: 6 }}
+                      />
+                    </Pressable>
+                  </View>
+                );
+              })}
+            </View>
+          )}
+          <ErrorBox erro={erroApi} />
           <View className="mt-2 flex-row">
             <Button
               title="Cancelar"
