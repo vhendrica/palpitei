@@ -10,7 +10,8 @@ import {
 
 import { AppHeader } from "../../components/AppHeader";
 import { BetButton } from "../../components/BetButton";
-import { ErrorBox, Stepper } from "../../components/Form";
+import { Bilhete, type ItemBilhete } from "../../components/Bilhete";
+import { ErrorBox } from "../../components/Form";
 import { Ficha } from "../../components/Ficha";
 import { PremioBar } from "../../components/PremioBar";
 import { useToast } from "../../components/Toast";
@@ -32,7 +33,6 @@ export default function HomeMultipla() {
   const { palette: C } = useTheme();
   const { home, homeErro, refreshHome, user, entrarNaLiga, apostar } = useApp();
   const [refreshing, setRefreshing] = useState(false);
-  const [foco, setFoco] = useState<Record<string, string>>({});
   const draftKey = `${home?.liga?.id}:${user?.id}`;
   const [draftState, setDraftState] = useState<{
     key: string;
@@ -53,6 +53,7 @@ export default function HomeMultipla() {
     });
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const [erroBilhete, setErroBilhete] = useState<string | null>(null);
   const toast = useToast();
   const scrollRef = useRef<ScrollViewInstance>(null);
   const jogosY = useRef(0);
@@ -76,13 +77,16 @@ export default function HomeMultipla() {
     setRefreshing(false);
   };
 
-  const run = async (fn: () => Promise<string>) => {
+  const run = async (
+    fn: () => Promise<string>,
+    setE: (e: string | null) => void = setErro,
+  ) => {
     setBusy(true);
-    setErro(null);
+    setE(null);
     try {
       toast.show(await fn());
     } catch (e) {
-      setErro(errorMessage(e));
+      setE(errorMessage(e));
     } finally {
       setBusy(false);
     }
@@ -102,7 +106,7 @@ export default function HomeMultipla() {
       );
       setDraft({});
       return `Palpite confirmado: ${n} fichas distribuídas.`;
-    });
+    }, setErroBilhete);
 
   if (!home) {
     return (
@@ -124,6 +128,18 @@ export default function HomeMultipla() {
     );
   }
 
+  const itensBilhete: ItemBilhete[] = home.jogos.flatMap((j) =>
+    j.mercados
+      .filter((m) => m.id in draft)
+      .map((m) => ({
+        id: m.id,
+        jogo: `${j.time_casa} x ${j.time_fora}`,
+        grupo: m.grupo,
+        descricao: m.descricao,
+        multiplicador: m.multiplicador,
+        fichas: draft[m.id] ?? 0,
+      })),
+  );
   const destaque = home.jogos.find((j) => j.destaque);
   const outros = home.jogos.filter((j) => j !== destaque);
 
@@ -153,8 +169,6 @@ export default function HomeMultipla() {
         </T>
         <View className="mt-3">
           {agruparMercados(j.mercados).map((g) => {
-            const focoId = foco[`${j.id}|${g.grupo}`];
-            const focado = g.opcoes.find((m) => m.id === focoId);
             const confirmadas = g.opcoes.filter(
               (m) => (m.minhas_fichas ?? 0) > 0,
             );
@@ -168,7 +182,7 @@ export default function HomeMultipla() {
                 <View className="flex-row flex-wrap" style={{ gap: 6 }}>
                   {g.opcoes.map((m) => {
                     const minhas = m.minhas_fichas ?? 0;
-                    const novo = draft[m.id] ?? 0;
+                    const noBilhete = m.id in draft;
                     const resultado =
                       home.liga?.status === "finalizada"
                         ? m.resultado_final
@@ -184,18 +198,17 @@ export default function HomeMultipla() {
                       >
                         <BetButton
                           compact
-                          descricao={
-                            novo > 0 ? `${m.descricao} • +${novo}` : m.descricao
-                          }
+                          descricao={m.descricao}
                           multiplicador={m.multiplicador}
-                          selected={minhas + novo > 0 || m.id === focoId}
+                          selected={noBilhete}
                           resultado={resultado}
                           disabled={!podeApostar}
                           onPress={() =>
-                            setFoco((f) => ({
-                              ...f,
-                              [`${j.id}|${g.grupo}`]: m.id,
-                            }))
+                            setDraft((d) => {
+                              if (!(m.id in d)) return { ...d, [m.id]: 0 };
+                              const { [m.id]: _, ...rest } = d;
+                              return rest;
+                            })
                           }
                         />
                       </View>
@@ -209,21 +222,6 @@ export default function HomeMultipla() {
                       .join(" • ")}{" "}
                     (confirmadas)
                   </T>
-                ) : null}
-                {podeApostar && focado ? (
-                  <View className="mt-1.5 flex-row items-center justify-between px-1">
-                    <T className="flex-1 text-xs text-muted" numberOfLines={1}>
-                      Fichas em {focado.descricao}
-                    </T>
-                    <Stepper
-                      value={draft[focado.id] ?? 0}
-                      max={livres}
-                      ficha
-                      onChange={(v) =>
-                        setDraft((d) => ({ ...d, [focado.id]: v }))
-                      }
-                    />
-                  </View>
                 ) : null}
               </View>
             );
@@ -241,7 +239,10 @@ export default function HomeMultipla() {
       <AppHeader />
       <ScrollView
         ref={scrollRef}
-        contentContainerStyle={{ padding: 16, paddingBottom: 120 }}
+        contentContainerStyle={{
+          padding: 16,
+          paddingBottom: Object.keys(draft).length > 0 ? 440 : 120,
+        }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
@@ -321,14 +322,21 @@ export default function HomeMultipla() {
           </>
         )}
       </ScrollView>
-      {noDraft > 0 ? (
-        <View className="absolute bottom-0 left-0 right-0 border-t border-line bg-card p-4">
-          <Button
-            title={`Confirmar ${noDraft} fichas`}
-            onPress={confirmar}
-            loading={busy}
-          />
-        </View>
+      {itensBilhete.length > 0 ? (
+        <Bilhete
+          itens={itensBilhete}
+          livres={livres}
+          busy={busy}
+          erro={erroBilhete}
+          onChange={(id, v) => setDraft((d) => ({ ...d, [id]: v }))}
+          onRemove={(id) =>
+            setDraft((d) => {
+              const { [id]: _, ...rest } = d;
+              return rest;
+            })
+          }
+          onConfirmar={confirmar}
+        />
       ) : null}
       {toast.node}
     </View>

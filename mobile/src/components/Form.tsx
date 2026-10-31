@@ -78,12 +78,14 @@ export function Stepper({
   step = 10,
   max,
   ficha,
+  editavel,
 }: {
   value: number;
   onChange: (v: number) => void;
   step?: number;
   max: number;
   ficha?: boolean;
+  editavel?: boolean;
 }) {
   const { palette: C } = useTheme();
   return (
@@ -95,8 +97,25 @@ export function Stepper({
       >
         <Ionicons name="remove" size={18} color={C.fg} />
       </Pressable>
-      <View className="w-16 flex-row items-center justify-center">
-        <T className="font-odds text-base">{value}</T>
+      <View className={`${editavel ? "w-20" : "w-16"} flex-row items-center justify-center`}>
+        {editavel ? (
+          <TextInput
+            value={value ? String(value) : ""}
+            placeholder="0"
+            placeholderTextColor={C.muted}
+            keyboardType="number-pad"
+            inputMode="numeric"
+            maxLength={5}
+            selectTextOnFocus
+            onChangeText={(t) => {
+              const d = t.replace(/\D/g, "");
+              onChange(Math.min(d ? parseInt(d, 10) : 0, value + max));
+            }}
+            className="w-12 rounded-md border border-line bg-card py-1 text-center font-odds text-base text-fg"
+          />
+        ) : (
+          <T className="font-odds text-base">{value}</T>
+        )}
         {ficha ? (
           <View className="ml-1">
             <Ficha size={16} />
