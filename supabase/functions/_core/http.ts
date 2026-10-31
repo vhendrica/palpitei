@@ -3,7 +3,7 @@ import * as auth from './auth.ts';
 import type { Db } from './db.ts';
 import { ForbiddenError, NotFoundError, RuleError } from './errors.ts';
 import { importarOdds, mercadosDaApi, type OddsConfig } from './odds.ts';
-import { apostar, entrarNaLiga, finalizarLiga, getLigaPorData } from './rules.ts';
+import { apostar, entrarNaLiga, finalizarLiga, reativarLiga, getLigaPorData } from './rules.ts';
 import { home, jogosComMercados, perfil, rankingDoDia } from './services.ts';
 import { hojeISO } from './validation.ts';
 import type { WhatsappSender } from './whatsapp.ts';
@@ -101,6 +101,8 @@ export function createApi(deps: ApiDeps) {
       return admin.selecionarJogos(sql, { data: b.data ?? hoje(), fixture_ids: b.fixture_ids, premio_desc: b.premio_desc });
     }],
     ['PATCH', /^\/admin\/liga\/([^/]+)$/, async (c) => (await c.requireAdmin(), admin.atualizarLiga(sql, c.params[0], await c.body()))],
+    ['GET', /^\/admin\/ligas$/, async (c) => (await c.requireAdmin(), admin.listarLigas(sql))],
+    ['POST', /^\/admin\/liga\/([^/]+)\/reativar$/, async (c) => (await c.requireAdmin(), reativarLiga(sql, c.params[0]))],
     ['POST', /^\/admin\/liga\/([^/]+)\/finalizar$/, async (c) => {
       await c.requireAdmin();
       return finalizarLiga(sql, c.params[0], ((await c.body()).mercados_vencedores ?? []) as string[]);

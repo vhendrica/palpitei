@@ -241,3 +241,25 @@ export async function finalizarLiga(sql: Db, ligaId: string, mercadosVencedores:
     return { ranking, voucher, premio_final: premioFinal, palpiteiros };
   });
 }
+
+/**
+ * Desfaz uma finalização (ex.: fechada por engano): apaga os vouchers, retira os PONTOS devolvidos ao
+ * vencedor, limpa os resultados e reabre a liga. Bloqueado se algum voucher já foi resgatado.
+ */
+export async function reativarLiga(sql: Db, ligaId: string) {
+  return sql.begin(async (tx: Tx) => {
+    const liga = await getLiga(tx, ligaId, 'for update');
+    if (liga.status !== 'finalizada') throw new RuleError('Esse palpite não está finalizado.');
+    const vouchers = await tx`select user_id, resgatado from vouchers where liga_id = ${ligaId} for update`;
+    if (vouchers.some((v) => v.resgatado)) throw new RuleError('O voucher desse palpite já foi resgatado.');
+    for (const v of vouchers) {
+      await tx`update users set saldo_pontos = greatest(0, saldo_pontos - ${liga.custo_entrada}) where id = ${v.user_id}`;
+    }
+    await tx`delete from vouchers where liga_id = ${ligaId}`;
+    await tx`
+      update mercados m set resultado_final = false
+      from jogos j where j.id = m.jogo_id and j.liga_id = ${ligaId}`;
+    await tx`update ligas set status = 'aberta', premio_final = null, finalizada_em = null where id = ${ligaId}`;
+    return { ok: true as const };
+  });
+}

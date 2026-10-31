@@ -8,6 +8,7 @@ import {
   entrarNaLiga,
   fichasDisponiveis,
   finalizarLiga,
+  reativarLiga,
   pontuacaoUsuario,
 } from '../functions/_core/rules.ts';
 import { criarLiga, criarUser, limpar, saldo, setupDb, type Sql } from './helpers.ts';
@@ -196,6 +197,31 @@ describe('finalizarLiga', () => {
     assert.equal(liga.status, 'finalizada');
     assert.equal(Number(liga.premio_final), 300);
     await assert.rejects(finalizarLiga(sql, ligaId, []), { message: 'Palpite já finalizado.' });
+  });
+
+  test('reativar desfaz a finalização: apaga voucher, retira os PONTOS do vencedor e reabre', async () => {
+    const a = await criarUser(sql);
+    const { ligaId, mercados } = await criarLiga(sql);
+    await entrarNaLiga(sql, a, ligaId);
+    await apostar(sql, a, ligaId, { [mercados[0]]: 50 });
+    await assert.rejects(reativarLiga(sql, ligaId), { message: 'Esse palpite não está finalizado.' });
+    await finalizarLiga(sql, ligaId, [mercados[0]]);
+    assert.equal(await saldo(sql, a), 500);
+
+    await reativarLiga(sql, ligaId);
+    assert.equal(await saldo(sql, a), 400);
+    const [liga] = await sql`select status, premio_final, finalizada_em from ligas where id = ${ligaId}`;
+    assert.equal(liga.status, 'aberta');
+    assert.equal(liga.premio_final, null);
+    assert.equal(liga.finalizada_em, null);
+    assert.equal((await sql`select 1 from vouchers where liga_id = ${ligaId}`).length, 0);
+    assert.equal((await sql`select 1 from mercados where resultado_final`).length, 0);
+    assert.equal(await pontuacaoUsuario(sql, a, ligaId), 0);
+    assert.equal(await fichasDisponiveis(sql, a, ligaId), 150);
+
+    await finalizarLiga(sql, ligaId, [mercados[0]]);
+    await sql`update vouchers set resgatado = true`;
+    await assert.rejects(reativarLiga(sql, ligaId), { message: 'O voucher desse palpite já foi resgatado.' });
   });
 
   test('premio_final limitado à meta (teto)', async () => {

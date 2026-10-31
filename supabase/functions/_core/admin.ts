@@ -237,3 +237,27 @@ export async function atualizarLiga(db: Db, ligaId: string, input: { status?: un
   await db`update ligas set status = ${status}, premio_desc = ${premioDesc} where id = ${ligaId}`;
   return ligaAdmin(db, ligaId);
 }
+
+/** Histórico das múltiplas (mais recentes primeiro), com jogos, palpiteiros e vencedor. */
+export async function listarLigas(db: Db) {
+  const rows = await db`
+    select l.id, l.data::text as data, l.status, l.premio_desc, l.premio_final, l.finalizada_em,
+      (select count(*)::int from entradas e where e.liga_id = l.id) as palpiteiros,
+      coalesce((select json_agg(j.time_casa || ' x ' || j.time_fora order by j.horario)
+        from jogos j where j.liga_id = l.id), '[]'::json) as jogos,
+      (select u.nome from vouchers v join users u on u.id = v.user_id where v.liga_id = l.id limit 1) as vencedor
+    from ligas l order by l.data desc limit 60`;
+  return {
+    ligas: rows.map((l) => ({
+      id: l.id as string,
+      data: l.data as string,
+      status: l.status as string,
+      premio_desc: (l.premio_desc as string) ?? null,
+      premio_final: l.premio_final == null ? null : Number(l.premio_final),
+      finalizada_em: l.finalizada_em ? new Date(l.finalizada_em as string).toISOString() : null,
+      palpiteiros: l.palpiteiros as number,
+      jogos: l.jogos as string[],
+      vencedor: (l.vencedor as string) ?? null,
+    })),
+  };
+}

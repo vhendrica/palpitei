@@ -148,6 +148,18 @@ export type Config = {
   pontos_boas_vindas: number;
 };
 
+export type LigaHistorico = {
+  id: string;
+  data: string;
+  status: LigaStatus;
+  premio_desc: string | null;
+  premio_final: number | null;
+  finalizada_em: string | null;
+  palpiteiros: number;
+  jogos: string[];
+  vencedor: string | null;
+};
+
 export type LigaAdmin = {
   liga: Liga | null;
   palpiteiros: number;

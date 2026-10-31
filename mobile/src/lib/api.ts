@@ -4,7 +4,7 @@ import type {
   Faixa,
   Fixture,
   Home,
-  LigaAdmin,
+  LigaAdmin, LigaHistorico,
   Perfil,
   RankingRow,
   User,
@@ -97,6 +97,8 @@ export const api = {
       }>('GET', `/admin/jogos/${jogoId}/mercados-api`),
     mercados: (jogoId: string, mercados: { id?: string; grupo: string; descricao: string; multiplicador: number }[]) =>
       req<LigaAdmin>('PUT', `/admin/jogos/${jogoId}/mercados`, { mercados }),
+    ligas: () => req<{ ligas: LigaHistorico[] }>('GET', '/admin/ligas'),
+    reativar: (ligaId: string) => req<{ ok: true }>('POST', `/admin/liga/${ligaId}/reativar`),
     finalizar: (ligaId: string, mercados_vencedores: string[]) =>
       req<{ premio_final: number; palpiteiros: number; voucher: { codigo: string; valor: number } | null }>(
         'POST',

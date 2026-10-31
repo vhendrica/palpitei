@@ -18,9 +18,15 @@ import { fmtData, fmtOdd } from "../../lib/format";
 import { errorMessage, useApp } from "../../store/AppStore";
 import { useTheme } from "../../store/Theme";
 import { agruparMercados } from "../../types";
-import type { Config, Fixture, Jogo, LigaAdmin } from "../../types";
+import type {
+  Config,
+  Fixture,
+  Jogo,
+  LigaAdmin,
+  LigaHistorico,
+} from "../../types";
 
-type Aba = "liga" | "pool" | "config";
+type Aba = "liga" | "pool" | "historico" | "config";
 
 const hojeLocal = () =>
   new Date(Date.now() - 3 * 3600_000).toISOString().slice(0, 10);
@@ -54,8 +60,9 @@ export default function Admin() {
         {(
           [
             ["liga", "Múltipla"],
-            ["pool", "Pool de jogos"],
-            ["config", "Prêmio e config"],
+            ["pool", "Pool"],
+            ["historico", "Histórico"],
+            ["config", "Config"],
           ] as const
         ).map(([k, label]) => (
           <Pressable
@@ -72,7 +79,7 @@ export default function Admin() {
         ))}
       </View>
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 48 }}>
-        {aba !== "config" ? (
+        {aba === "liga" || aba === "pool" ? (
           <Field
             label="Data (AAAA-MM-DD)"
             icon="calendar-outline"
@@ -87,6 +94,15 @@ export default function Admin() {
         {aba === "liga" ? <AbaLiga data={data} run={run} /> : null}
         {aba === "pool" ? (
           <AbaPool data={data} run={run} onMontada={() => setAba("liga")} />
+        ) : null}
+        {aba === "historico" ? (
+          <AbaHistorico
+            run={run}
+            onAbrir={(d) => {
+              setData(d);
+              setAba("liga");
+            }}
+          />
         ) : null}
         {aba === "config" ? <AbaConfig run={run} /> : null}
       </ScrollView>
@@ -849,5 +865,88 @@ function AbaConfig({ run }: { run: Run }) {
         }
       />
     </>
+  );
+}
+
+function AbaHistorico({
+  run,
+  onAbrir,
+}: {
+  run: Run;
+  onAbrir: (data: string) => void;
+}) {
+  const [ligas, setLigas] = useState<LigaHistorico[] | null>(null);
+  const [confirmar, setConfirmar] = useState<string | null>(null);
+  const carregar = useCallback(
+    () => api.admin.ligas().then((r) => setLigas(r.ligas)),
+    [],
+  );
+  useEffect(() => {
+    carregar().catch(() => setLigas([]));
+  }, [carregar]);
+
+  if (!ligas) return <T className="mt-4 text-muted">Carregando…</T>;
+  if (ligas.length === 0)
+    return <T className="mt-4 text-muted">Nenhuma múltipla ainda.</T>;
+
+  return (
+    <View className="mt-2">
+      <SectionTitle>Múltiplas</SectionTitle>
+      {ligas.map((l) => {
+        const [a, m, d] = l.data.split("-");
+        const fechada = l.status === "finalizada";
+        return (
+          <Card key={l.id} className="mb-3">
+            <View className="flex-row items-center justify-between">
+              <T className="font-mont-xb text-base">{`${d}/${m}/${a}`}</T>
+              <StatusBadge status={l.status} />
+            </View>
+            <T className="mt-1 text-sm">
+              {l.jogos.length ? l.jogos.join(" • ") : "Sem jogos"}
+            </T>
+            <T className="mt-1 text-xs text-muted">
+              {l.palpiteiros} palpiteiro{l.palpiteiros === 1 ? "" : "s"}
+              {l.premio_desc ? ` • ${l.premio_desc}` : ""}
+              {fechada && l.premio_final != null
+                ? ` • prêmio final ${fmtReais(l.premio_final)}`
+                : ""}
+              {fechada ? ` • vencedor: ${l.vencedor ?? "ninguém pontuou"}` : ""}
+            </T>
+            <View className="mt-3 flex-row">
+              <Button
+                title="Abrir"
+                variant="outline"
+                className="mr-2 flex-1"
+                onPress={() => onAbrir(l.data)}
+              />
+              {fechada ? (
+                <Button
+                  title={
+                    confirmar === l.id ? "Confirmar reativação" : "Reativar"
+                  }
+                  variant={confirmar === l.id ? undefined : "outline"}
+                  className="flex-1"
+                  onPress={() => {
+                    if (confirmar !== l.id) return setConfirmar(l.id);
+                    setConfirmar(null);
+                    run(async () => {
+                      await api.admin.reativar(l.id);
+                      await carregar();
+                      return `Múltipla de ${d}/${m} reativada: voucher cancelado e resultados limpos.`;
+                    });
+                  }}
+                />
+              ) : null}
+            </View>
+            {confirmar === l.id ? (
+              <T className="mt-2 text-xs text-muted">
+                Isso cancela o voucher, retira os PONTOS devolvidos ao vencedor
+                e limpa os resultados. Toque de novo pra confirmar.
+              </T>
+            ) : null}
+          </Card>
+        );
+      })}
+    </View>
   );
 }
