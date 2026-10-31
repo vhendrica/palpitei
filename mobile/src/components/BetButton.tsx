@@ -2,6 +2,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { Pressable, View } from "react-native";
 
 import { fmtOdd } from "../lib/format";
+import { Ficha } from "./Ficha";
 import { T } from "./ui";
 import { useTheme } from "../store/Theme";
 
@@ -12,6 +13,8 @@ type Props = {
   resultado?: "green" | "red" | null;
   compact?: boolean;
   disabled?: boolean;
+  /** Fichas já confirmadas nesta opção: borda verde + selo com a pilha. */
+  fichas?: number;
   onPress?: () => void;
 };
 
@@ -23,14 +26,16 @@ export function BetButton({
   resultado,
   compact,
   disabled,
+  fichas = 0,
   onPress,
 }: Props) {
   const { palette: C } = useTheme();
+  const minha = fichas > 0 && !selected;
   const border =
-    resultado === "green"
+    resultado === "green" || selected
       ? "border-primary"
-      : selected
-        ? "border-primary"
+      : minha
+        ? "border-2 border-primary"
         : "border-line";
   const bg = selected ? "bg-primary" : "bg-cardAlt";
   const descColor = selected ? "text-onPrimary" : "text-fg";
@@ -74,6 +79,15 @@ export function BetButton({
       >
         {fmtOdd(multiplicador)}
       </T>
+      {fichas > 0 ? (
+        <View
+          className="flex-row items-center rounded-full bg-fg px-1.5 py-0.5"
+          style={{ position: "absolute", top: -9, right: -4 }}
+        >
+          <T className="mr-0.5 font-odds text-[11px] text-bg">{fichas}</T>
+          <Ficha size={11} />
+        </View>
+      ) : null}
     </Pressable>
   );
 }

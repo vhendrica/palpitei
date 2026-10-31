@@ -1,9 +1,13 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router } from "expo-router";
 import { useMemo, useRef, useState } from "react";
+import * as Linking from "expo-linking";
 import {
+  Platform,
+  Pressable,
   RefreshControl,
   ScrollView,
+  Share,
   View,
   type ScrollViewInstance,
 } from "react-native";
@@ -144,6 +148,10 @@ export default function HomeMultipla() {
         fichas: draft[m.id] ?? 0,
       })),
   );
+  const escolhas = home.jogos.reduce(
+    (s, j) => s + j.mercados.filter((m) => (m.minhas_fichas ?? 0) > 0).length,
+    0,
+  );
   const destaque = home.jogos.find((j) => j.destaque);
   const outros = home.jogos.filter((j) => j !== destaque);
 
@@ -173,9 +181,6 @@ export default function HomeMultipla() {
         </T>
         <View className="mt-3">
           {agruparMercados(j.mercados).map((g) => {
-            const confirmadas = g.opcoes.filter(
-              (m) => (m.minhas_fichas ?? 0) > 0,
-            );
             return (
               <View key={g.grupo} className="mb-3">
                 {g.grupo ? (
@@ -205,6 +210,7 @@ export default function HomeMultipla() {
                           descricao={m.descricao}
                           multiplicador={m.multiplicador}
                           selected={noBilhete}
+                          fichas={minhas}
                           resultado={resultado}
                           disabled={!podeApostar}
                           onPress={() =>
@@ -219,14 +225,6 @@ export default function HomeMultipla() {
                     );
                   })}
                 </View>
-                {confirmadas.length > 0 ? (
-                  <T className="mt-1 px-1 text-xs text-muted">
-                    {confirmadas
-                      .map((m) => `${m.minhas_fichas} fichas em ${m.descricao}`)
-                      .join(" • ")}{" "}
-                    (confirmadas)
-                  </T>
-                ) : null}
               </View>
             );
           })}
@@ -271,6 +269,8 @@ export default function HomeMultipla() {
               premio={home.premio}
               finalizada={home.liga.status === "finalizada"}
               descricao={home.liga.premio_desc}
+              onPalpiteiros={eu ? undefined : () => router.push("/palpiteiros")}
+              semContagem={!!eu}
             />
 
             <Card className="mt-3">
@@ -305,32 +305,45 @@ export default function HomeMultipla() {
                     className="mt-3"
                   />
                 </>
-              ) : valendo ? (
-                <View className="flex-row justify-around">
-                  <Stat label="Pontuação" value={fmtPts(eu.pontuacao)} />
-                  <Stat
-                    label="Posição"
-                    value={eu.posicao ? `${eu.posicao}º` : "—"}
-                  />
-                </View>
               ) : (
-                <SituacaoFichas
-                  livres={livres}
-                  noBilhete={noDraft}
-                  confirmadas={eu.fichas_usadas}
-                />
+                <>
+                  {!valendo && livres + noDraft > 0 ? (
+                    <SituacaoFichas livres={livres} noBilhete={noDraft} />
+                  ) : null}
+                  <View className="flex-row justify-around">
+                    {valendo ? (
+                      <>
+                        <Stat label="Pontuação" value={fmtPts(eu.pontuacao)} />
+                        <Stat
+                          label="Posição"
+                          value={eu.posicao ? `${eu.posicao}º` : "—"}
+                        />
+                      </>
+                    ) : (
+                      <>
+                        <Stat
+                          label="Fichas apostadas"
+                          value={fmtPts(eu.fichas_usadas)}
+                          ficha
+                        />
+                        <Stat label="Escolhas" value={String(escolhas)} />
+                      </>
+                    )}
+                    <Stat
+                      label="Palpiteiros ›"
+                      value={fmtPts(home.premio.palpiteiros)}
+                      onPress={() => router.push("/palpiteiros")}
+                    />
+                  </View>
+                </>
               )}
               <ErrorBox erro={erro} />
             </Card>
             <Button
-              title={
-                valendo
-                  ? "Ver quem entrou e os palpites"
-                  : `Quem entrou e os palpites (${home.premio.palpiteiros})`
-              }
-              icon="people-outline"
-              variant="ghost"
-              onPress={() => router.push("/palpiteiros")}
+              title="Convidar amigos"
+              icon="logo-whatsapp"
+              variant="outline"
+              onPress={() => convidar(home.liga?.premio_desc)}
               className="mt-2"
             />
 
@@ -367,13 +380,19 @@ function Stat({
   label,
   value,
   ficha,
+  onPress,
 }: {
   label: string;
   value: string;
   ficha?: boolean;
+  onPress?: () => void;
 }) {
   return (
-    <View className="items-center">
+    <Pressable
+      className="items-center active:opacity-70"
+      onPress={onPress}
+      disabled={!onPress}
+    >
       <View className="flex-row items-center">
         <T className="font-odds text-2xl text-primary">{value}</T>
         {ficha ? (
@@ -385,54 +404,42 @@ function Stat({
       <T className="text-[10px] uppercase tracking-widest text-muted">
         {label}
       </T>
-    </View>
+    </Pressable>
   );
 }
 
 function SituacaoFichas({
   livres,
   noBilhete,
-  confirmadas,
 }: {
   livres: number;
   noBilhete: number;
-  confirmadas: number;
 }) {
-  const { palette: C } = useTheme();
-  if (livres > 0) {
-    return (
-      <View className="flex-row items-center">
-        <Ficha size={32} />
-        <View className="ml-3 flex-1">
-          <T className="font-mont-xb text-base">
-            {fmtPts(livres)} fichas pra distribuir
-          </T>
-          <T className="text-xs text-muted">
-            {noBilhete > 0
-              ? `${fmtPts(noBilhete)} no bilhete. Confirme lá embaixo.`
-              : "Toque nas opções dos jogos pra montar seu bilhete."}
-          </T>
-        </View>
-      </View>
-    );
-  }
   return (
-    <View className="flex-row items-center">
-      <Ionicons
-        name={noBilhete > 0 ? "receipt-outline" : "checkmark-circle"}
-        size={32}
-        color={C.primary}
-      />
+    <View className="mb-3 flex-row items-center border-b border-line pb-3">
+      <Ficha size={28} />
       <View className="ml-3 flex-1">
         <T className="font-mont-xb text-base">
-          {noBilhete > 0 ? "Todas as fichas no bilhete" : "Palpite completo!"}
+          {livres > 0
+            ? `${fmtPts(livres)} fichas pra distribuir`
+            : "Todas as fichas no bilhete"}
         </T>
         <T className="text-xs text-muted">
           {noBilhete > 0
             ? "Confirme o bilhete lá embaixo pra valer."
-            : `${fmtPts(confirmadas)} fichas distribuídas. A pontuação aparece quando os jogos começarem.`}
+            : "Toque nas opções dos jogos pra montar seu bilhete."}
         </T>
       </View>
     </View>
   );
+}
+
+function convidar(premio?: string | null) {
+  const url = Linking.createURL("/");
+  const msg = `Bora palpitar comigo no PALPIT? É de graça${premio ? ` e o campeão leva ${premio}` : ""}! ${url}`;
+  if (Platform.OS === "web") {
+    Linking.openURL(`https://wa.me/?text=${encodeURIComponent(msg)}`);
+  } else {
+    Share.share({ message: msg });
+  }
 }

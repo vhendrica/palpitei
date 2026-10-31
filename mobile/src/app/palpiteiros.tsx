@@ -62,7 +62,7 @@ export default function Palpiteiros() {
           <T className="mb-3 text-sm text-muted">
             {rows.length}{" "}
             {rows.length === 1 ? "pessoa entrou" : "pessoas entraram"} na
-            múltipla. Toque pra ver o palpite.
+            múltipla. Toque no nome pra ver o bilhete.
           </T>
         ) : null}
         {rows?.map((p, i) => (
@@ -97,7 +97,18 @@ export default function Palpiteiros() {
               />
             </Pressable>
             {aberto === i ? (
-              <View className="mt-3 border-t border-line pt-2">
+              <View className="mt-3 rounded-xl border-2 border-dashed border-primary p-3">
+                <View className="mb-1 flex-row items-center justify-between">
+                  <T className="font-mont-xb text-sm">
+                    Bilhete de {p.nome.split(" ")[0]}
+                  </T>
+                  <View className="flex-row items-center">
+                    <T className="mr-1 font-odds text-base">
+                      {fmtPts(p.fichas_apostadas)}
+                    </T>
+                    <Ficha size={14} />
+                  </View>
+                </View>
                 {p.palpites.length === 0 ? (
                   <T className="text-xs text-muted">
                     Ainda não distribuiu fichas.

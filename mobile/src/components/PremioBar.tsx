@@ -1,5 +1,5 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { View } from "react-native";
+import { Pressable, View } from "react-native";
 
 import { fmtPts } from "../lib/format";
 import { useTheme } from "../store/Theme";
@@ -14,10 +14,14 @@ export function PremioBar({
   premio,
   finalizada,
   descricao,
+  onPalpiteiros,
+  semContagem,
 }: {
   premio: Premio;
   finalizada?: boolean;
   descricao?: string | null;
+  onPalpiteiros?: () => void;
+  semContagem?: boolean;
 }) {
   const { palette: C } = useTheme();
   const { meta, palpiteiros, premio_atual, meta_atingida, faltam_meta } =
@@ -42,15 +46,21 @@ export function PremioBar({
             </T>
           ) : null}
         </View>
-        <View className="items-end">
-          <T className="font-odds text-xl">{fmtPts(palpiteiros)}</T>
-          <T className="text-[10px] uppercase tracking-widest text-muted">
-            palpiteiros
-          </T>
-        </View>
+        {semContagem ? null : (
+          <Pressable
+            className="items-end active:opacity-70"
+            onPress={onPalpiteiros}
+            disabled={!onPalpiteiros}
+          >
+            <T className="font-odds text-xl">{fmtPts(palpiteiros)}</T>
+            <T className="text-[10px] uppercase tracking-widest text-muted">
+              palpiteiros{onPalpiteiros ? " ›" : ""}
+            </T>
+          </Pressable>
+        )}
       </View>
 
-      {meta && !descricao && !finalizada ? (
+      {meta && !finalizada ? (
         <>
           <View className="mt-3 h-2 overflow-hidden rounded-full bg-cardAlt">
             <View
@@ -60,9 +70,9 @@ export function PremioBar({
           </View>
           <T className="mt-1.5 text-xs text-muted">
             {meta_atingida
-              ? `Prêmio máximo garantido: ${fmtReais(meta.valor)}`
+              ? `Meta batida: prêmio de ${fmtReais(meta.valor)}`
               : premio.proxima
-                ? `Mais ${premio.proxima.faltam} ${premio.proxima.faltam === 1 ? "palpiteiro" : "palpiteiros"} e o prêmio vai pra ${fmtReais(premio.proxima.valor)}`
+                ? `Faltam ${premio.proxima.faltam} ${premio.proxima.faltam === 1 ? "palpiteiro" : "palpiteiros"} pro prêmio de ${fmtReais(premio.proxima.valor)}`
                 : `Faltam ${faltam_meta} palpiteiros pro prêmio de ${fmtReais(meta.valor)}`}
           </T>
         </>
