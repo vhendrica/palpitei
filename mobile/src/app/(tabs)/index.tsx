@@ -1,8 +1,9 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router } from "expo-router";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import * as Linking from "expo-linking";
 import {
+  Animated,
   Platform,
   Pressable,
   RefreshControl,
@@ -16,6 +17,7 @@ import { AppHeader } from "../../components/AppHeader";
 import { BetButton } from "../../components/BetButton";
 import { Bilhete, type ItemBilhete } from "../../components/Bilhete";
 import { EntradaModal } from "../../components/EntradaModal";
+import { Escudo } from "../../components/Escudo";
 import { ErrorBox } from "../../components/Form";
 import { Ficha } from "../../components/Ficha";
 import { PremioBar } from "../../components/PremioBar";
@@ -64,6 +66,16 @@ export default function HomeMultipla() {
   const jogosY = useRef(0);
   const irParaJogos = () =>
     scrollRef.current?.scrollTo({ y: jogosY.current, animated: true });
+  const palpitarY = useRef(0);
+  const [sinal, setSinal] = useState(0);
+  const chamarPalpitar = () => setSinal((n) => n + 1);
+  useEffect(() => {
+    if (sinal)
+      scrollRef.current?.scrollTo({
+        y: Math.max(0, palpitarY.current - 12),
+        animated: true,
+      });
+  }, [sinal]);
   const irParaTopo = () =>
     scrollRef.current?.scrollTo({ y: 0, animated: true });
 
@@ -215,13 +227,17 @@ export default function HomeMultipla() {
                           selected={noBilhete}
                           fichas={minhas}
                           resultado={resultado}
-                          disabled={!podeApostar}
+                          disabled={
+                            !podeApostar && (!!eu || !aberta || j.comecou)
+                          }
                           onPress={() =>
-                            setDraft((d) => {
-                              if (!(m.id in d)) return { ...d, [m.id]: 0 };
-                              const { [m.id]: _, ...rest } = d;
-                              return rest;
-                            })
+                            podeApostar
+                              ? setDraft((d) => {
+                                  if (!(m.id in d)) return { ...d, [m.id]: 0 };
+                                  const { [m.id]: _, ...rest } = d;
+                                  return rest;
+                                })
+                              : chamarPalpitar()
                           }
                         />
                       </View>
@@ -288,63 +304,82 @@ export default function HomeMultipla() {
                 onFechar={() => setExplicando(false)}
               />
             ) : null}
-            <Card className="mt-3">
-              {!user ? (
-                <>
-                  <ChamadaPalpite fichas={home.regras.fichas_por_entrada} />
-                  <Button
-                    title="Palpitar"
-                    icon="football"
-                    onPress={() => router.push("/entrar")}
-                    className="mt-3"
-                  />
-                </>
-              ) : !eu ? (
-                <>
-                  <ChamadaPalpite fichas={home.regras.fichas_por_entrada} />
-                  <Button
-                    title="Palpitar"
-                    icon="football"
-                    onPress={() => setExplicando(true)}
-                    loading={busy}
-                    disabled={!aberta}
-                    className="mt-3"
-                  />
-                </>
-              ) : (
-                <>
-                  {!valendo && livres + noDraft > 0 ? (
-                    <SituacaoFichas livres={livres} noBilhete={noDraft} />
-                  ) : null}
-                  <View className="flex-row justify-around">
-                    {valendo ? (
-                      <>
-                        <Stat label="Pontuação" value={fmtPts(eu.pontuacao)} />
-                        <Stat
-                          label="Posição"
-                          value={eu.posicao ? `${eu.posicao}º` : "—"}
-                        />
-                      </>
-                    ) : (
-                      <>
-                        <Stat
-                          label="Fichas apostadas"
-                          value={fmtPts(eu.fichas_usadas)}
-                          ficha
-                        />
-                        <Stat label="Escolhas" value={String(escolhas)} />
-                      </>
-                    )}
-                    <Stat
-                      label="Palpiteiros ›"
-                      value={fmtPts(home.premio.palpiteiros)}
-                      onPress={() => router.push("/palpiteiros")}
+            <View
+              onLayout={(e) => {
+                palpitarY.current = e.nativeEvent.layout.y;
+              }}
+            >
+              <Card className="mt-3">
+                {!user ? (
+                  <>
+                    <CarrosselJogos
+                      jogos={destaque ? [destaque, ...outros] : home.jogos}
+                      onOdd={chamarPalpitar}
                     />
-                  </View>
-                </>
-              )}
-              <ErrorBox erro={erro} />
-            </Card>
+                    <PulsoBrilho sinal={sinal}>
+                      <Button
+                        title="Palpitar"
+                        icon="football"
+                        onPress={() => router.push("/entrar")}
+                        className="mt-3"
+                      />
+                    </PulsoBrilho>
+                  </>
+                ) : !eu ? (
+                  <>
+                    <CarrosselJogos
+                      jogos={destaque ? [destaque, ...outros] : home.jogos}
+                      onOdd={chamarPalpitar}
+                    />
+                    <PulsoBrilho sinal={sinal}>
+                      <Button
+                        title="Palpitar"
+                        icon="football"
+                        onPress={() => setExplicando(true)}
+                        loading={busy}
+                        disabled={!aberta}
+                        className="mt-3"
+                      />
+                    </PulsoBrilho>
+                  </>
+                ) : (
+                  <>
+                    {!valendo && livres + noDraft > 0 ? (
+                      <SituacaoFichas livres={livres} noBilhete={noDraft} />
+                    ) : null}
+                    <View className="flex-row justify-around">
+                      {valendo ? (
+                        <>
+                          <Stat
+                            label="Pontuação"
+                            value={fmtPts(eu.pontuacao)}
+                          />
+                          <Stat
+                            label="Posição"
+                            value={eu.posicao ? `${eu.posicao}º` : "—"}
+                          />
+                        </>
+                      ) : (
+                        <>
+                          <Stat
+                            label="Fichas apostadas"
+                            value={fmtPts(eu.fichas_usadas)}
+                            ficha
+                          />
+                          <Stat label="Escolhas" value={String(escolhas)} />
+                        </>
+                      )}
+                      <Stat
+                        label="Palpiteiros ›"
+                        value={fmtPts(home.premio.palpiteiros)}
+                        onPress={() => router.push("/palpiteiros")}
+                      />
+                    </View>
+                  </>
+                )}
+                <ErrorBox erro={erro} />
+              </Card>
+            </View>
 
             <View onLayout={(e) => (jogosY.current = e.nativeEvent.layout.y)}>
               <SectionTitle>Jogos</SectionTitle>
@@ -443,16 +478,167 @@ function convidar(premio?: string | null) {
   }
 }
 
-function ChamadaPalpite({ fichas }: { fichas: number }) {
+function CarrosselJogos({
+  jogos,
+  onOdd,
+}: {
+  jogos: Jogo[];
+  onOdd: () => void;
+}) {
+  const [largura, setLargura] = useState(0);
+  const [atual, setAtual] = useState(0);
   return (
-    <View className="flex-row items-center">
-      <Ficha size={28} />
-      <View className="ml-3 flex-1">
-        <T className="font-mont-b text-sm">Monte seu palpite de hoje</T>
-        <T className="text-xs text-muted">
-          {fichas} fichas pra distribuir nos jogos
+    <View onLayout={(e) => setLargura(e.nativeEvent.layout.width)}>
+      <ScrollView
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onScroll={(e) =>
+          largura &&
+          setAtual(Math.round(e.nativeEvent.contentOffset.x / largura))
+        }
+        scrollEventThrottle={32}
+      >
+        {jogos.map((j) => (
+          <View key={j.id} style={{ width: largura || undefined }}>
+            <SlideJogo jogo={j} onOdd={onOdd} />
+          </View>
+        ))}
+      </ScrollView>
+      {jogos.length > 1 ? (
+        <View className="mt-2 flex-row justify-center">
+          {jogos.map((j, i) => (
+            <View
+              key={j.id}
+              className={`mx-0.5 h-1.5 rounded-full ${i === atual ? "w-4 bg-primary" : "w-1.5 bg-line"}`}
+            />
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function SlideJogo({ jogo, onOdd }: { jogo: Jogo; onOdd: () => void }) {
+  const { palette: C } = useTheme();
+  const resultado =
+    agruparMercados(jogo.mercados).find((g) => /RESULTADO/i.test(g.grupo)) ??
+    agruparMercados(jogo.mercados)[0];
+  return (
+    <View>
+      <View className="flex-row items-center">
+        {jogo.destaque ? (
+          <Ionicons name="star" size={12} color={C.primary} />
+        ) : (
+          <Ionicons name="football" size={12} color={C.primary} />
+        )}
+        <T className="ml-1 font-mont-b text-[10px] uppercase tracking-widest text-primary">
+          {jogo.destaque ? "Jogo do dia" : jogo.campeonato} •{" "}
+          {fmtData(jogo.horario)}
         </T>
       </View>
+      <View className="my-3 flex-row items-center justify-between">
+        <Time nome={jogo.time_casa} />
+        <T className="font-mont-xb text-base text-muted">X</T>
+        <Time nome={jogo.time_fora} />
+      </View>
+      {resultado ? (
+        <View className="flex-row gap-1.5">
+          {resultado.opcoes.map((m) => (
+            <Pressable
+              key={m.id}
+              onPress={onOdd}
+              className="flex-1 items-center rounded-lg border border-line bg-cardAlt py-1.5 active:opacity-70"
+            >
+              <T className="text-[9px] font-mont-b uppercase" numberOfLines={1}>
+                {m.descricao}
+              </T>
+              <T className="font-odds text-sm text-primary">
+                {m.multiplicador.toFixed(2)}x
+              </T>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function Time({ nome }: { nome: string }) {
+  return (
+    <View className="w-[42%] items-center">
+      <Escudo time={nome} size={44} />
+      <T className="mt-1 text-center font-mont-b text-sm" numberOfLines={1}>
+        {nome}
+      </T>
+    </View>
+  );
+}
+
+function PulsoBrilho({
+  sinal,
+  children,
+}: {
+  sinal: number;
+  children: React.ReactNode;
+}) {
+  const [escala] = useState(() => new Animated.Value(1));
+  const [anel] = useState(() => new Animated.Value(0));
+  useEffect(() => {
+    if (!sinal) return;
+    escala.setValue(1);
+    anel.setValue(0);
+    const t = (v: Animated.Value, to: number, d: number) =>
+      Animated.timing(v, { toValue: to, duration: d, useNativeDriver: true });
+    Animated.parallel([
+      Animated.sequence([
+        t(escala, 1.07, 160),
+        t(escala, 1, 160),
+        t(escala, 1.07, 160),
+        t(escala, 1, 160),
+      ]),
+      Animated.sequence([
+        t(anel, 1, 450),
+        t(anel, 0, 0),
+        t(anel, 1, 450),
+        t(anel, 0, 0),
+      ]),
+    ]).start();
+  }, [sinal, escala, anel]);
+  return (
+    <View>
+      <Animated.View
+        pointerEvents="none"
+        className="rounded-xl border-2 border-primary"
+        style={{
+          position: "absolute",
+          left: 0,
+          right: 0,
+          top: 12,
+          bottom: 0,
+          opacity: anel.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0.8, 0],
+          }),
+          transform: [
+            {
+              scaleX: anel.interpolate({
+                inputRange: [0, 1],
+                outputRange: [1, 1.08],
+              }),
+            },
+            {
+              scaleY: anel.interpolate({
+                inputRange: [0, 1],
+                outputRange: [1, 1.5],
+              }),
+            },
+          ],
+        }}
+      />
+      <Animated.View style={{ transform: [{ scale: escala }] }}>
+        {children}
+      </Animated.View>
     </View>
   );
 }
