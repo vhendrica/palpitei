@@ -4,7 +4,7 @@ import type { Db } from './db.ts';
 import { ForbiddenError, NotFoundError, RuleError } from './errors.ts';
 import { importarOdds, mercadosDaApi, type OddsConfig } from './odds.ts';
 import { apostar, entrarNaLiga, finalizarLiga, reativarLiga, getLigaAtual } from './rules.ts';
-import { home, jogosComMercados, perfil, rankingDoDia } from './services.ts';
+import { home, jogosComMercados, palpiteirosDoDia, perfil, rankingDoDia } from './services.ts';
 import { hojeISO } from './validation.ts';
 import type { WhatsappSender } from './whatsapp.ts';
 
@@ -62,6 +62,7 @@ export function createApi(deps: ApiDeps) {
       return { liga, jogos: await jogosComMercados(sql, liga.id, (await c.user())?.id) };
     }],
     ['GET', /^\/liga\/hoje\/ranking$/, async (c) => rankingDoDia(sql, await c.user(), hoje())],
+    ['GET', /^\/liga\/hoje\/palpiteiros$/, async (c) => palpiteirosDoDia(sql, await c.user(), hoje())],
     ['POST', /^\/liga\/hoje\/entrar$/, async (c) => {
       const u = await c.requireUser();
       return entrarNaLiga(sql, u.id, (await ligaDeHoje()).id);

@@ -22,9 +22,8 @@ export function PremioBar({
   const { palette: C } = useTheme();
   const { meta, palpiteiros, premio_atual, meta_atingida, faltam_meta } =
     premio;
-  const pct = meta
-    ? Math.min(100, Math.round((palpiteiros / meta.usuarios_min) * 100))
-    : 0;
+  const alvo = premio.proxima?.usuarios_min ?? meta?.usuarios_min ?? 0;
+  const pct = alvo ? Math.min(100, Math.round((palpiteiros / alvo) * 100)) : 0;
 
   return (
     <View className="rounded-2xl border border-gold/40 bg-card p-4">
@@ -51,37 +50,21 @@ export function PremioBar({
         </View>
       </View>
 
-      {meta ? (
+      {meta && !descricao && !finalizada ? (
         <>
-          <View className="mt-3 h-3 overflow-hidden rounded-full bg-cardAlt">
+          <View className="mt-3 h-2 overflow-hidden rounded-full bg-cardAlt">
             <View
-              className="h-3 rounded-full bg-gold"
+              className="h-2 rounded-full bg-gold"
               style={{ width: `${pct}%` }}
             />
           </View>
-          <View className="mt-1.5 flex-row justify-between">
-            {premio.escada.map((f) => (
-              <T
-                key={f.ordem}
-                className={`text-[10px] ${palpiteiros >= f.usuarios_min ? "font-mont-b text-gold" : "text-muted"}`}
-              >
-                {f.usuarios_min} → {fmtReais(f.valor)}
-              </T>
-            ))}
-          </View>
-          <T className="mt-2 font-mont-b text-sm">
+          <T className="mt-1.5 text-xs text-muted">
             {meta_atingida
-              ? `Meta atingida — prêmio de ${fmtReais(meta.valor)}`
-              : `Faltam ${faltam_meta} palpiteiros pra meta de ${fmtReais(meta.valor)}`}
+              ? `Prêmio máximo garantido: ${fmtReais(meta.valor)}`
+              : premio.proxima
+                ? `Mais ${premio.proxima.faltam} ${premio.proxima.faltam === 1 ? "palpiteiro" : "palpiteiros"} e o prêmio vai pra ${fmtReais(premio.proxima.valor)}`
+                : `Faltam ${faltam_meta} palpiteiros pro prêmio de ${fmtReais(meta.valor)}`}
           </T>
-          {!meta_atingida &&
-          premio.proxima &&
-          premio.proxima.usuarios_min !== meta.usuarios_min ? (
-            <T className="text-xs text-muted">
-              Próxima faixa: {fmtReais(premio.proxima.valor)} com mais{" "}
-              {premio.proxima.faltam} palpiteiros
-            </T>
-          ) : null}
         </>
       ) : null}
     </View>

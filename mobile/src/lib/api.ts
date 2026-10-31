@@ -5,6 +5,7 @@ import type {
   Fixture,
   Home,
   LigaAdmin, LigaHistorico,
+  PalpiteiroView,
   Perfil,
   RankingRow,
   User,
@@ -69,6 +70,11 @@ export const api = {
     'GET',
     '/liga/hoje/ranking',
   ),
+  palpiteiros: () =>
+    req<{ data: string; liga: { id: string; status: string } | null; palpiteiros: PalpiteiroView[] }>(
+      'GET',
+      '/liga/hoje/palpiteiros',
+    ),
   entrar: () => req<{ fichas_total: number; saldo_pontos: number }>('POST', '/liga/hoje/entrar'),
   apostar: (distribuicao: Record<string, number>) =>
     req<{ fichas_distribuidas: number; fichas_livres: number }>('POST', '/liga/hoje/apostas', { distribuicao }),

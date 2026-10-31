@@ -65,6 +65,7 @@ function RootNavigator() {
         <Stack.Screen name="entrar" />
         <Stack.Screen name="cadastro" />
         <Stack.Screen name="codigo" />
+        <Stack.Screen name="palpiteiros" />
       </Stack>
     </ThemeProvider>
   );

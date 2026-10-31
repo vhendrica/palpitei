@@ -13,6 +13,7 @@ import {
   pontuacaoUsuario,
 } from '../functions/_core/rules.ts';
 import { removerPalpiteiro } from '../functions/_core/admin.ts';
+import { palpiteirosDoDia } from '../functions/_core/services.ts';
 import { criarLiga, criarUser, limpar, saldo, setupDb, type Sql } from './helpers.ts';
 
 let sql: Sql;
@@ -279,4 +280,16 @@ test('remover palpiteiro apaga as fichas e a entrada e devolve os PONTOS', async
   await entrarNaLiga(sql, a, ligaId);
   await finalizarLiga(sql, ligaId, [mercados[0]]);
   await assert.rejects(removerPalpiteiro(sql, ligaId, b), { message: 'Reative o palpite antes de remover palpiteiros.' });
+});
+
+test('palpiteiros do dia lista quem entrou e as fichas de cada um', async () => {
+  const a = await criarUser(sql, { nome: 'Ana' });
+  const b = await criarUser(sql, { nome: 'Bia' });
+  const { ligaId, mercados } = await criarLiga(sql);
+  await entrarNaLiga(sql, a, ligaId);
+  await entrarNaLiga(sql, b, ligaId);
+  await apostar(sql, a, ligaId, { [mercados[0]]: 50, [mercados[1]]: 20 });
+  const [{ data }] = await sql`select to_char(data, 'YYYY-MM-DD') as data from ligas where id = ${ligaId}`;
+  const r = await palpiteirosDoDia(sql, null, data);
+  assert.deepEqual(r.palpiteiros.map((p) => [p.nome, p.fichas_apostadas, p.palpites.length]), [['Ana', 70, 2], ['Bia', 0, 0]]);
 });

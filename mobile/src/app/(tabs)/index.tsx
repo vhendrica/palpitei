@@ -58,10 +58,9 @@ export default function HomeMultipla() {
   const scrollRef = useRef<ScrollViewInstance>(null);
   const jogosY = useRef(0);
   const irParaJogos = () =>
-    setTimeout(
-      () => scrollRef.current?.scrollTo({ y: jogosY.current, animated: true }),
-      150,
-    );
+    scrollRef.current?.scrollTo({ y: jogosY.current, animated: true });
+  const irParaTopo = () =>
+    scrollRef.current?.scrollTo({ y: 0, animated: true });
 
   const eu = home?.eu?.entrou ? home.eu : null;
   const noDraft = useMemo(
@@ -70,6 +69,9 @@ export default function HomeMultipla() {
   );
   const livres = (eu?.fichas_livres ?? 0) - noDraft;
   const aberta = home?.liga?.status === "aberta";
+  const valendo =
+    !!home?.liga &&
+    (home.liga.status !== "aberta" || home.jogos.some((j) => j.comecou));
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -94,8 +96,9 @@ export default function HomeMultipla() {
 
   const entrar = () =>
     run(async () => {
-      await entrarNaLiga();
       irParaJogos();
+      await entrarNaLiga();
+      setTimeout(irParaJogos, 50);
       return `Você entrou na múltipla! ${home?.regras.fichas_por_entrada} FICHAS pra distribuir.`;
     });
 
@@ -105,6 +108,7 @@ export default function HomeMultipla() {
         Object.fromEntries(Object.entries(draft).filter(([, f]) => f > 0)),
       );
       setDraft({});
+      irParaTopo();
       return `Palpite confirmado: ${n} fichas distribuídas.`;
     }, setErroBilhete);
 
@@ -301,18 +305,34 @@ export default function HomeMultipla() {
                     className="mt-3"
                   />
                 </>
-              ) : (
-                <View className="flex-row justify-between">
-                  <Stat label="Fichas livres" value={fmtPts(livres)} ficha />
+              ) : valendo ? (
+                <View className="flex-row justify-around">
                   <Stat label="Pontuação" value={fmtPts(eu.pontuacao)} />
                   <Stat
                     label="Posição"
                     value={eu.posicao ? `${eu.posicao}º` : "—"}
                   />
                 </View>
+              ) : (
+                <SituacaoFichas
+                  livres={livres}
+                  noBilhete={noDraft}
+                  confirmadas={eu.fichas_usadas}
+                />
               )}
               <ErrorBox erro={erro} />
             </Card>
+            <Button
+              title={
+                valendo
+                  ? "Ver quem entrou e os palpites"
+                  : `Quem entrou e os palpites (${home.premio.palpiteiros})`
+              }
+              icon="people-outline"
+              variant="ghost"
+              onPress={() => router.push("/palpiteiros")}
+              className="mt-2"
+            />
 
             <View onLayout={(e) => (jogosY.current = e.nativeEvent.layout.y)}>
               <SectionTitle>Jogos</SectionTitle>
@@ -365,6 +385,54 @@ function Stat({
       <T className="text-[10px] uppercase tracking-widest text-muted">
         {label}
       </T>
+    </View>
+  );
+}
+
+function SituacaoFichas({
+  livres,
+  noBilhete,
+  confirmadas,
+}: {
+  livres: number;
+  noBilhete: number;
+  confirmadas: number;
+}) {
+  const { palette: C } = useTheme();
+  if (livres > 0) {
+    return (
+      <View className="flex-row items-center">
+        <Ficha size={32} />
+        <View className="ml-3 flex-1">
+          <T className="font-mont-xb text-base">
+            {fmtPts(livres)} fichas pra distribuir
+          </T>
+          <T className="text-xs text-muted">
+            {noBilhete > 0
+              ? `${fmtPts(noBilhete)} no bilhete. Confirme lá embaixo.`
+              : "Toque nas opções dos jogos pra montar seu bilhete."}
+          </T>
+        </View>
+      </View>
+    );
+  }
+  return (
+    <View className="flex-row items-center">
+      <Ionicons
+        name={noBilhete > 0 ? "receipt-outline" : "checkmark-circle"}
+        size={32}
+        color={C.primary}
+      />
+      <View className="ml-3 flex-1">
+        <T className="font-mont-xb text-base">
+          {noBilhete > 0 ? "Todas as fichas no bilhete" : "Palpite completo!"}
+        </T>
+        <T className="text-xs text-muted">
+          {noBilhete > 0
+            ? "Confirme o bilhete lá embaixo pra valer."
+            : `${fmtPts(confirmadas)} fichas distribuídas. A pontuação aparece quando os jogos começarem.`}
+        </T>
+      </View>
     </View>
   );
 }

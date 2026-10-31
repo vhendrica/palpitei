@@ -91,6 +91,21 @@ export type Home = {
   eu: MinhaSituacao | null;
 };
 
+export type PalpiteiroView = {
+  nome: string;
+  bairro: string;
+  entrou_em: string;
+  eu: boolean;
+  fichas_apostadas: number;
+  palpites: {
+    jogo: string;
+    grupo: string;
+    descricao: string;
+    multiplicador: number;
+    fichas: number;
+  }[];
+};
+
 export type RankingRow = {
   posicao: number;
   nome: string;

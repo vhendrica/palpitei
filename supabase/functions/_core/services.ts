@@ -157,3 +157,42 @@ export async function perfil(db: Db, user: UserPublico) {
     })),
   };
 }
+
+/** Quem entrou na múltipla em vigor e como distribuiu as fichas, por ordem de entrada. */
+export async function palpiteirosDoDia(db: Db, user: UserPublico | null, data = hojeISO()) {
+  const liga = await getLigaAtual(db, data);
+  if (!liga) return { data, liga: null, palpiteiros: [] };
+  const [entradas, apostas] = await Promise.all([
+    db`select e.user_id, u.nome, u.bairro, e.created_at from entradas e join users u on u.id = e.user_id
+       where e.liga_id = ${liga.id} order by e.created_at`,
+    db`select a.user_id, m.id as mercado_id, m.grupo, m.descricao, m.multiplicador, j.time_casa, j.time_fora,
+         sum(a.fichas_apostadas)::int as fichas
+       from apostas a join mercados m on m.id = a.mercado_id join jogos j on j.id = m.jogo_id
+       where j.liga_id = ${liga.id}
+       group by a.user_id, m.id, j.id
+       order by j.destaque desc, j.horario, j.ordem, m.ordem`,
+  ]);
+  return {
+    data,
+    liga: { id: liga.id, status: liga.status },
+    palpiteiros: entradas.map((e) => {
+      const palpites = apostas
+        .filter((a) => a.user_id === e.user_id)
+        .map((a) => ({
+          jogo: `${a.time_casa} x ${a.time_fora}`,
+          grupo: (a.grupo as string) ?? '',
+          descricao: a.descricao as string,
+          multiplicador: num(a.multiplicador),
+          fichas: num(a.fichas),
+        }));
+      return {
+        nome: e.nome as string,
+        bairro: e.bairro as string,
+        entrou_em: iso(e.created_at)!,
+        eu: user?.id === e.user_id,
+        fichas_apostadas: palpites.reduce((s, p) => s + p.fichas, 0),
+        palpites,
+      };
+    }),
+  };
+}
