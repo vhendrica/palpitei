@@ -1,13 +1,19 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router } from "expo-router";
-import { useMemo, useState } from "react";
-import { RefreshControl, ScrollView, View } from "react-native";
+import { useMemo, useRef, useState } from "react";
+import {
+  RefreshControl,
+  ScrollView,
+  View,
+  type ScrollViewInstance,
+} from "react-native";
 
 import { AppHeader } from "../../components/AppHeader";
 import { BetButton } from "../../components/BetButton";
 import { ErrorBox, Stepper } from "../../components/Form";
 import { Ficha } from "../../components/Ficha";
 import { PremioBar } from "../../components/PremioBar";
+import { useToast } from "../../components/Toast";
 import {
   Button,
   Card,
@@ -47,7 +53,14 @@ export default function HomeMultipla() {
     });
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
-  const [ok, setOk] = useState<string | null>(null);
+  const toast = useToast();
+  const scrollRef = useRef<ScrollViewInstance>(null);
+  const jogosY = useRef(0);
+  const irParaJogos = () =>
+    setTimeout(
+      () => scrollRef.current?.scrollTo({ y: jogosY.current, animated: true }),
+      150,
+    );
 
   const eu = home?.eu?.entrou ? home.eu : null;
   const noDraft = useMemo(
@@ -66,9 +79,8 @@ export default function HomeMultipla() {
   const run = async (fn: () => Promise<string>) => {
     setBusy(true);
     setErro(null);
-    setOk(null);
     try {
-      setOk(await fn());
+      toast.show(await fn());
     } catch (e) {
       setErro(errorMessage(e));
     } finally {
@@ -79,7 +91,8 @@ export default function HomeMultipla() {
   const entrar = () =>
     run(async () => {
       await entrarNaLiga();
-      return `Você entrou! ${home?.regras.fichas_por_entrada} FICHAS pra distribuir.`;
+      irParaJogos();
+      return `Você entrou na múltipla! ${home?.regras.fichas_por_entrada} FICHAS pra distribuir.`;
     });
 
   const confirmar = () =>
@@ -88,7 +101,7 @@ export default function HomeMultipla() {
         Object.fromEntries(Object.entries(draft).filter(([, f]) => f > 0)),
       );
       setDraft({});
-      return `${n} fichas confirmadas.`;
+      return `Palpite confirmado: ${n} fichas distribuídas.`;
     });
 
   if (!home) {
@@ -227,6 +240,7 @@ export default function HomeMultipla() {
     <View className="flex-1 bg-bg">
       <AppHeader />
       <ScrollView
+        ref={scrollRef}
         contentContainerStyle={{ padding: 16, paddingBottom: 120 }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
@@ -297,12 +311,11 @@ export default function HomeMultipla() {
                 </View>
               )}
               <ErrorBox erro={erro} />
-              {ok ? (
-                <T className="mt-3 font-mont-b text-sm text-primary">{ok}</T>
-              ) : null}
             </Card>
 
-            <SectionTitle>Jogos</SectionTitle>
+            <View onLayout={(e) => (jogosY.current = e.nativeEvent.layout.y)}>
+              <SectionTitle>Jogos</SectionTitle>
+            </View>
             {destaque ? renderJogo(destaque) : null}
             {outros.map(renderJogo)}
           </>
@@ -317,6 +330,7 @@ export default function HomeMultipla() {
           />
         </View>
       ) : null}
+      {toast.node}
     </View>
   );
 }
