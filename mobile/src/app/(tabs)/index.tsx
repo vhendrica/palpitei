@@ -15,6 +15,7 @@ import {
 import { AppHeader } from "../../components/AppHeader";
 import { BetButton } from "../../components/BetButton";
 import { Bilhete, type ItemBilhete } from "../../components/Bilhete";
+import { EntradaModal } from "../../components/EntradaModal";
 import { ErrorBox } from "../../components/Form";
 import { Ficha } from "../../components/Ficha";
 import { PremioBar } from "../../components/PremioBar";
@@ -98,8 +99,10 @@ export default function HomeMultipla() {
     }
   };
 
+  const [explicando, setExplicando] = useState(false);
   const entrar = () =>
     run(async () => {
+      setExplicando(false);
       irParaJogos();
       await entrarNaLiga();
       setTimeout(irParaJogos, 50);
@@ -274,13 +277,21 @@ export default function HomeMultipla() {
               onConvidar={() => convidar(home.liga?.premio_desc)}
             />
 
+            {user && !eu ? (
+              <EntradaModal
+                visible={explicando}
+                custo={home.regras.custo_entrada_pontos}
+                fichas={home.regras.fichas_por_entrada}
+                saldo={user.saldo_pontos}
+                busy={busy}
+                onConfirmar={entrar}
+                onFechar={() => setExplicando(false)}
+              />
+            ) : null}
             <Card className="mt-3">
               {!user ? (
                 <>
-                  <T className="font-mont-b text-sm">
-                    Entre com {home.regras.custo_entrada_pontos} PONTOS e receba{" "}
-                    {home.regras.fichas_por_entrada} FICHAS pra distribuir.
-                  </T>
+                  <ChamadaPalpite fichas={home.regras.fichas_por_entrada} />
                   <Button
                     title="Palpitar"
                     icon="football"
@@ -290,17 +301,11 @@ export default function HomeMultipla() {
                 </>
               ) : !eu ? (
                 <>
-                  <T className="font-mont-b text-sm">
-                    Entrada: {home.regras.custo_entrada_pontos} PONTOS →{" "}
-                    {home.regras.fichas_por_entrada} FICHAS
-                  </T>
-                  <T className="text-xs text-muted">
-                    Seu saldo: {fmtPts(user.saldo_pontos)} PONTOS
-                  </T>
+                  <ChamadaPalpite fichas={home.regras.fichas_por_entrada} />
                   <Button
                     title="Palpitar"
                     icon="football"
-                    onPress={entrar}
+                    onPress={() => setExplicando(true)}
                     loading={busy}
                     disabled={!aberta}
                     className="mt-3"
@@ -436,4 +441,18 @@ function convidar(premio?: string | null) {
   } else {
     Share.share({ message: msg });
   }
+}
+
+function ChamadaPalpite({ fichas }: { fichas: number }) {
+  return (
+    <View className="flex-row items-center">
+      <Ficha size={28} />
+      <View className="ml-3 flex-1">
+        <T className="font-mont-b text-sm">Monte seu palpite de hoje</T>
+        <T className="text-xs text-muted">
+          {fichas} fichas pra distribuir nos jogos
+        </T>
+      </View>
+    </View>
+  );
 }
