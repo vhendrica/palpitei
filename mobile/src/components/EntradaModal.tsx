@@ -70,7 +70,7 @@ export function EntradaModal({
             </View>
 
             <View className="mt-4 gap-2">
-              <Passo n={1} texto="Escolha as opções nos jogos da múltipla." />
+              <Passo n={1} texto="Escolha os mercados nos jogos da múltipla." />
               <Passo
                 n={2}
                 texto={`Distribua suas ${fichas} fichas como quiser entre elas.`}
@@ -94,7 +94,7 @@ export function EntradaModal({
             ) : null}
 
             <Button
-              title="Entrar na múltipla"
+              title="Palpitar agora"
               icon="football"
               onPress={onConfirmar}
               loading={busy}
