@@ -73,11 +73,11 @@ export function EntradaModal({
               <Passo n={1} texto="Escolha os mercados nos jogos da múltipla." />
               <Passo
                 n={2}
-                texto={`Distribua suas ${fichas} fichas como quiser entre elas.`}
+                texto={`Distribua suas ${fichas} fichas como quiser entre eles.`}
               />
               <Passo
                 n={3}
-                texto="Opção certa vale fichas × odd em pontos. Quem somar mais leva o prêmio."
+                texto="Cada palpite certo multiplica suas fichas pela odd. Quem somar mais pontos leva o prêmio."
               />
             </View>
 
