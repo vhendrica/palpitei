@@ -2,6 +2,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import type { ComponentProps } from "react";
 import { Pressable, TextInput, View } from "react-native";
 
+import { Ficha } from "./Ficha";
 import { useTheme } from "../store/Theme";
 import { T } from "./ui";
 
@@ -76,11 +77,13 @@ export function Stepper({
   onChange,
   step = 10,
   max,
+  ficha,
 }: {
   value: number;
   onChange: (v: number) => void;
   step?: number;
   max: number;
+  ficha?: boolean;
 }) {
   const { palette: C } = useTheme();
   return (
@@ -92,7 +95,14 @@ export function Stepper({
       >
         <Ionicons name="remove" size={18} color={C.fg} />
       </Pressable>
-      <T className="w-12 text-center font-odds text-base">{value}</T>
+      <View className="w-16 flex-row items-center justify-center">
+        <T className="font-odds text-base">{value}</T>
+        {ficha ? (
+          <View className="ml-1">
+            <Ficha size={16} />
+          </View>
+        ) : null}
+      </View>
       <Pressable
         onPress={() => onChange(value + Math.min(step, max))}
         disabled={max <= 0}

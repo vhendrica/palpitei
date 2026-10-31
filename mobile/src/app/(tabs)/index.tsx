@@ -6,6 +6,7 @@ import { RefreshControl, ScrollView, View } from "react-native";
 import { AppHeader } from "../../components/AppHeader";
 import { BetButton } from "../../components/BetButton";
 import { ErrorBox, Stepper } from "../../components/Form";
+import { Ficha } from "../../components/Ficha";
 import { PremioBar } from "../../components/PremioBar";
 import {
   Button,
@@ -204,6 +205,7 @@ export default function HomeMultipla() {
                     <Stepper
                       value={draft[focado.id] ?? 0}
                       max={livres}
+                      ficha
                       onChange={(v) =>
                         setDraft((d) => ({ ...d, [focado.id]: v }))
                       }
@@ -282,7 +284,7 @@ export default function HomeMultipla() {
                 </>
               ) : (
                 <View className="flex-row justify-between">
-                  <Stat label="Fichas livres" value={fmtPts(livres)} />
+                  <Stat label="Fichas livres" value={fmtPts(livres)} ficha />
                   <Stat label="Pontuação" value={fmtPts(eu.pontuacao)} />
                   <Stat
                     label="Posição"
@@ -315,10 +317,25 @@ export default function HomeMultipla() {
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({
+  label,
+  value,
+  ficha,
+}: {
+  label: string;
+  value: string;
+  ficha?: boolean;
+}) {
   return (
     <View className="items-center">
-      <T className="font-odds text-2xl text-primary">{value}</T>
+      <View className="flex-row items-center">
+        <T className="font-odds text-2xl text-primary">{value}</T>
+        {ficha ? (
+          <View className="ml-1.5">
+            <Ficha size={22} />
+          </View>
+        ) : null}
+      </View>
       <T className="text-[10px] uppercase tracking-widest text-muted">
         {label}
       </T>
