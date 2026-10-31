@@ -1,5 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Pressable, View } from "react-native";
+import { useEffect, useState } from "react";
+import { Animated, Easing, Pressable, View } from "react-native";
 
 import { fmtPts } from "../lib/format";
 import { useTheme } from "../store/Theme";
@@ -68,15 +69,59 @@ export function PremioBar({
               style={{ width: `${pct}%` }}
             />
           </View>
-          <T className="mt-1.5 text-xs text-muted">
-            {meta_atingida
-              ? `Meta batida: prêmio de ${fmtReais(meta.valor)}`
-              : premio.proxima
-                ? `Faltam ${premio.proxima.faltam} ${premio.proxima.faltam === 1 ? "palpiteiro" : "palpiteiros"} pro prêmio de ${fmtReais(premio.proxima.valor)}`
-                : `Faltam ${faltam_meta} palpiteiros pro prêmio de ${fmtReais(meta.valor)}`}
-          </T>
+          <View className="mt-1.5 flex-row items-center">
+            {meta_atingida ? null : <Foguinho />}
+            <T
+              className={`flex-1 text-xs ${meta_atingida ? "text-muted" : "font-mont-b text-fg"}`}
+            >
+              {meta_atingida
+                ? `Meta batida: prêmio de ${fmtReais(meta.valor)}`
+                : premio.proxima
+                  ? `Faltam ${premio.proxima.faltam} ${premio.proxima.faltam === 1 ? "palpiteiro" : "palpiteiros"} pro prêmio de ${fmtReais(premio.proxima.valor)}`
+                  : `Faltam ${faltam_meta} palpiteiros pro prêmio de ${fmtReais(meta.valor)}`}
+            </T>
+          </View>
         </>
       ) : null}
     </View>
+  );
+}
+
+function Foguinho() {
+  const [anim] = useState(() => new Animated.Value(0));
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(anim, {
+          toValue: 1,
+          duration: 450,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+        Animated.timing(anim, {
+          toValue: 0,
+          duration: 450,
+          easing: Easing.inOut(Easing.quad),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [anim]);
+  const scale = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.85, 1.15],
+  });
+  const rotate = anim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["-6deg", "6deg"],
+  });
+  return (
+    <Animated.View
+      style={{ marginRight: 6, transform: [{ scale }, { rotate }] }}
+    >
+      <Ionicons name="flame" size={16} color="#FF6A00" />
+    </Animated.View>
   );
 }
