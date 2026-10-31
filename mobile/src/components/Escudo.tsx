@@ -1,16 +1,16 @@
 import { useState } from "react";
 import { Image, View } from "react-native";
 
-import { escudoUrl } from "../lib/escudos";
+import { escudo } from "../lib/escudos";
 import { T } from "./ui";
 
 export function Escudo({ time, size = 40 }: { time: string; size?: number }) {
   const [erro, setErro] = useState(false);
-  const url = escudoUrl(time);
-  if (url && !erro)
+  const src = escudo(time);
+  if (src && !erro)
     return (
       <Image
-        source={{ uri: url }}
+        source={src}
         style={{ width: size, height: size }}
         resizeMode="contain"
         onError={() => setErro(true)}

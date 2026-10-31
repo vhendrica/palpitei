@@ -1,3 +1,5 @@
+import type { ImageSourcePropType } from "react-native";
+
 /** IDs da API-Football (Série A e B 2022–2024) por nome normalizado do time. */
 const IDS: Record<string, number> = {
   abc: 754,
@@ -70,7 +72,57 @@ const norm = (s: string) =>
     .toLowerCase()
     .replace(/[^a-z0-9]/g, "");
 
-export function escudoUrl(time: string): string | null {
+/** Escudos empacotados no app (origem: media.api-sports.io), sem depender de rede externa. */
+const IMAGENS: Record<number, ImageSourcePropType> = {
+  118: require("../../assets/escudos/118.png"),
+  119: require("../../assets/escudos/119.png"),
+  120: require("../../assets/escudos/120.png"),
+  121: require("../../assets/escudos/121.png"),
+  123: require("../../assets/escudos/123.png"),
+  124: require("../../assets/escudos/124.png"),
+  125: require("../../assets/escudos/125.png"),
+  126: require("../../assets/escudos/126.png"),
+  127: require("../../assets/escudos/127.png"),
+  128: require("../../assets/escudos/128.png"),
+  129: require("../../assets/escudos/129.png"),
+  130: require("../../assets/escudos/130.png"),
+  131: require("../../assets/escudos/131.png"),
+  132: require("../../assets/escudos/132.png"),
+  133: require("../../assets/escudos/133.png"),
+  134: require("../../assets/escudos/134.png"),
+  135: require("../../assets/escudos/135.png"),
+  136: require("../../assets/escudos/136.png"),
+  138: require("../../assets/escudos/138.png"),
+  139: require("../../assets/escudos/139.png"),
+  140: require("../../assets/escudos/140.png"),
+  142: require("../../assets/escudos/142.png"),
+  144: require("../../assets/escudos/144.png"),
+  145: require("../../assets/escudos/145.png"),
+  146: require("../../assets/escudos/146.png"),
+  147: require("../../assets/escudos/147.png"),
+  148: require("../../assets/escudos/148.png"),
+  149: require("../../assets/escudos/149.png"),
+  150: require("../../assets/escudos/150.png"),
+  151: require("../../assets/escudos/151.png"),
+  152: require("../../assets/escudos/152.png"),
+  154: require("../../assets/escudos/154.png"),
+  155: require("../../assets/escudos/155.png"),
+  754: require("../../assets/escudos/754.png"),
+  755: require("../../assets/escudos/755.png"),
+  794: require("../../assets/escudos/794.png"),
+  1062: require("../../assets/escudos/1062.png"),
+  1193: require("../../assets/escudos/1193.png"),
+  1211: require("../../assets/escudos/1211.png"),
+  1223: require("../../assets/escudos/1223.png"),
+  2227: require("../../assets/escudos/2227.png"),
+  2618: require("../../assets/escudos/2618.png"),
+  7779: require("../../assets/escudos/7779.png"),
+  7834: require("../../assets/escudos/7834.png"),
+  7848: require("../../assets/escudos/7848.png"),
+  10862: require("../../assets/escudos/10862.png"),
+};
+
+export function escudo(time: string): ImageSourcePropType | null {
   const id = IDS[norm(time)];
-  return id ? `https://media.api-sports.io/football/teams/${id}.png` : null;
+  return (id && IMAGENS[id]) || null;
 }
