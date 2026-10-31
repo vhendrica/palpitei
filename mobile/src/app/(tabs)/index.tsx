@@ -235,13 +235,17 @@ export default function HomeMultipla() {
         {!home.liga ? (
           <EmptyState
             icon="calendar-outline"
-            title="O palpite de hoje ainda não saiu"
+            title="Nenhuma múltipla aberta agora"
             subtitle="Volte mais tarde: os jogos do dia estão sendo escolhidos."
           />
         ) : (
           <>
             <View className="mb-3 flex-row items-center justify-between">
-              <T className="font-mont-xb text-xl">Múltipla do dia</T>
+              <T className="font-mont-xb text-xl">
+                {home.liga.data === home.data
+                  ? "Múltipla do dia"
+                  : `Múltipla de ${home.liga.data.slice(8, 10)}/${home.liga.data.slice(5, 7)}`}
+              </T>
               <StatusBadge status={home.liga.status} />
             </View>
             <PremioBar

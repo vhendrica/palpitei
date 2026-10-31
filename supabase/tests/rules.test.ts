@@ -8,6 +8,7 @@ import {
   entrarNaLiga,
   fichasDisponiveis,
   finalizarLiga,
+  getLigaAtual,
   reativarLiga,
   pontuacaoUsuario,
 } from '../functions/_core/rules.ts';
@@ -247,4 +248,15 @@ describe('finalizarLiga', () => {
     assert.equal(r.voucher, null);
     assert.equal(r.premio_final, 0);
   });
+});
+
+test('liga atual: próxima múltipla não finalizada a partir de hoje; senão a de hoje', async () => {
+  assert.equal(await getLigaAtual(sql, '2030-01-01'), null);
+  await criarLiga(sql, '2029-12-30', 'aberta');
+  await criarLiga(sql, '2030-01-01', 'finalizada');
+  assert.equal((await getLigaAtual(sql, '2030-01-01'))?.data, '2030-01-01');
+  await criarLiga(sql, '2030-01-03', 'aberta');
+  await criarLiga(sql, '2030-01-02', 'em_andamento');
+  assert.equal((await getLigaAtual(sql, '2030-01-01'))?.data, '2030-01-02');
+  assert.equal((await getLigaAtual(sql, '2030-01-04')), null);
 });

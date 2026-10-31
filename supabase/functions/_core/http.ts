@@ -3,7 +3,7 @@ import * as auth from './auth.ts';
 import type { Db } from './db.ts';
 import { ForbiddenError, NotFoundError, RuleError } from './errors.ts';
 import { importarOdds, mercadosDaApi, type OddsConfig } from './odds.ts';
-import { apostar, entrarNaLiga, finalizarLiga, reativarLiga, getLigaPorData } from './rules.ts';
+import { apostar, entrarNaLiga, finalizarLiga, reativarLiga, getLigaAtual } from './rules.ts';
 import { home, jogosComMercados, perfil, rankingDoDia } from './services.ts';
 import { hojeISO } from './validation.ts';
 import type { WhatsappSender } from './whatsapp.ts';
@@ -37,8 +37,8 @@ export function createApi(deps: ApiDeps) {
   const hoje = () => (deps.hoje ?? hojeISO)();
 
   const ligaDeHoje = async () => {
-    const liga = await getLigaPorData(sql, hoje());
-    if (!liga) throw new NotFoundError('Ainda não tem múltipla hoje. Volte mais tarde!');
+    const liga = await getLigaAtual(sql, hoje());
+    if (!liga) throw new NotFoundError('Ainda não tem múltipla aberta. Volte mais tarde!');
     return liga;
   };
 

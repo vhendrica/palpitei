@@ -7,7 +7,7 @@ import {
   fichasUsadas,
   getEntrada,
   getEscada,
-  getLigaPorData,
+  getLigaAtual,
   type LigaRow,
   pontuacaoUsuario,
 } from './rules.ts';
@@ -104,7 +104,7 @@ async function minhaSituacao(db: Db, userId: string, liga: LigaRow) {
 
 /** Tudo que a home precisa: múltipla do dia, jogos (com destaque), barra do prêmio e situação do usuário. */
 export async function home(db: Db, user: UserPublico | null, data = hojeISO()) {
-  const [liga, config] = await Promise.all([getLigaPorData(db, data), getConfig(db)]);
+  const [liga, config] = await Promise.all([getLigaAtual(db, data), getConfig(db)]);
   const base = {
     data,
     regras: {
@@ -123,7 +123,7 @@ export async function home(db: Db, user: UserPublico | null, data = hojeISO()) {
 }
 
 export async function rankingDoDia(db: Db, user: UserPublico | null, data = hojeISO()) {
-  const liga = await getLigaPorData(db, data);
+  const liga = await getLigaAtual(db, data);
   if (!liga) return { data, liga: null, ranking: [] };
   const ranking = await calcularRanking(db, liga.id);
   return {

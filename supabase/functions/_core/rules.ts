@@ -63,6 +63,16 @@ export async function getLigaPorData(db: Db, data: string): Promise<LigaRow | nu
   return row ? mapLiga(row) : null;
 }
 
+/** Múltipla em vigor: a próxima ainda não finalizada a partir de hoje; senão, a de hoje. */
+export async function getLigaAtual(db: Db, hoje: string): Promise<LigaRow | null> {
+  const [row] = await db`
+    select * from ligas
+    where (data >= ${hoje} and status <> 'finalizada') or data = ${hoje}
+    order by (status <> 'finalizada') desc, data
+    limit 1`;
+  return row ? mapLiga(row) : null;
+}
+
 export async function getEscada(db: Db): Promise<Faixa[]> {
   const rows = await db`select ordem, usuarios_min, valor from premio_escada order by ordem`;
   return rows.map((r) => ({ ordem: num(r.ordem), usuarios_min: num(r.usuarios_min), valor: num(r.valor) }));

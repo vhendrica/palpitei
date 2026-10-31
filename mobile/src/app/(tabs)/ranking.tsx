@@ -53,7 +53,7 @@ export default function Ranking() {
       >
         <ErrorBox erro={erro} />
         {semLiga ? (
-          <EmptyState icon="trophy-outline" title="Sem palpite hoje ainda" />
+          <EmptyState icon="trophy-outline" title="Nenhuma múltipla aberta agora" />
         ) : rows && rows.length === 0 ? (
           <EmptyState
             icon="people-outline"
