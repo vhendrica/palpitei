@@ -17,12 +17,14 @@ export function PremioBar({
   descricao,
   onPalpiteiros,
   semContagem,
+  onConvidar,
 }: {
   premio: Premio;
   finalizada?: boolean;
   descricao?: string | null;
   onPalpiteiros?: () => void;
   semContagem?: boolean;
+  onConvidar?: () => void;
 }) {
   const { palette: C } = useTheme();
   const { meta, palpiteiros, premio_atual, meta_atingida, faltam_meta } =
@@ -82,6 +84,17 @@ export function PremioBar({
             </T>
           </View>
         </>
+      ) : null}
+      {onConvidar && !finalizada ? (
+        <Pressable
+          onPress={onConvidar}
+          className="mt-3 flex-row items-center justify-center rounded-lg border border-primary py-2 active:opacity-70"
+        >
+          <Ionicons name="logo-whatsapp" size={16} color={C.primary} />
+          <T className="ml-1.5 font-mont-b text-xs uppercase tracking-widest text-primary">
+            Convidar amigos
+          </T>
+        </Pressable>
       ) : null}
     </View>
   );

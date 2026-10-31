@@ -271,6 +271,7 @@ export default function HomeMultipla() {
               descricao={home.liga.premio_desc}
               onPalpiteiros={eu ? undefined : () => router.push("/palpiteiros")}
               semContagem={!!eu}
+              onConvidar={() => convidar(home.liga?.premio_desc)}
             />
 
             <Card className="mt-3">
@@ -339,13 +340,6 @@ export default function HomeMultipla() {
               )}
               <ErrorBox erro={erro} />
             </Card>
-            <Button
-              title="Convidar amigos"
-              icon="logo-whatsapp"
-              variant="outline"
-              onPress={() => convidar(home.liga?.premio_desc)}
-              className="mt-2"
-            />
 
             <View onLayout={(e) => (jogosY.current = e.nativeEvent.layout.y)}>
               <SectionTitle>Jogos</SectionTitle>
