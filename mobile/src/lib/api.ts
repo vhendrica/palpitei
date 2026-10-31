@@ -98,6 +98,8 @@ export const api = {
     mercados: (jogoId: string, mercados: { id?: string; grupo: string; descricao: string; multiplicador: number }[]) =>
       req<LigaAdmin>('PUT', `/admin/jogos/${jogoId}/mercados`, { mercados }),
     ligas: () => req<{ ligas: LigaHistorico[] }>('GET', '/admin/ligas'),
+    removerPalpiteiro: (ligaId: string, userId: string) =>
+      req<LigaAdmin>('DELETE', `/admin/liga/${ligaId}/palpiteiros/${userId}`),
     reativar: (ligaId: string) => req<{ ok: true }>('POST', `/admin/liga/${ligaId}/reativar`),
     finalizar: (ligaId: string, mercados_vencedores: string[]) =>
       req<{ premio_final: number; palpiteiros: number; voucher: { codigo: string; valor: number } | null }>(

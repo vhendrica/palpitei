@@ -101,6 +101,8 @@ export function createApi(deps: ApiDeps) {
       return admin.selecionarJogos(sql, { data: b.data ?? hoje(), fixture_ids: b.fixture_ids, premio_desc: b.premio_desc });
     }],
     ['PATCH', /^\/admin\/liga\/([^/]+)$/, async (c) => (await c.requireAdmin(), admin.atualizarLiga(sql, c.params[0], await c.body()))],
+    ['DELETE', /^\/admin\/liga\/([^/]+)\/palpiteiros\/([^/]+)$/, async (c) =>
+      (await c.requireAdmin(), admin.removerPalpiteiro(sql, c.params[0], c.params[1]))],
     ['GET', /^\/admin\/ligas$/, async (c) => (await c.requireAdmin(), admin.listarLigas(sql))],
     ['POST', /^\/admin\/liga\/([^/]+)\/reativar$/, async (c) => (await c.requireAdmin(), reativarLiga(sql, c.params[0]))],
     ['POST', /^\/admin\/liga\/([^/]+)\/finalizar$/, async (c) => {

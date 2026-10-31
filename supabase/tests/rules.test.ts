@@ -12,6 +12,7 @@ import {
   reativarLiga,
   pontuacaoUsuario,
 } from '../functions/_core/rules.ts';
+import { removerPalpiteiro } from '../functions/_core/admin.ts';
 import { criarLiga, criarUser, limpar, saldo, setupDb, type Sql } from './helpers.ts';
 
 let sql: Sql;
@@ -259,4 +260,23 @@ test('liga atual: próxima múltipla não finalizada a partir de hoje; senão a 
   await criarLiga(sql, '2030-01-02', 'em_andamento');
   assert.equal((await getLigaAtual(sql, '2030-01-01'))?.data, '2030-01-02');
   assert.equal((await getLigaAtual(sql, '2030-01-04')), null);
+});
+
+test('remover palpiteiro apaga as fichas e a entrada e devolve os PONTOS', async () => {
+  const a = await criarUser(sql);
+  const b = await criarUser(sql);
+  const { ligaId, mercados } = await criarLiga(sql);
+  await entrarNaLiga(sql, a, ligaId);
+  await entrarNaLiga(sql, b, ligaId);
+  await apostar(sql, a, ligaId, { [mercados[0]]: 50 });
+  await apostar(sql, b, ligaId, { [mercados[0]]: 30 });
+  const r = await removerPalpiteiro(sql, ligaId, a);
+  assert.equal(r.palpiteiros, 1);
+  assert.equal(r.participantes[0].fichas_apostadas, 30);
+  assert.equal(await saldo(sql, a), 500);
+  assert.equal((await sql`select 1 from apostas where user_id = ${a}`).length, 0);
+  await assert.rejects(removerPalpiteiro(sql, ligaId, a), { message: 'Palpiteiro não encontrado.' });
+  await entrarNaLiga(sql, a, ligaId);
+  await finalizarLiga(sql, ligaId, [mercados[0]]);
+  await assert.rejects(removerPalpiteiro(sql, ligaId, b), { message: 'Reative o palpite antes de remover palpiteiros.' });
 });

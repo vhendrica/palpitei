@@ -150,13 +150,46 @@ export async function selecionarJogos(sql: Db, input: { data: unknown; fixture_i
 
 export async function ligaAdmin(db: Db, ligaId: string) {
   const liga = await getLiga(db, ligaId);
-  const [{ n }] = await db`select count(*)::int as n from entradas where liga_id = ${ligaId}`;
-  return { liga, palpiteiros: num(n), jogos: await jogosComMercados(db, ligaId) };
+  const participantes = await db`
+    select e.user_id, u.nome, u.bairro,
+      coalesce((select sum(a.fichas_apostadas) from apostas a join mercados m on m.id = a.mercado_id
+        join jogos j on j.id = m.jogo_id where j.liga_id = ${ligaId} and a.user_id = e.user_id), 0)::int as fichas_apostadas
+    from entradas e join users u on u.id = e.user_id
+    where e.liga_id = ${ligaId}
+    order by e.created_at`;
+  return {
+    liga,
+    palpiteiros: participantes.length,
+    participantes: participantes.map((p) => ({
+      user_id: p.user_id as string,
+      nome: p.nome as string,
+      bairro: p.bairro as string,
+      fichas_apostadas: num(p.fichas_apostadas),
+    })),
+    jogos: await jogosComMercados(db, ligaId),
+  };
+}
+
+/** Tira o usuário da múltipla: apaga as fichas apostadas e a entrada e devolve os PONTOS pagos. */
+export async function removerPalpiteiro(sql: Db, ligaId: string, userId: string) {
+  if (!isUuid(userId)) throw new NotFoundError('Palpiteiro não encontrado.');
+  await sql.begin(async (tx: Tx) => {
+    const liga = await getLiga(tx, ligaId, 'for update');
+    if (liga.status === 'finalizada') throw new RuleError('Reative o palpite antes de remover palpiteiros.');
+    const [e] = await tx`select pontos_pagos from entradas where liga_id = ${ligaId} and user_id = ${userId} for update`;
+    if (!e) throw new NotFoundError('Palpiteiro não encontrado.');
+    await tx`
+      delete from apostas a using mercados m, jogos j
+      where a.mercado_id = m.id and m.jogo_id = j.id and j.liga_id = ${ligaId} and a.user_id = ${userId}`;
+    await tx`delete from entradas where liga_id = ${ligaId} and user_id = ${userId}`;
+    await tx`update users set saldo_pontos = saldo_pontos + ${e.pontos_pagos} where id = ${userId}`;
+  });
+  return ligaAdmin(sql, ligaId);
 }
 
 export async function ligaAdminPorData(db: Db, data: string) {
   const liga = await getLigaPorData(db, validarDataISO(data));
-  return liga ? ligaAdmin(db, liga.id) : { liga: null, palpiteiros: 0, jogos: [] };
+  return liga ? ligaAdmin(db, liga.id) : { liga: null, palpiteiros: 0, participantes: [], jogos: [] };
 }
 
 export async function marcarDestaque(sql: Db, jogoId: string) {

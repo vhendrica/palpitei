@@ -163,5 +163,11 @@ export type LigaHistorico = {
 export type LigaAdmin = {
   liga: Liga | null;
   palpiteiros: number;
+  participantes: {
+    user_id: string;
+    nome: string;
+    bairro: string;
+    fichas_apostadas: number;
+  }[];
   jogos: Jogo[];
 };

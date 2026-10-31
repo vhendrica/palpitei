@@ -116,6 +116,7 @@ function AbaLiga({ data, run }: { data: string; run: Run }) {
   const [la, setLa] = useState<LigaAdmin | null>(null);
   const [vencedores, setVencedores] = useState<Record<string, boolean>>({});
   const [premioDesc, setPremioDesc] = useState("");
+  const [removendo, setRemovendo] = useState<string | null>(null);
 
   const load = useCallback(
     () =>
@@ -203,6 +204,52 @@ function AbaLiga({ data, run }: { data: string; run: Run }) {
               />
             </View>
           </>
+        ) : null}
+      </Card>
+
+      <SectionTitle>Palpiteiros ({la.palpiteiros})</SectionTitle>
+      <Card>
+        {la.participantes.length === 0 ? (
+          <T className="text-sm text-muted">Ninguém entrou ainda.</T>
+        ) : (
+          la.participantes.map((p) => (
+            <View
+              key={p.user_id}
+              className="flex-row items-center border-b border-line py-2"
+            >
+              <View className="flex-1 pr-2">
+                <T className="font-mont-b text-sm">{p.nome}</T>
+                <T className="text-xs text-muted">
+                  {p.bairro} • {p.fichas_apostadas} fichas apostadas
+                </T>
+              </View>
+              {!fechada ? (
+                <Button
+                  title={removendo === p.user_id ? "Confirmar" : "Remover"}
+                  variant={removendo === p.user_id ? "danger" : "outline"}
+                  onPress={() => {
+                    if (removendo !== p.user_id) return setRemovendo(p.user_id);
+                    setRemovendo(null);
+                    run(async () => {
+                      setLa(await api.admin.removerPalpiteiro(liga.id, p.user_id));
+                      return `${p.nome} removido: fichas apagadas e ${liga.custo_entrada} PONTOS devolvidos.`;
+                    });
+                  }}
+                />
+              ) : null}
+            </View>
+          ))
+        )}
+        {removendo ? (
+          <T className="mt-2 text-xs text-muted">
+            Toque em Confirmar pra remover. As fichas dele são apagadas e os
+            PONTOS da entrada voltam pro saldo.
+          </T>
+        ) : null}
+        {fechada && la.participantes.length > 0 ? (
+          <T className="mt-2 text-xs text-muted">
+            Pra remover palpiteiros, reative a múltipla no Histórico.
+          </T>
         ) : null}
       </Card>
 
