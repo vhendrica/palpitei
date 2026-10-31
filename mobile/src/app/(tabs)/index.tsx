@@ -487,9 +487,21 @@ function CarrosselJogos({
 }) {
   const [largura, setLargura] = useState(0);
   const [atual, setAtual] = useState(0);
+  const carrossel = useRef<ScrollViewInstance>(null);
+  useEffect(() => {
+    if (jogos.length < 2 || !largura) return;
+    const t = setTimeout(() => {
+      carrossel.current?.scrollTo({
+        x: ((atual + 1) % jogos.length) * largura,
+        animated: true,
+      });
+    }, 5000);
+    return () => clearTimeout(t);
+  }, [atual, largura, jogos.length]);
   return (
     <View onLayout={(e) => setLargura(e.nativeEvent.layout.width)}>
       <ScrollView
+        ref={carrossel}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
@@ -527,15 +539,13 @@ function SlideJogo({ jogo, onOdd }: { jogo: Jogo; onOdd: () => void }) {
   return (
     <View>
       <View className="flex-row items-center">
-        {jogo.destaque ? (
-          <Ionicons name="star" size={12} color={C.primary} />
-        ) : (
-          <Ionicons name="football" size={12} color={C.primary} />
-        )}
-        <T className="ml-1 font-mont-b text-[10px] uppercase tracking-widest text-primary">
-          {jogo.destaque ? "Jogo do dia" : jogo.campeonato} •{" "}
-          {fmtData(jogo.horario)}
+        <Ionicons name="football" size={12} color={C.primary} />
+        <T className="ml-1 flex-1 font-mont-b text-[10px] uppercase tracking-widest text-primary">
+          Múltipla do dia • {fmtData(jogo.horario)}
         </T>
+        {jogo.destaque ? (
+          <Ionicons name="star" size={16} color={C.primary} />
+        ) : null}
       </View>
       <View className="my-3 flex-row items-center justify-between">
         <Time nome={jogo.time_casa} />
