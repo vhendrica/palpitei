@@ -17,6 +17,7 @@ module.exports = {
         header: 'rgb(var(--c-header) / <alpha-value>)',
         onHeader: 'rgb(var(--c-on-header) / <alpha-value>)',
         headerAccent: 'rgb(var(--c-header-accent) / <alpha-value>)',
+        logoText: 'rgb(var(--c-logo-text) / <alpha-value>)',
         danger: 'rgb(var(--c-danger) / <alpha-value>)',
         gold: 'rgb(var(--c-gold) / <alpha-value>)',
       },

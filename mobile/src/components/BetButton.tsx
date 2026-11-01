@@ -2,6 +2,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { Pressable, View } from "react-native";
 
 import { fmtOdd } from "../lib/format";
+import { Ficha } from "./Ficha";
 import { T } from "./ui";
 import { useTheme } from "../store/Theme";
 
@@ -12,6 +13,10 @@ type Props = {
   resultado?: "green" | "red" | null;
   compact?: boolean;
   disabled?: boolean;
+  /** Fichas já confirmadas nesta opção: borda verde + selo com a pilha. */
+  fichas?: number;
+  /** Selos dos grupos do bilhete (S, M1, M2…) por cima da odd. */
+  selos?: { label: string; cor: string }[];
   onPress?: () => void;
 };
 
@@ -23,14 +28,17 @@ export function BetButton({
   resultado,
   compact,
   disabled,
+  fichas = 0,
+  selos = [],
   onPress,
 }: Props) {
   const { palette: C } = useTheme();
+  const minha = fichas > 0 && !selected;
   const border =
-    resultado === "green"
+    resultado === "green" || selected
       ? "border-primary"
-      : selected
-        ? "border-primary"
+      : minha
+        ? "border-2 border-primary"
         : "border-line";
   const bg = selected ? "bg-primary" : "bg-cardAlt";
   const descColor = selected ? "text-onPrimary" : "text-fg";
@@ -74,6 +82,28 @@ export function BetButton({
       >
         {fmtOdd(multiplicador)}
       </T>
+      {selos.length > 0 ? (
+        <View
+          pointerEvents="none"
+          className="flex-row"
+          style={{ position: "absolute", top: -9, left: 0, right: 0, justifyContent: "center", gap: 2 }}
+        >
+          {selos.map((s) => (
+            <View key={s.label} className="rounded-full px-1.5" style={{ backgroundColor: s.cor }}>
+              <T className="font-mont-xb text-[9px] text-white">{s.label}</T>
+            </View>
+          ))}
+        </View>
+      ) : null}
+      {fichas > 0 ? (
+        <View
+          className="flex-row items-center rounded-full bg-fg px-1.5 py-0.5"
+          style={{ position: "absolute", top: -9, right: -4 }}
+        >
+          <T className="mr-0.5 font-odds text-[11px] text-bg">{fichas}</T>
+          <Ficha size={11} />
+        </View>
+      ) : null}
     </Pressable>
   );
 }

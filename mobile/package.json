@@ -40,7 +40,6 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "test": "node --test --import tsx src/lib/rules.test.ts",
     "typecheck": "tsc --noEmit",
     "lint": "expo lint"
   },

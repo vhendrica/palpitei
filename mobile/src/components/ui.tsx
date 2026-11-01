@@ -13,7 +13,7 @@ import type { LigaStatus } from "../types";
 import { useTheme } from "../store/Theme";
 
 const TEXT_COLOR =
-  /(^|\s)text-(white|black|fg|muted|primary|onPrimary|danger|gold|onHeader|headerAccent|bg)(\/|\s|$)/;
+  /(^|\s)text-(white|black|fg|muted|primary|onPrimary|danger|gold|onHeader|headerAccent|logoText|bg)(\/|\s|$)/;
 
 export function T({
   className = "",

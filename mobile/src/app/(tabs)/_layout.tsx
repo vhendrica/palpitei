@@ -1,6 +1,8 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Tabs } from "expo-router/js-tabs";
 import type { ColorValue } from "react-native";
+
+import { useApp } from "../../store/AppStore";
 import { useTheme } from "../../store/Theme";
 
 type IconName = keyof typeof Ionicons.glyphMap;
@@ -16,6 +18,7 @@ const icon = (active: IconName, inactive: IconName) =>
 
 export default function TabsLayout() {
   const { palette: C } = useTheme();
+  const { user } = useApp();
   return (
     <Tabs
       screenOptions={{
@@ -33,12 +36,8 @@ export default function TabsLayout() {
     >
       <Tabs.Screen
         name="index"
-        options={{ title: "Home", tabBarIcon: icon("home", "home-outline") }}
-      />
-      <Tabs.Screen
-        name="ligas"
         options={{
-          title: "Palpites",
+          title: "Palpite",
           tabBarIcon: icon("football", "football-outline"),
         }}
       />
@@ -54,6 +53,14 @@ export default function TabsLayout() {
         options={{
           title: "Perfil",
           tabBarIcon: icon("person", "person-outline"),
+        }}
+      />
+      <Tabs.Screen
+        name="admin"
+        options={{
+          title: "Admin",
+          href: user?.is_admin ? undefined : null,
+          tabBarIcon: icon("construct", "construct-outline"),
         }}
       />
     </Tabs>
