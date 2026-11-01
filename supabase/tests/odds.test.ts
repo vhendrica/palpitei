@@ -48,14 +48,24 @@ test('mercadosDoEvento usa a mediana das casas', () => {
 });
 
 test('importarOdds faz upsert só dos jogos do dia (fuso de Fortaleza) e é idempotente', async () => {
-  const r = await importarOdds(sql, { apiKey: 'k', fetch: fakeFetch }, '2030-03-10');
+  const so = ['soccer_brazil_campeonato'];
+  const r = await importarOdds(sql, { apiKey: 'k', fetch: fakeFetch, esportes: so }, '2030-03-10');
   assert.equal(r.importados.length, 3);
   assert.equal(r.creditos_restantes, 480);
-  await importarOdds(sql, { apiKey: 'k', fetch: fakeFetch }, '2030-03-10');
+  await importarOdds(sql, { apiKey: 'k', fetch: fakeFetch, esportes: so }, '2030-03-10');
   const rows = await sql`select * from fixtures_dia order by horario`;
   assert.equal(rows.length, 3);
   assert.equal(rows[0].fonte, 'the_odds_api');
   assert.equal(rows[0].campeonato, 'Brasileirão Série A');
+});
+
+test('padrão importa Brasileirão, La Liga e Premier League', async () => {
+  const urls: string[] = [];
+  await importarOdds(sql, { apiKey: 'k', fetch: ((u: string) => (urls.push(u), fakeFetch(u))) as typeof fetch }, '2030-03-10');
+  assert.deepEqual(
+    urls.map((u) => u.match(/sports\/([^/]+)\//)![1]),
+    ['soccer_brazil_campeonato', 'soccer_spain_la_liga', 'soccer_epl'],
+  );
 });
 
 test('sem chave configurada dá erro amigável', async () => {

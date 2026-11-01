@@ -18,7 +18,6 @@ import { BetButton } from "../../components/BetButton";
 import { Bilhete, type OpcaoBilhete } from "../../components/Bilhete";
 import { ResumoBilhete } from "../../components/ResumoBilhete";
 import { EntradaModal } from "../../components/EntradaModal";
-import { Escudo } from "../../components/Escudo";
 import { ErrorBox } from "../../components/Form";
 import { Ficha } from "../../components/Ficha";
 import { PremioBar, PremioLinha } from "../../components/PremioBar";
@@ -622,8 +621,7 @@ function SlideJogo({ jogo, onOdd }: { jogo: Jogo; onOdd: () => void }) {
 function Time({ nome }: { nome: string }) {
   return (
     <View className="w-[42%] items-center">
-      <Escudo time={nome} size={44} />
-      <T className="mt-1 text-center font-mont-b text-sm" numberOfLines={1}>
+      <T className="text-center font-mont-xb text-base" numberOfLines={2}>
         {nome}
       </T>
     </View>
