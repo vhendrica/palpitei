@@ -11,6 +11,10 @@ rm -rf "$DECK/public/app"
 (cd "$APP" && EXPO_BASE_URL="/$REPO/app" npx expo export --platform web --output-dir "$DECK/public/app")
 (cd "$DECK" && rm -rf out .next && PAGES_BASE_PATH="/$REPO" npx next build)
 touch "$DECK/out/.nojekyll"
+# App em modo "single": copia o index.html para cada rota, para links diretos/F5 funcionarem no Pages.
+for r in entrar cadastro codigo palpiteiros ranking perfil admin; do
+  mkdir -p "$DECK/out/app/$r" && cp "$DECK/out/app/index.html" "$DECK/out/app/$r/index.html"
+done
 
 # Volta o app para o caminho usado no `next start` local.
 rm -rf "$DECK/public/app"
