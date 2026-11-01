@@ -59,12 +59,12 @@ test('importarOdds faz upsert só dos jogos do dia (fuso de Fortaleza) e é idem
   assert.equal(rows[0].campeonato, 'Brasileirão Série A');
 });
 
-test('padrão importa Brasileirão, La Liga e Premier League', async () => {
+test('padrão importa Brasileirão A e B, La Liga e Premier League', async () => {
   const urls: string[] = [];
   await importarOdds(sql, { apiKey: 'k', fetch: ((u: string) => (urls.push(u), fakeFetch(u))) as typeof fetch }, '2030-03-10');
   assert.deepEqual(
     urls.map((u) => u.match(/sports\/([^/]+)\//)![1]),
-    ['soccer_brazil_campeonato', 'soccer_spain_la_liga', 'soccer_epl'],
+    ['soccer_brazil_campeonato', 'soccer_brazil_serie_b', 'soccer_spain_la_liga', 'soccer_epl'],
   );
 });
 

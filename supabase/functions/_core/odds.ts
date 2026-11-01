@@ -5,7 +5,7 @@ import { validarDataISO } from './validation.ts';
 /** Integração com a The Odds API (https://the-odds-api.com/liveapi/guides/v4/). Cada import custa markets×regions créditos por campeonato. */
 export type OddsConfig = { apiKey: string; esportes?: string[]; fetch?: typeof fetch };
 
-export const ESPORTES_PADRAO = ['soccer_brazil_campeonato', 'soccer_spain_la_liga', 'soccer_epl'];
+export const ESPORTES_PADRAO = ['soccer_brazil_campeonato', 'soccer_brazil_serie_b', 'soccer_spain_la_liga', 'soccer_epl'];
 const NOMES: Record<string, string> = {
   soccer_brazil_campeonato: 'Brasileirão Série A',
   soccer_brazil_serie_b: 'Brasileirão Série B',
