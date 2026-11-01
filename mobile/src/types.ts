@@ -114,6 +114,10 @@ export type PalpiteiroView = {
   nome: string;
   entrou_em: string;
   eu: boolean;
+  posicao: number | null;
+  pontuacao: number;
+  /** Potencial máximo de pontos (só no próprio bilhete). */
+  potencial: number | null;
   /** Simples. Dos outros, só os jogos que já começaram, sem fichas. */
   palpites: {
     jogo: string;

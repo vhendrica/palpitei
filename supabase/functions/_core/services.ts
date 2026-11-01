@@ -1,5 +1,5 @@
 import type { UserPublico } from './auth.ts';
-import { oddTotal } from './compat.ts';
+import { exato, oddTotal } from './compat.ts';
 import { type Db, iso, num } from './db.ts';
 import { progressoPremio } from './premio.ts';
 import {
@@ -246,6 +246,7 @@ export async function palpiteirosDoDia(db: Db, user: UserPublico | null, data = 
        order by j.destaque desc, j.horario, j.ordem, m.ordem`,
     multiplasDaLiga(db, liga.id),
   ]);
+  const ranking = await calcularRanking(db, liga.id);
   const tudo = liga.status === 'finalizada';
   return {
     data,
@@ -282,13 +283,29 @@ export async function palpiteirosDoDia(db: Db, user: UserPublico | null, data = 
           };
         })
         .filter((m) => m.pernas.length > 0);
+      const r = ranking.find((x) => x.user_id === e.user_id);
+      // Potencial (só do próprio usuário): o que ainda pode render, somando o que já bateu.
+      const potencial = eu
+        ? exato(
+            apostas
+              .filter((a) => a.user_id === e.user_id && !(a.finalizado && !a.resultado_final))
+              .reduce((t, a) => t + num(a.fichas) * num(a.multiplicador), 0) +
+              multiplas
+                .filter((m) => m.user_id === e.user_id && !m.pernas.some((p) => p.finalizado && !p.resultado_final))
+                .reduce((t, m) => t + m.fichas * m.odd, 0),
+          )
+        : null;
       return {
         nome: e.nome as string,
         entrou_em: iso(e.created_at)!,
         eu,
+        posicao: r?.posicao ?? null,
+        pontuacao: r?.pontuacao ?? 0,
+        potencial,
         palpites,
         multiplas: minhas,
       };
-    }),
+    })
+    .sort((a, b) => (a.posicao ?? 1e9) - (b.posicao ?? 1e9)),
   };
 }
