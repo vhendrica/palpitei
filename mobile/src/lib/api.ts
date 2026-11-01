@@ -57,6 +57,11 @@ export type CadastroInput = {
   aceita_compartilhamento: boolean;
 };
 
+export type BilheteInput = {
+  simples: Record<string, number>;
+  multiplas: { mercados: string[]; fichas: number }[];
+};
+
 export const api = {
   cadastro: (input: CadastroInput) => req<CodigoEnviado>('POST', '/auth/cadastro', input),
   login: (whatsapp: string) => req<CodigoEnviado>('POST', '/auth/login', { whatsapp }),
@@ -76,8 +81,8 @@ export const api = {
       '/liga/hoje/palpiteiros',
     ),
   entrar: () => req<{ fichas_total: number; saldo_pontos: number }>('POST', '/liga/hoje/entrar'),
-  apostar: (distribuicao: Record<string, number>) =>
-    req<{ fichas_distribuidas: number; fichas_livres: number }>('POST', '/liga/hoje/apostas', { distribuicao }),
+  apostar: (bilhete: BilheteInput) =>
+    req<{ fichas_distribuidas: number; fichas_livres: number }>('POST', '/liga/hoje/apostas', bilhete),
   me: () => req<Perfil>('GET', '/me'),
 
   admin: {

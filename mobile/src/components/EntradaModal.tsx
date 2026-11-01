@@ -43,7 +43,7 @@ export function EntradaModal({
           >
             <T className="text-center font-mont-xb text-lg">Bora palpitar!</T>
             <T className="mt-1 text-center text-xs text-muted">
-              Troque seus PONTOS por FICHAS pra jogar a múltipla.
+              Troque seus PONTOS por FICHAS pra jogar a rodada.
             </T>
 
             <View className="mt-4 flex-row items-center justify-center">
@@ -70,7 +70,7 @@ export function EntradaModal({
             </View>
 
             <View className="mt-4 gap-2">
-              <Passo n={1} texto="Escolha os mercados nos jogos da múltipla." />
+              <Passo n={1} texto="Escolha os mercados nos jogos da rodada." />
               <Passo
                 n={2}
                 texto={`Distribua suas ${fichas} fichas como quiser entre eles.`}

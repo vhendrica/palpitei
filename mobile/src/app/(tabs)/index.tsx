@@ -15,7 +15,8 @@ import {
 
 import { AppHeader } from "../../components/AppHeader";
 import { BetButton } from "../../components/BetButton";
-import { Bilhete, type ItemBilhete } from "../../components/Bilhete";
+import { Bilhete, type OpcaoBilhete } from "../../components/Bilhete";
+import { ResumoBilhete } from "../../components/ResumoBilhete";
 import { EntradaModal } from "../../components/EntradaModal";
 import { Escudo } from "../../components/Escudo";
 import { ErrorBox } from "../../components/Form";
@@ -30,6 +31,7 @@ import {
   StatusBadge,
   T,
 } from "../../components/ui";
+import { alternarOdd, corMultipla, type Draft, DRAFT_VAZIO, fichasNoDraft } from "../../lib/bilhete";
 import { fmtData, fmtPts } from "../../lib/format";
 import { errorMessage, useApp } from "../../store/AppStore";
 import { useTheme } from "../../store/Theme";
@@ -37,23 +39,20 @@ import { agruparMercados } from "../../types";
 import type { Jogo } from "../../types";
 
 export default function HomeMultipla() {
-  const { palette: C } = useTheme();
+  const { palette: C, scheme } = useTheme();
   const { home, homeErro, refreshHome, user, entrarNaLiga, apostar } = useApp();
   const [refreshing, setRefreshing] = useState(false);
   const draftKey = `${home?.liga?.id}:${user?.id}`;
   const [draftState, setDraftState] = useState<{
     key: string;
-    v: Record<string, number>;
-  }>({ key: "", v: {} });
+    v: Draft;
+  }>({ key: "", v: DRAFT_VAZIO });
   const draft = useMemo(
-    () => (draftState.key === draftKey ? draftState.v : {}),
+    () => (draftState.key === draftKey ? draftState.v : DRAFT_VAZIO),
     [draftState, draftKey],
   );
-  const setDraft = (
-    fn:
-      | Record<string, number>
-      | ((d: Record<string, number>) => Record<string, number>),
-  ) =>
+  const [resumo, setResumo] = useState(false);
+  const setDraft = (fn: Draft | ((d: Draft) => Draft)) =>
     setDraftState({
       key: draftKey,
       v: typeof fn === "function" ? fn(draft) : fn,
@@ -80,10 +79,7 @@ export default function HomeMultipla() {
     scrollRef.current?.scrollTo({ y: 0, animated: true });
 
   const eu = home?.eu?.entrou ? home.eu : null;
-  const noDraft = useMemo(
-    () => Object.values(draft).reduce((s, n) => s + n, 0),
-    [draft],
-  );
+  const noDraft = useMemo(() => fichasNoDraft(draft), [draft]);
   const livres = (eu?.fichas_livres ?? 0) - noDraft;
   const aberta = home?.liga?.status === "aberta";
   const valendo =
@@ -118,15 +114,21 @@ export default function HomeMultipla() {
       irParaJogos();
       await entrarNaLiga();
       setTimeout(irParaJogos, 50);
-      return `Você entrou na múltipla! ${home?.regras.fichas_por_entrada} FICHAS pra distribuir.`;
+      return `Você entrou na rodada! ${home?.regras.fichas_por_entrada} FICHAS pra distribuir.`;
     });
 
   const confirmar = () =>
     run(async () => {
-      const n = await apostar(
-        Object.fromEntries(Object.entries(draft).filter(([, f]) => f > 0)),
-      );
-      setDraft({});
+      const n = await apostar({
+        simples: Object.fromEntries(
+          draft.itens
+            .filter((id) => (draft.simples[id] ?? 0) > 0)
+            .map((id) => [id, draft.simples[id]]),
+        ),
+        multiplas: draft.multiplas,
+      });
+      setDraft(DRAFT_VAZIO);
+      setResumo(false);
       irParaTopo();
       return `Palpite confirmado: ${n} fichas distribuídas.`;
     }, setErroBilhete);
@@ -151,18 +153,43 @@ export default function HomeMultipla() {
     );
   }
 
-  const itensBilhete: ItemBilhete[] = home.jogos.flatMap((j) =>
-    j.mercados
-      .filter((m) => m.id in draft)
-      .map((m) => ({
-        id: m.id,
-        jogo: `${j.time_casa} x ${j.time_fora}`,
-        grupo: m.grupo,
-        descricao: m.descricao,
-        multiplicador: m.multiplicador,
-        fichas: draft[m.id] ?? 0,
-      })),
+  const opcoes: Record<string, OpcaoBilhete> = Object.fromEntries(
+    home.jogos.flatMap((j) =>
+      j.mercados.map((m) => [
+        m.id,
+        {
+          id: m.id,
+          jogo_id: j.id,
+          time_casa: j.time_casa,
+          time_fora: j.time_fora,
+          jogo: `${j.time_casa} x ${j.time_fora}`,
+          grupo: m.grupo,
+          descricao: m.descricao,
+          odd: m.multiplicador,
+        },
+      ]),
+    ),
   );
+  const confirmadas = eu?.multiplas ?? [];
+  const offsetMultiplas = confirmadas.length;
+  const selosDe = (id: string) => [
+    ...confirmadas.flatMap((m, i) =>
+      m.pernas.some((p) => p.mercado_id === id)
+        ? [{ label: `M${i + 1}`, cor: corMultipla(i, scheme) }]
+        : [],
+    ),
+    ...(id in draft.simples ? [{ label: "S", cor: C.primary }] : []),
+    ...draft.multiplas.flatMap((m, i) =>
+      m.mercados.includes(id)
+        ? [
+            {
+              label: `M${i + 1 + offsetMultiplas}`,
+              cor: corMultipla(i + offsetMultiplas, scheme),
+            },
+          ]
+        : [],
+    ),
+  ];
   const escolhas = home.jogos.reduce(
     (s, j) => s + j.mercados.filter((m) => (m.minhas_fichas ?? 0) > 0).length,
     0,
@@ -206,7 +233,7 @@ export default function HomeMultipla() {
                 <View className="flex-row flex-wrap" style={{ gap: 6 }}>
                   {g.opcoes.map((m) => {
                     const minhas = m.minhas_fichas ?? 0;
-                    const noBilhete = m.id in draft;
+                    const noBilhete = draft.itens.includes(m.id);
                     const resultado =
                       home.liga?.status === "finalizada"
                         ? m.resultado_final
@@ -226,17 +253,14 @@ export default function HomeMultipla() {
                           multiplicador={m.multiplicador}
                           selected={noBilhete}
                           fichas={minhas}
+                          selos={selosDe(m.id)}
                           resultado={resultado}
                           disabled={
                             !podeApostar && (!!eu || !aberta || j.comecou)
                           }
                           onPress={() =>
                             podeApostar
-                              ? setDraft((d) => {
-                                  if (!(m.id in d)) return { ...d, [m.id]: 0 };
-                                  const { [m.id]: _, ...rest } = d;
-                                  return rest;
-                                })
+                              ? setDraft((d) => alternarOdd(d, m.id))
                               : chamarPalpitar()
                           }
                         />
@@ -262,7 +286,7 @@ export default function HomeMultipla() {
         ref={scrollRef}
         contentContainerStyle={{
           padding: 16,
-          paddingBottom: Object.keys(draft).length > 0 ? 440 : 120,
+          paddingBottom: draft.itens.length > 0 ? 480 : 120,
         }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
@@ -271,7 +295,7 @@ export default function HomeMultipla() {
         {!home.liga ? (
           <EmptyState
             icon="calendar-outline"
-            title="Nenhuma múltipla aberta agora"
+            title="Nenhuma rodada aberta agora"
             subtitle="Volte mais tarde: os jogos do dia estão sendo escolhidos."
           />
         ) : (
@@ -279,8 +303,8 @@ export default function HomeMultipla() {
             <View className="mb-3 flex-row items-center justify-between">
               <T className="font-mont-xb text-xl">
                 {home.liga.data === home.data
-                  ? "Múltipla do dia"
-                  : `Múltipla de ${home.liga.data.slice(8, 10)}/${home.liga.data.slice(5, 7)}`}
+                  ? "Rodada do dia"
+                  : `Rodada de ${home.liga.data.slice(8, 10)}/${home.liga.data.slice(5, 7)}`}
               </T>
               <StatusBadge status={home.liga.status} />
             </View>
@@ -399,21 +423,32 @@ export default function HomeMultipla() {
           </>
         )}
       </ScrollView>
-      {itensBilhete.length > 0 ? (
-        <Bilhete
-          itens={itensBilhete}
-          livres={livres}
-          busy={busy}
-          erro={erroBilhete}
-          onChange={(id, v) => setDraft((d) => ({ ...d, [id]: v }))}
-          onRemove={(id) =>
-            setDraft((d) => {
-              const { [id]: _, ...rest } = d;
-              return rest;
-            })
-          }
-          onConfirmar={confirmar}
-        />
+      {draft.itens.length > 0 && eu ? (
+        <>
+          <Bilhete
+            draft={draft}
+            opcoes={opcoes}
+            fichasLivres={eu.fichas_livres}
+            offsetMultiplas={offsetMultiplas}
+            onChange={setDraft}
+            onResumo={() => {
+              setErroBilhete(null);
+              setResumo(true);
+            }}
+          />
+          <ResumoBilhete
+            visible={resumo}
+            draft={draft}
+            opcoes={opcoes}
+            fichasLivres={eu.fichas_livres}
+            offsetMultiplas={offsetMultiplas}
+            busy={busy}
+            erro={erroBilhete}
+            onChange={setDraft}
+            onFechar={() => setResumo(false)}
+            onConfirmar={confirmar}
+          />
+        </>
       ) : null}
       {toast.node}
     </View>
@@ -551,7 +586,7 @@ function SlideJogo({ jogo, onOdd }: { jogo: Jogo; onOdd: () => void }) {
       <View className="flex-row items-center">
         <Ionicons name="football" size={12} color={C.primary} />
         <T className="ml-1 flex-1 font-mont-b text-[10px] uppercase tracking-widest text-primary">
-          Múltipla do dia • {fmtData(jogo.horario)}
+          Rodada do dia • {fmtData(jogo.horario)}
         </T>
         {jogo.destaque ? (
           <Ionicons name="star" size={16} color={C.primary} />

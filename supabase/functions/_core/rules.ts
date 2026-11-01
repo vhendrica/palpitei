@@ -1,3 +1,4 @@
+import { exato, incompativeis, oddTotal } from './compat.ts';
 import { gerarCodigoVoucher } from './crypto.ts';
 import { type Db, iso, num, type Tx } from './db.ts';
 import { NotFoundError, RuleError } from './errors.ts';
@@ -10,7 +11,9 @@ import { isUuid, nomePublico } from './validation.ts';
  * - FICHAS = só existem DENTRO da liga (a múltipla do dia). Entrar custa `custo_entrada` PONTOS e dá
  *   `fichas_por_entrada` FICHAS.
  * - Apostar distribui FICHAS em mercados de qualquer jogo da liga e NUNCA mexe em saldo_pontos.
- * - Pontuação = SUM(fichas_apostadas * multiplicador) WHERE mercados.resultado_final = true.
+ * - Bilhete: Simples (`apostas`, fichas por palpite) e Múltiplas (`multiplas`, um valor só × produto das odds).
+ *   A odd fica travada na confirmação.
+ * - Pontuação = simples certas (fichas × odd) + múltiplas com todas as pernas certas (fichas × odd1 × odd2…).
  * - Ranking: pontuação desc; empate → quem apostou primeiro; persistindo → users.created_at.
  */
 
@@ -85,9 +88,11 @@ export async function contarPalpiteiros(db: Db, ligaId: string) {
 
 export async function fichasUsadas(db: Db, userId: string, ligaId: string) {
   const [r] = await db`
-    select coalesce(sum(a.fichas_apostadas), 0)::int as total
-    from apostas a join mercados m on m.id = a.mercado_id join jogos j on j.id = m.jogo_id
-    where a.user_id = ${userId} and j.liga_id = ${ligaId}`;
+    select
+      coalesce((select sum(a.fichas_apostadas) from apostas a join mercados m on m.id = a.mercado_id
+                join jogos j on j.id = m.jogo_id where a.user_id = ${userId} and j.liga_id = ${ligaId}), 0)::int
+      + coalesce((select sum(fichas_apostadas) from multiplas where user_id = ${userId} and liga_id = ${ligaId}), 0)::int
+      as total`;
   return num(r.total);
 }
 
@@ -127,79 +132,188 @@ export async function entrarNaLiga(sql: Db, userId: string, ligaId: string) {
   });
 }
 
-/** Distribui FICHAS nos mercados (de qualquer jogo da liga). 1 registro em `apostas` por mercado. Não toca em PONTOS. */
-export async function apostar(sql: Db, userId: string, ligaId: string, distribuicao: Record<string, number>) {
-  const itens = Object.entries(distribuicao ?? {}).filter(([, f]) => Number(f) > 0);
-  for (const [, fichas] of itens) {
+export type MultiplaInput = { mercados: string[]; fichas: number };
+export type BilheteInput = { simples?: Record<string, number>; multiplas?: MultiplaInput[] };
+
+const chaveMultipla = (ids: string[]) => [...ids].sort().join(',');
+
+/**
+ * Confirma um bilhete: Simples (fichas por palpite) e Múltiplas (um valor só, mínimo 2 palpites,
+ * sem palpites incompatíveis do mesmo jogo, sem repetir uma múltipla igual). Aceita também o formato
+ * antigo `{ mercadoId: fichas }`, tratado como Simples. Não toca em PONTOS.
+ */
+export async function apostar(sql: Db, userId: string, ligaId: string, entrada: BilheteInput | Record<string, number>) {
+  const bilhete: BilheteInput =
+    entrada && ('simples' in entrada || 'multiplas' in entrada)
+      ? (entrada as BilheteInput)
+      : { simples: entrada as Record<string, number> };
+  const simples = Object.entries(bilhete.simples ?? {}).filter(([, f]) => Number(f) > 0);
+  const multiplas = Array.isArray(bilhete.multiplas) ? bilhete.multiplas : [];
+  for (const [, fichas] of simples) {
     if (!Number.isInteger(fichas)) throw new RuleError('Use apenas números inteiros de fichas.');
   }
+  for (const m of multiplas) {
+    if (!m || !Array.isArray(m.mercados) || !m.mercados.every((id) => typeof id === 'string')) {
+      throw new RuleError('Múltipla inválida.');
+    }
+    if (!Number.isInteger(m.fichas) || m.fichas <= 0) throw new RuleError('Coloque fichas em cada múltipla.');
+    if (new Set(m.mercados).size !== m.mercados.length) throw new RuleError('Palpite repetido na mesma múltipla.');
+    if (m.mercados.length < 2) throw new RuleError('Múltipla precisa de pelo menos 2 palpites.');
+  }
+  const chaves = multiplas.map((m) => chaveMultipla(m.mercados));
+  if (new Set(chaves).size !== chaves.length) throw new RuleError('Você montou duas múltiplas iguais.');
 
   return sql.begin(async (tx: Tx) => {
     const liga = await getLiga(tx, ligaId, 'for share');
     if (liga.status !== 'aberta') throw new RuleError('Apostas encerradas para esse palpite.');
     // Trava a entrada para serializar distribuições simultâneas do mesmo usuário.
-    const entrada = await getEntrada(tx, userId, ligaId, true);
-    if (!entrada) throw new RuleError('Entre no palpite antes de distribuir fichas.');
-    if (itens.length === 0) throw new RuleError('Distribua pelo menos 1 ficha.');
+    const ent = await getEntrada(tx, userId, ligaId, true);
+    if (!ent) throw new RuleError('Entre no palpite antes de distribuir fichas.');
+    if (simples.length === 0 && multiplas.length === 0) throw new RuleError('Distribua pelo menos 1 ficha.');
 
-    const ids = itens.map(([id]) => id);
-    const uuidOk = ids.every(isUuid);
-    const mercados = uuidOk
+    const ids = [...new Set([...simples.map(([id]) => id), ...multiplas.flatMap((m) => m.mercados)])];
+    const mercados = ids.every(isUuid)
       ? await tx`
-          select m.id, j.horario <= now() as comecou
+          select m.id, m.grupo, m.descricao, m.multiplicador, m.jogo_id, j.time_casa, j.time_fora,
+                 j.horario <= now() as comecou
           from mercados m join jogos j on j.id = m.jogo_id
           where m.id in ${tx(ids)} and j.liga_id = ${ligaId}`
       : [];
     if (mercados.length !== ids.length) throw new RuleError('Mercado inválido para esse palpite.');
     if (mercados.some((m) => m.comecou)) throw new RuleError('Esse jogo já começou. Apostas encerradas para ele.');
+    const porId = new Map(
+      mercados.map((m) => [
+        m.id as string,
+        {
+          jogo_id: m.jogo_id as string,
+          time_casa: m.time_casa as string,
+          time_fora: m.time_fora as string,
+          grupo: (m.grupo as string) ?? '',
+          descricao: m.descricao as string,
+          odd: num(m.multiplicador),
+        },
+      ]),
+    );
 
-    const total = itens.reduce((s, [, f]) => s + f, 0);
-    const disponiveis = entrada.fichas_total - (await fichasUsadas(tx, userId, ligaId));
+    for (const m of multiplas) {
+      const ops = m.mercados.map((id) => porId.get(id)!);
+      for (let i = 0; i < ops.length; i++) {
+        for (let k = i + 1; k < ops.length; k++) {
+          if (incompativeis(ops[i], ops[k])) throw new RuleError('Evento incompatível na múltipla.');
+        }
+      }
+    }
+    if (multiplas.length) {
+      const existentes = await tx`
+        select string_agg(p.mercado_id::text, ',' order by p.mercado_id::text) as chave
+        from multiplas mu join multipla_pernas p on p.multipla_id = mu.id
+        where mu.user_id = ${userId} and mu.liga_id = ${ligaId} group by mu.id`;
+      const ja = new Set(existentes.map((e) => e.chave as string));
+      if (chaves.some((c) => ja.has(c))) throw new RuleError('Você já tem uma múltipla igual a essa.');
+    }
+
+    const total = simples.reduce((s, [, f]) => s + f, 0) + multiplas.reduce((s, m) => s + m.fichas, 0);
+    const disponiveis = ent.fichas_total - (await fichasUsadas(tx, userId, ligaId));
     if (total > disponiveis) {
       throw new RuleError(`Você tem ${disponiveis} fichas livres e tentou distribuir ${total}.`);
     }
 
-    const rows = itens.map(([mercado_id, fichas_apostadas]) => ({ user_id: userId, mercado_id, fichas_apostadas }));
-    await tx`insert into apostas ${tx(rows, 'user_id', 'mercado_id', 'fichas_apostadas')}`;
+    if (simples.length) {
+      const rows = simples.map(([mercado_id, fichas_apostadas]) => ({
+        user_id: userId,
+        mercado_id,
+        fichas_apostadas,
+        odd: porId.get(mercado_id)!.odd,
+      }));
+      await tx`insert into apostas ${tx(rows, 'user_id', 'mercado_id', 'fichas_apostadas', 'odd')}`;
+    }
+    for (const m of multiplas) {
+      const [mu] = await tx`
+        insert into multiplas (user_id, liga_id, fichas_apostadas) values (${userId}, ${ligaId}, ${m.fichas})
+        returning id`;
+      const pernas = m.mercados.map((mercado_id) => ({ multipla_id: mu.id, mercado_id, odd: porId.get(mercado_id)!.odd }));
+      await tx`insert into multipla_pernas ${tx(pernas, 'multipla_id', 'mercado_id', 'odd')}`;
+    }
     return { fichas_distribuidas: total, fichas_livres: disponiveis - total };
   });
 }
 
+/** Pontos de cada usuário na liga: simples certas + múltiplas com todas as pernas certas. Sem arredondar. */
+export async function pontosPorUsuario(db: Db, ligaId: string): Promise<Map<string, number>> {
+  const [simples, pernas] = await Promise.all([
+    db`
+      select a.user_id, sum(a.fichas_apostadas * a.odd) as pontos
+      from apostas a join mercados m on m.id = a.mercado_id join jogos j on j.id = m.jogo_id
+      where j.liga_id = ${ligaId} and m.resultado_final group by a.user_id`,
+    db`
+      select mu.id, mu.user_id, mu.fichas_apostadas, p.odd, m.resultado_final
+      from multiplas mu join multipla_pernas p on p.multipla_id = mu.id join mercados m on m.id = p.mercado_id
+      where mu.liga_id = ${ligaId}`,
+  ]);
+  const out = new Map<string, number>();
+  for (const r of simples) out.set(r.user_id as string, num(r.pontos));
+  const mults = new Map<string, { user: string; fichas: number; odds: number[]; ok: boolean }>();
+  for (const p of pernas) {
+    const m = mults.get(p.id as string) ?? { user: p.user_id as string, fichas: num(p.fichas_apostadas), odds: [], ok: true };
+    m.odds.push(num(p.odd));
+    m.ok &&= !!p.resultado_final;
+    mults.set(p.id as string, m);
+  }
+  for (const m of mults.values()) {
+    if (m.ok) out.set(m.user, (out.get(m.user) ?? 0) + m.fichas * oddTotal(m.odds));
+  }
+  for (const [k, v] of out) out.set(k, exato(v));
+  return out;
+}
+
 export async function pontuacaoUsuario(db: Db, userId: string, ligaId: string) {
-  const [r] = await db`
-    select coalesce(sum(a.fichas_apostadas * m.multiplicador), 0) as total
-    from apostas a join mercados m on m.id = a.mercado_id join jogos j on j.id = m.jogo_id
-    where a.user_id = ${userId} and j.liga_id = ${ligaId} and m.resultado_final`;
-  return round2(num(r.total));
+  return (await pontosPorUsuario(db, ligaId)).get(userId) ?? 0;
 }
 
 export const round2 = (n: number) => Math.round(n * 100) / 100;
 
 /** Pontuação desc; empate → primeira aposta (timestamp µs) asc; persistindo → users.created_at asc. */
 export async function calcularRanking(db: Db, ligaId: string): Promise<RankingRow[]> {
-  const rows = await db`
-    with ap as (
-      select a.user_id,
-             sum(a.fichas_apostadas)::int as fichas,
-             sum(case when m.resultado_final then a.fichas_apostadas * m.multiplicador else 0 end) as pontos,
-             min(a.created_at) as primeira
-      from apostas a join mercados m on m.id = a.mercado_id join jogos j on j.id = m.jogo_id
-      where j.liga_id = ${ligaId}
-      group by a.user_id
-    )
-    select u.id, u.nome, u.bairro,
-           coalesce(ap.pontos, 0) as pontos, coalesce(ap.fichas, 0) as fichas, ap.primeira
-    from entradas e
-    join users u on u.id = e.user_id
-    left join ap on ap.user_id = e.user_id
-    where e.liga_id = ${ligaId}
-    order by coalesce(ap.pontos, 0) desc, ap.primeira asc nulls last, u.created_at asc, u.id`;
-  return rows.map((r, i) => ({
+  const [rows, pontos] = await Promise.all([
+    db`
+      with ev as (
+        select a.user_id, a.fichas_apostadas as f, a.created_at as c
+        from apostas a join mercados m on m.id = a.mercado_id join jogos j on j.id = m.jogo_id
+        where j.liga_id = ${ligaId}
+        union all
+        select user_id, fichas_apostadas, created_at from multiplas where liga_id = ${ligaId}
+      )
+      select u.id, u.nome, u.bairro, coalesce(sum(ev.f), 0)::int as fichas, min(ev.c) as primeira,
+             (extract(epoch from min(ev.c)) * 1000000)::bigint::text as primeira_us,
+             (extract(epoch from u.created_at) * 1000000)::bigint::text as criado_us
+      from entradas e
+      join users u on u.id = e.user_id
+      left join ev on ev.user_id = e.user_id
+      where e.liga_id = ${ligaId}
+      group by u.id`,
+    pontosPorUsuario(db, ligaId),
+  ]);
+  const big = (v: unknown) => (v == null ? null : BigInt(v as string));
+  const cmp = (a: bigint | null, b: bigint | null) => (a === b ? 0 : a === null ? 1 : b === null ? -1 : a < b ? -1 : 1);
+  const lista = rows.map((r) => ({
+    r,
+    pontos: pontos.get(r.id as string) ?? 0,
+    primeira: big(r.primeira_us),
+    criado: big(r.criado_us)!,
+  }));
+  lista.sort(
+    (a, b) =>
+      b.pontos - a.pontos ||
+      cmp(a.primeira, b.primeira) ||
+      cmp(a.criado, b.criado) ||
+      String(a.r.id).localeCompare(String(b.r.id)),
+  );
+  return lista.map(({ r, pontos: p }, i) => ({
     posicao: i + 1,
     user_id: r.id as string,
     nome: nomePublico(r.nome as string),
     bairro: r.bairro as string,
-    pontuacao: round2(num(r.pontos)),
+    pontuacao: p,
     fichas_apostadas: num(r.fichas),
     primeira_aposta_em: iso(r.primeira),
   }));

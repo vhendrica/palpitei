@@ -130,7 +130,7 @@ export default function Perfil() {
             >
               <View>
                 <T className="font-mont-b text-sm">
-                  Múltipla de {fmtDia(h.data)}
+                  Rodada de {fmtDia(h.data)}
                 </T>
                 <T className="text-xs text-muted">{h.fichas_total} fichas</T>
               </View>

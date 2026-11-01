@@ -3,7 +3,7 @@ import * as auth from './auth.ts';
 import type { Db } from './db.ts';
 import { ForbiddenError, NotFoundError, RuleError } from './errors.ts';
 import { importarOdds, mercadosDaApi, type OddsConfig } from './odds.ts';
-import { apostar, entrarNaLiga, finalizarLiga, reativarLiga, getLigaAtual } from './rules.ts';
+import { apostar, type MultiplaInput, entrarNaLiga, finalizarLiga, reativarLiga, getLigaAtual } from './rules.ts';
 import { home, jogosComMercados, palpiteirosDoDia, perfil, rankingDoDia } from './services.ts';
 import { hojeISO } from './validation.ts';
 import type { WhatsappSender } from './whatsapp.ts';
@@ -70,7 +70,11 @@ export function createApi(deps: ApiDeps) {
     ['POST', /^\/liga\/hoje\/apostas$/, async (c) => {
       const u = await c.requireUser();
       const b = await c.body();
-      return apostar(sql, u.id, (await ligaDeHoje()).id, (b.distribuicao ?? {}) as Record<string, number>);
+      const bilhete =
+        b.simples !== undefined || b.multiplas !== undefined
+          ? { simples: b.simples as Record<string, number>, multiplas: b.multiplas as MultiplaInput[] }
+          : ((b.distribuicao ?? {}) as Record<string, number>);
+      return apostar(sql, u.id, (await ligaDeHoje()).id, bilhete);
     }],
     ['GET', /^\/me$/, async (c) => perfil(sql, await c.requireUser())],
 

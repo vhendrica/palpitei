@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from "react";
 
-import { api, ApiError, setToken, type CadastroInput } from "../lib/api";
+import { api, ApiError, setToken, type BilheteInput, type CadastroInput } from "../lib/api";
 import type { CodigoEnviado, Home, User } from "../types";
 
 const TOKEN_KEY = "palpit:token:v1";
@@ -30,7 +30,7 @@ type AppStore = {
   ) => Promise<{ nova_conta: boolean }>;
   sair: () => Promise<void>;
   entrarNaLiga: () => Promise<void>;
-  apostar: (distribuicao: Record<string, number>) => Promise<number>;
+  apostar: (bilhete: BilheteInput) => Promise<number>;
 };
 
 const Ctx = createContext<AppStore | null>(null);
@@ -111,8 +111,8 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         await api.entrar();
         await refreshHome();
       },
-      apostar: async (distribuicao) => {
-        const r = await api.apostar(distribuicao);
+      apostar: async (bilhete) => {
+        const r = await api.apostar(bilhete);
         await refreshHome();
         return r.fichas_distribuidas;
       },

@@ -153,7 +153,9 @@ export async function ligaAdmin(db: Db, ligaId: string) {
   const participantes = await db`
     select e.user_id, u.nome, u.bairro,
       coalesce((select sum(a.fichas_apostadas) from apostas a join mercados m on m.id = a.mercado_id
-        join jogos j on j.id = m.jogo_id where j.liga_id = ${ligaId} and a.user_id = e.user_id), 0)::int as fichas_apostadas
+        join jogos j on j.id = m.jogo_id where j.liga_id = ${ligaId} and a.user_id = e.user_id), 0)::int
+      + coalesce((select sum(mu.fichas_apostadas) from multiplas mu
+        where mu.liga_id = ${ligaId} and mu.user_id = e.user_id), 0)::int as fichas_apostadas
     from entradas e join users u on u.id = e.user_id
     where e.liga_id = ${ligaId}
     order by e.created_at`;
@@ -181,6 +183,7 @@ export async function removerPalpiteiro(sql: Db, ligaId: string, userId: string)
     await tx`
       delete from apostas a using mercados m, jogos j
       where a.mercado_id = m.id and m.jogo_id = j.id and j.liga_id = ${ligaId} and a.user_id = ${userId}`;
+    await tx`delete from multiplas where liga_id = ${ligaId} and user_id = ${userId}`;
     await tx`delete from entradas where liga_id = ${ligaId} and user_id = ${userId}`;
     await tx`update users set saldo_pontos = saldo_pontos + ${e.pontos_pagos} where id = ${userId}`;
   });
@@ -227,7 +230,8 @@ export async function definirMercados(sql: Db, jogoId: string, mercadosInput: un
     if (j.status === 'finalizada') throw new RuleError('Palpite já finalizado.');
 
     const atuais = await tx`
-      select m.*, exists(select 1 from apostas a where a.mercado_id = m.id) as tem_apostas
+      select m.*, (exists(select 1 from apostas a where a.mercado_id = m.id)
+              or exists(select 1 from multipla_pernas p where p.mercado_id = m.id)) as tem_apostas
       from mercados m where m.jogo_id = ${jogoId}`;
     const porId = new Map(atuais.map((m) => [m.id as string, m]));
     for (const it of itens) if (it.id && !porId.has(it.id)) throw new RuleError('Mercado inválido para esse palpite.');

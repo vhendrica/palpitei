@@ -72,6 +72,7 @@ export type MinhaSituacao =
       fichas_total: number;
       fichas_usadas: number;
       fichas_livres: number;
+      multiplas: MultiplaView[];
       pontuacao: number;
       posicao: number | null;
     };
@@ -91,6 +92,17 @@ export type Home = {
   eu: MinhaSituacao | null;
 };
 
+export type PernaView = {
+  mercado_id: string;
+  jogo: string;
+  grupo: string;
+  descricao: string;
+  odd: number;
+  resultado_final: boolean;
+};
+
+export type MultiplaView = { id: string; fichas: number; odd: number; pernas: PernaView[] };
+
 export type PalpiteiroView = {
   nome: string;
   bairro: string;
@@ -104,6 +116,7 @@ export type PalpiteiroView = {
     multiplicador: number;
     fichas: number;
   }[];
+  multiplas: Omit<MultiplaView, "id">[];
 };
 
 export type RankingRow = {

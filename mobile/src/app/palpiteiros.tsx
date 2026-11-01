@@ -8,7 +8,7 @@ import { Ficha } from "../components/Ficha";
 import { ErrorBox } from "../components/Form";
 import { Card, EmptyState, T } from "../components/ui";
 import { api } from "../lib/api";
-import { fmtPts } from "../lib/format";
+import { fmtOddExata, fmtPts } from "../lib/format";
 import { errorMessage } from "../store/AppStore";
 import { useTheme } from "../store/Theme";
 import type { PalpiteiroView } from "../types";
@@ -109,7 +109,24 @@ export default function Palpiteiros() {
                     <Ficha size={14} />
                   </View>
                 </View>
-                {p.palpites.length === 0 ? (
+                {p.multiplas?.map((m, k) => (
+                  <View key={`m${k}`} className="mt-1 rounded-lg border border-line px-2 py-1.5">
+                    <View className="flex-row items-center justify-between">
+                      <T className="font-mont-xb text-xs">Múltipla {k + 1}</T>
+                      <View className="flex-row items-center">
+                        <T className="mr-1 font-odds text-sm text-primary">{m.fichas}</T>
+                        <Ficha size={12} />
+                      </View>
+                    </View>
+                    {m.pernas.map((x, n) => (
+                      <T key={n} className="text-xs text-muted">
+                        {x.descricao} · {x.jogo} · {x.odd.toFixed(2)}
+                      </T>
+                    ))}
+                    <T className="text-xs">odd total {fmtOddExata(m.odd)}</T>
+                  </View>
+                ))}
+                {p.palpites.length === 0 && !p.multiplas?.length ? (
                   <T className="text-xs text-muted">
                     Ainda não distribuiu fichas.
                   </T>

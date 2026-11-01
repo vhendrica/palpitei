@@ -36,3 +36,13 @@ export function fmtDataNasc(raw: string) {
   if (d.length <= 4) return `${d.slice(0, 2)}/${d.slice(2)}`;
   return `${d.slice(0, 2)}/${d.slice(2, 4)}/${d.slice(4)}`;
 }
+
+/** Odd sem arredondar (mínimo 2 casas): 3.885x, 2.10x. */
+export function fmtOddExata(n: number) {
+  const s = String(Number(n.toFixed(8)));
+  const [i, d = ""] = s.split(".");
+  return `${i}.${d.padEnd(2, "0")}x`;
+}
+
+/** Fichas/pontos sem arredondar. */
+export const fmtExato = (n: number) => n.toLocaleString("pt-BR", { maximumFractionDigits: 8 });

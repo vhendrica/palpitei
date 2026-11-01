@@ -1,4 +1,5 @@
 import type { UserPublico } from './auth.ts';
+import { oddTotal } from './compat.ts';
 import { type Db, iso, num } from './db.ts';
 import { progressoPremio } from './premio.ts';
 import {
@@ -84,6 +85,49 @@ async function premioDaLiga(db: Db, liga: LigaRow) {
   return progressoPremio(escada, palpiteiros, liga.status === 'finalizada' ? liga.premio_final : null);
 }
 
+export type MultiplaView = {
+  id: string;
+  fichas: number;
+  odd: number;
+  pernas: { mercado_id: string; jogo: string; grupo: string; descricao: string; odd: number; resultado_final: boolean }[];
+};
+
+/** Múltiplas confirmadas (por usuário), na ordem em que foram criadas. */
+async function multiplasDaLiga(db: Db, ligaId: string, userId?: string) {
+  const rows = await db`
+    select mu.id, mu.user_id, mu.fichas_apostadas, p.mercado_id, p.odd, m.grupo, m.descricao, m.resultado_final,
+           j.time_casa, j.time_fora
+    from multiplas mu join multipla_pernas p on p.multipla_id = mu.id
+    join mercados m on m.id = p.mercado_id join jogos j on j.id = m.jogo_id
+    where mu.liga_id = ${ligaId} and (${userId ?? null}::uuid is null or mu.user_id = ${userId ?? null}::uuid)
+    order by mu.created_at, mu.id, j.horario, j.ordem, m.ordem`;
+  const out = new Map<string, MultiplaView & { user_id: string }>();
+  for (const r of rows) {
+    const m = out.get(r.id as string) ?? {
+      id: r.id as string,
+      user_id: r.user_id as string,
+      fichas: num(r.fichas_apostadas),
+      odd: 1,
+      pernas: [],
+    };
+    m.pernas.push({
+      mercado_id: r.mercado_id as string,
+      jogo: `${r.time_casa} x ${r.time_fora}`,
+      grupo: (r.grupo as string) ?? '',
+      descricao: r.descricao as string,
+      odd: num(r.odd),
+      resultado_final: !!r.resultado_final,
+    });
+    out.set(r.id as string, m);
+  }
+  for (const m of out.values()) m.odd = oddTotal(m.pernas.map((p) => p.odd));
+  return [...out.values()];
+}
+
+async function multiplasDoUsuario(db: Db, userId: string, ligaId: string): Promise<MultiplaView[]> {
+  return (await multiplasDaLiga(db, ligaId, userId)).map(({ user_id: _, ...m }) => m);
+}
+
 async function minhaSituacao(db: Db, userId: string, liga: LigaRow) {
   const entrada = await getEntrada(db, userId, liga.id);
   if (!entrada) return { entrou: false as const };
@@ -94,6 +138,7 @@ async function minhaSituacao(db: Db, userId: string, liga: LigaRow) {
   ]);
   return {
     entrou: true as const,
+    multiplas: await multiplasDoUsuario(db, userId, liga.id),
     fichas_total: entrada.fichas_total,
     fichas_usadas: usadas,
     fichas_livres: Math.max(0, entrada.fichas_total - usadas),
@@ -162,15 +207,16 @@ export async function perfil(db: Db, user: UserPublico) {
 export async function palpiteirosDoDia(db: Db, user: UserPublico | null, data = hojeISO()) {
   const liga = await getLigaAtual(db, data);
   if (!liga) return { data, liga: null, palpiteiros: [] };
-  const [entradas, apostas] = await Promise.all([
+  const [entradas, apostas, multiplas] = await Promise.all([
     db`select e.user_id, u.nome, u.bairro, e.created_at from entradas e join users u on u.id = e.user_id
        where e.liga_id = ${liga.id} order by e.created_at`,
-    db`select a.user_id, m.id as mercado_id, m.grupo, m.descricao, m.multiplicador, j.time_casa, j.time_fora,
+    db`select a.user_id, m.id as mercado_id, m.grupo, m.descricao, max(a.odd) as multiplicador, j.time_casa, j.time_fora,
          sum(a.fichas_apostadas)::int as fichas
        from apostas a join mercados m on m.id = a.mercado_id join jogos j on j.id = m.jogo_id
        where j.liga_id = ${liga.id}
        group by a.user_id, m.id, j.id
        order by j.destaque desc, j.horario, j.ordem, m.ordem`,
+    multiplasDaLiga(db, liga.id),
   ]);
   return {
     data,
@@ -185,13 +231,16 @@ export async function palpiteirosDoDia(db: Db, user: UserPublico | null, data = 
           multiplicador: num(a.multiplicador),
           fichas: num(a.fichas),
         }));
+      const minhas = multiplas.filter((m) => m.user_id === e.user_id).map(({ user_id: _, id: __, ...m }) => m);
       return {
         nome: e.nome as string,
         bairro: e.bairro as string,
         entrou_em: iso(e.created_at)!,
         eu: user?.id === e.user_id,
-        fichas_apostadas: palpites.reduce((s, p) => s + p.fichas, 0),
+        fichas_apostadas:
+          palpites.reduce((s, p) => s + p.fichas, 0) + minhas.reduce((s, m) => s + m.fichas, 0),
         palpites,
+        multiplas: minhas,
       };
     }),
   };
