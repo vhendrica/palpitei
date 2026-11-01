@@ -828,17 +828,27 @@ function AbaConfig({ run }: { run: Run }) {
         A barra começa no prêmio inicial e sobe a cada faixa: palpiteiros (quem
         pagou a entrada) → valor. A última faixa é a META e o teto do prêmio.
       </T>
+      <View className="mb-1 flex-row items-center">
+        <View className="w-14" />
+        <T className="mr-2 flex-1 font-mont-b text-[10px] uppercase tracking-widest text-muted">
+          Com quantos palpiteiros
+        </T>
+        <T className="flex-1 font-mont-b text-[10px] uppercase tracking-widest text-muted">
+          Prêmio sobe pra (R$)
+        </T>
+        <View className="ml-1 w-[26px]" />
+      </View>
       <View className="mb-2 flex-row items-center">
         <T className="w-14 text-xs text-muted">Início</T>
+        <T className="mr-2 flex-1 px-2 text-[11px] text-muted">já começa valendo</T>
         <TextInput
-          className="mr-2 flex-1 rounded-lg border border-line bg-card px-2 py-2 font-odds text-sm text-fg"
+          className="flex-1 rounded-lg border border-line bg-card px-2 py-2 font-odds text-sm text-fg"
           value={cfg.premio_inicial}
           keyboardType="decimal-pad"
-          placeholder="Prêmio inicial (R$)"
+          placeholder="R$"
           placeholderTextColor={C.muted}
           onChangeText={(t) => setCfg({ ...cfg, premio_inicial: t })}
         />
-        <T className="flex-1 text-[11px] text-muted">prêmio inicial (R$)</T>
         <View className="ml-1 w-[26px]" />
       </View>
       {faixas.map((f, i) => (
@@ -850,7 +860,7 @@ function AbaConfig({ run }: { run: Run }) {
             className="mr-2 flex-1 rounded-lg border border-line bg-card px-2 py-2 font-odds text-sm text-fg"
             value={f.usuarios_min}
             keyboardType="number-pad"
-            placeholder="palpiteiros"
+            placeholder="ex.: 50"
             placeholderTextColor={C.muted}
             onChangeText={(t) =>
               setFaixas((s) =>
