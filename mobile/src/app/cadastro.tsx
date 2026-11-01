@@ -4,7 +4,6 @@ import { useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   View,
 } from "react-native";
@@ -13,7 +12,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppHeader } from "../components/AppHeader";
 import { Checkbox, ErrorBox, Field } from "../components/Form";
 import { Button, T } from "../components/ui";
-import { BAIRROS_FORTALEZA } from "../lib/constants";
 import { fmtCpf, fmtDataNasc, fmtWhats } from "../lib/format";
 import { errorMessage, useApp } from "../store/AppStore";
 import { useTheme } from "../store/Theme";
@@ -26,7 +24,6 @@ export default function Cadastro() {
   const [whats, setWhats] = useState("");
   const [cpf, setCpf] = useState("");
   const [nasc, setNasc] = useState("");
-  const [bairro, setBairro] = useState("");
   const [termos, setTermos] = useState(false);
   const [dados, setDados] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -41,7 +38,6 @@ export default function Cadastro() {
         whatsapp: whats,
         cpf,
         data_nascimento: nasc,
-        bairro,
         aceita_termos: termos,
         aceita_compartilhamento: dados,
       });
@@ -117,27 +113,6 @@ export default function Cadastro() {
           onChangeText={(t) => setNasc(fmtDataNasc(t))}
         />
 
-        <T className="mb-2 font-mont-b text-xs uppercase tracking-widest text-muted">
-          Seu bairro
-        </T>
-        <View className="mb-4 flex-row flex-wrap">
-          {BAIRROS_FORTALEZA.map((b) => {
-            const sel = b === bairro;
-            return (
-              <Pressable
-                key={b}
-                onPress={() => setBairro(b)}
-                className={`mb-2 mr-2 rounded-full border px-3.5 py-2 ${sel ? "border-primary bg-primary" : "border-line bg-card"}`}
-              >
-                <T
-                  className={`font-mont-sb text-xs ${sel ? "text-onPrimary" : "text-fg"}`}
-                >
-                  {b}
-                </T>
-              </Pressable>
-            );
-          })}
-        </View>
 
         <Checkbox
           checked={termos}

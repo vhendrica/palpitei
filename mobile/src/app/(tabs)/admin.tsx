@@ -220,7 +220,7 @@ function AbaLiga({ data, run }: { data: string; run: Run }) {
               <View className="flex-1 pr-2">
                 <T className="font-mont-b text-sm">{p.nome}</T>
                 <T className="text-xs text-muted">
-                  {p.bairro} • {p.fichas_apostadas} fichas apostadas
+                  {p.fichas_apostadas} fichas apostadas
                 </T>
               </View>
               {!fechada ? (

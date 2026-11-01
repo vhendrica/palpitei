@@ -52,7 +52,7 @@ export type CadastroInput = {
   whatsapp: string;
   cpf: string;
   data_nascimento: string;
-  bairro: string;
+  bairro?: string;
   aceita_termos: boolean;
   aceita_compartilhamento: boolean;
 };

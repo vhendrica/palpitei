@@ -39,6 +39,8 @@ export type Jogo = {
   campeonato: string;
   destaque: boolean;
   comecou: boolean;
+  finalizado: boolean;
+  placar: { casa: number; fora: number } | null;
   mercados: Mercado[];
 };
 
@@ -100,24 +102,34 @@ export type PernaView = {
   descricao: string;
   odd: number;
   resultado_final: boolean;
+  comecou: boolean;
+  finalizado: boolean;
 };
 
 export type MultiplaView = { id: string; fichas: number; odd: number; pernas: PernaView[] };
 
+export type Resultado = "green" | "red" | null;
+
 export type PalpiteiroView = {
   nome: string;
-  bairro: string;
   entrou_em: string;
   eu: boolean;
-  fichas_apostadas: number;
+  /** Simples. Dos outros, só os jogos que já começaram, sem fichas. */
   palpites: {
     jogo: string;
     grupo: string;
     descricao: string;
     multiplicador: number;
-    fichas: number;
+    resultado: Resultado;
+    fichas?: number;
   }[];
-  multiplas: Omit<MultiplaView, "id">[];
+  multiplas: {
+    numero: number;
+    odd: number;
+    ocultas: number;
+    fichas?: number;
+    pernas: { jogo: string; grupo: string; descricao: string; odd: number; resultado: Resultado }[];
+  }[];
 };
 
 export type RankingRow = {

@@ -4,7 +4,7 @@ import { Modal, Pressable, ScrollView, View } from "react-native";
 
 import { corMultipla, type Draft, fichasNoDraft } from "../lib/bilhete";
 import { exato } from "../lib/compat";
-import { fmtExato, fmtOddExata, fmtPts } from "../lib/format";
+import { fmtExato, fmtOdd, fmtOddExata, fmtPts, rotuloPalpite } from "../lib/format";
 import { ThemeVars, useTheme } from "../store/Theme";
 import { oddDaMultipla, type OpcaoBilhete } from "./Bilhete";
 import { ErrorBox, Stepper } from "./Form";
@@ -41,13 +41,15 @@ export function ResumoBilhete({
   const simples = draft.itens.filter((id) => id in draft.simples && opcoes[id]);
   const totalSimples = simples.reduce((s, id) => s + (draft.simples[id] ?? 0), 0);
   const retSimples = exato(simples.reduce((s, id) => s + (draft.simples[id] ?? 0) * opcoes[id].odd, 0));
-  const mults = draft.multiplas.map((m, i) => {
-    const odd = oddDaMultipla(m.mercados, opcoes);
-    return { ...m, i, odd, cor: corMultipla(i + offsetMultiplas, scheme), ret: exato(m.fichas * odd) };
-  });
+  const mults = draft.multiplas
+    .map((m, i) => {
+      const odd = oddDaMultipla(m.mercados, opcoes);
+      return { ...m, i, odd, cor: corMultipla(i + offsetMultiplas, scheme), ret: exato(m.fichas * odd) };
+    })
+    .filter((m) => m.mercados.length > 0);
   const retMax = exato(retSimples + mults.reduce((s, m) => s + m.ret, 0));
-  const invalida = draft.multiplas.some((m) => m.mercados.length < 2);
-  const semFichasMult = draft.multiplas.some((m) => m.fichas <= 0);
+  const invalida = mults.some((m) => m.mercados.length < 2);
+  const semFichasMult = mults.some((m) => m.fichas <= 0);
   const podeConfirmar = usadas > 0 && !invalida && !semFichasMult;
 
   const setMult = (i: number, v: number) =>
@@ -105,7 +107,7 @@ export function ResumoBilhete({
                       <View className="flex-row items-center">
                         <View className="flex-1 pr-2">
                           <T className="text-[10px] text-muted">{o.jogo}</T>
-                          <T className="font-mont-b text-[13px]">{o.descricao}</T>
+                          <T className="font-mont-b text-[13px]">{rotuloPalpite(o.grupo, o.descricao)}</T>
                         </View>
                         <T className="font-odds text-base" style={{ color: C.primary }}>
                           {fmtOddExata(o.odd)}
@@ -140,7 +142,7 @@ export function ResumoBilhete({
                   <View className="mt-2 flex-row items-center justify-between">
                     <Stepper value={m.fichas} max={livres} ficha editavel onChange={(v) => setMult(m.i, v)} />
                     <T className="text-[11px] text-muted">
-                      {m.fichas} × {fmtOddExata(m.odd).slice(0, -1)} →{" "}
+                      {m.fichas} × {fmtOdd(m.odd).slice(0, -1)} →{" "}
                       <T className="font-mont-xb text-sm text-primary">{fmtExato(m.ret)}</T>
                     </T>
                   </View>
@@ -152,7 +154,7 @@ export function ResumoBilhete({
                     <View key={id} className={`flex-row items-center px-3 py-2 ${k ? "border-t border-line" : ""}`}>
                       <View className="flex-1 pr-2">
                         <T className="text-[10px] text-muted">{o.jogo}</T>
-                        <T className="font-mont-b text-[13px]">{o.descricao}</T>
+                        <T className="font-mont-b text-[13px]">{rotuloPalpite(o.grupo, o.descricao)}</T>
                       </View>
                       <T className="font-odds text-base" style={{ color: m.cor }}>
                         <T className="text-xs text-muted">{k ? "× " : ""}</T>
@@ -165,7 +167,7 @@ export function ResumoBilhete({
                   <T className="flex-1 font-mont-xb text-[10px] tracking-widest text-muted">ODD TOTAL</T>
                   <T className="font-odds text-lg" style={{ color: m.cor }}>
                     <T className="text-xs text-muted">= </T>
-                    {fmtOddExata(m.odd).slice(0, -1)}
+                    {fmtOdd(m.odd).slice(0, -1)}
                   </T>
                 </View>
                 {m.mercados.length < 2 ? (

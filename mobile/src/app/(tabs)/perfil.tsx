@@ -82,12 +82,6 @@ export default function Perfil() {
           <View className="ml-3 flex-1">
             <T className="font-mont-xb text-lg">{user.nome}</T>
             <T className="text-xs text-muted">{fmtWhats(user.whatsapp)}</T>
-            <View className="mt-1 flex-row items-center">
-              <Ionicons name="location" size={12} color={C.primary} />
-              <T className="ml-1 font-mont-sb text-xs text-primary">
-                {user.bairro}
-              </T>
-            </View>
           </View>
         </Card>
 

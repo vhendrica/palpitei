@@ -1,6 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useState } from "react";
-import { Modal, Pressable, ScrollView, View } from "react-native";
+import { Modal, Pressable, ScrollView, useWindowDimensions, View } from "react-native";
 
 import {
   alternarMultipla,
@@ -8,12 +8,11 @@ import {
   corMultipla,
   type Draft,
   fichasNoDraft,
-  novaMultipla,
   removerPalpite,
   semGrupo,
 } from "../lib/bilhete";
 import { incompativeis, oddTotal, type OpcaoCompat } from "../lib/compat";
-import { fmtOddExata, fmtPts } from "../lib/format";
+import { fmtOdd, fmtOddExata, fmtPts, rotuloPalpite } from "../lib/format";
 import { ThemeVars, useTheme } from "../store/Theme";
 import { Ficha } from "./Ficha";
 import { Stepper } from "./Form";
@@ -31,6 +30,13 @@ export function cabeNaMultipla(
   const m = draft.multiplas[idx];
   if (!m || m.mercados.includes(id)) return true;
   return !m.mercados.some((o) => incompativeis(opcoes[id], opcoes[o]));
+}
+
+/** Mistura duas cores hex (t = peso da primeira). */
+export function misturar(a: string, b: string, t: number) {
+  const rgb = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16));
+  const [x, y] = [rgb(a), rgb(b)];
+  return `#${x.map((v, i) => Math.round(v * t + y[i] * (1 - t)).toString(16).padStart(2, "0")).join("")}`;
 }
 
 export const oddDaMultipla = (ids: string[], opcoes: Record<string, OpcaoBilhete>) =>
@@ -60,11 +66,14 @@ export function Bilhete({
   const [pagina, setPagina] = useState(0);
   const [info, setInfo] = useState(false);
   const [perguntar, setPerguntar] = useState<string | null>(null);
+  const { height } = useWindowDimensions();
+  const fundo = misturar(C.primary, C.card, scheme === "dark" ? 0.14 : 0.1);
 
   const livres = fichasLivres - fichasNoDraft(draft);
   const paginas: string[][] = [];
   for (let i = 0; i < draft.itens.length; i += 2) paginas.push(draft.itens.slice(i, i + 2));
-  const pequena = draft.multiplas.some((m) => m.mercados.length < 2);
+  const pequena = draft.multiplas.some((m) => m.mercados.length === 1);
+  const slots = Math.max(2, draft.multiplas.length);
 
   const mudar = (d: Draft, id: string) => {
     onChange(d);
@@ -77,22 +86,21 @@ export function Bilhete({
     const naSimples = id in draft.simples;
     const bloqueada = draft.multiplas.findIndex((_, i) => !cabeNaMultipla(draft, opcoes, id, i));
     return (
-      <View key={id} className="mb-2 rounded-xl bg-cardAlt px-3 py-2">
+      <View key={id} className="mb-2 rounded-xl border border-line bg-card px-3 py-2">
         <View className="flex-row items-center">
           <View className="flex-1 pr-2">
             <T className="text-[10px] text-muted" numberOfLines={1}>
               {o.jogo}
             </T>
             <T className="font-mont-b text-[13px]" numberOfLines={1}>
-              {o.grupo ? `${o.grupo}: ` : ""}
-              {o.descricao}
+              {rotuloPalpite(o.grupo, o.descricao)}
             </T>
           </View>
           <T className="mr-2 font-odds text-base text-primary">{fmtOddExata(o.odd)}</T>
           <Pressable
             hitSlop={8}
             onPress={() => onChange(removerPalpite(draft, id))}
-            className="h-6 w-6 items-center justify-center rounded-full bg-card"
+            className="h-6 w-6 items-center justify-center rounded-full bg-cardAlt"
           >
             <Ionicons name="close" size={14} color={C.muted} />
           </Pressable>
@@ -105,21 +113,22 @@ export function Bilhete({
               ligado={naSimples}
               onPress={() => mudar(alternarSimples(draft, id), id)}
             />
-            {draft.multiplas.map((m, i) => {
+            {Array.from({ length: slots }, (_, i) => {
+              const m = draft.multiplas[i];
               const ok = cabeNaMultipla(draft, opcoes, id, i);
               return (
                 <Chip
                   key={i}
                   label={`Múltipla ${i + 1 + offsetMultiplas}`}
                   cor={corMultipla(i + offsetMultiplas, scheme)}
-                  ligado={m.mercados.includes(id)}
+                  ligado={!!m?.mercados.includes(id)}
                   bloqueado={!ok}
                   onPress={() => mudar(alternarMultipla(draft, id, i), id)}
                 />
               );
             })}
             <Pressable
-              onPress={() => onChange(novaMultipla(draft, id))}
+              onPress={() => onChange(alternarMultipla(draft, id, slots))}
               accessibilityLabel="Nova múltipla"
               className="h-8 w-8 items-center justify-center rounded-lg border border-dashed border-line bg-card"
             >
@@ -166,8 +175,15 @@ export function Bilhete({
 
   return (
     <View
-      className="absolute bottom-0 left-0 right-0 rounded-t-3xl border-t border-line bg-card px-4 pb-4 pt-2"
-      style={{ shadowColor: "#000", shadowOpacity: 0.15, shadowRadius: 12, elevation: 12 }}
+      className="absolute bottom-0 left-0 right-0 rounded-t-3xl border-t-2 border-primary px-4 pb-3 pt-2"
+      style={{
+        backgroundColor: fundo,
+        maxHeight: height / 3,
+        shadowColor: "#000",
+        shadowOpacity: 0.2,
+        shadowRadius: 12,
+        elevation: 12,
+      }}
     >
       <Pressable onPress={() => setAberto((a) => !a)} className="items-center pb-2">
         <View className="mb-2 h-1 w-10 rounded-full bg-line" />
@@ -184,7 +200,7 @@ export function Bilhete({
         </View>
       </Pressable>
       {aberto ? (
-        <>
+        <ScrollView style={{ flexShrink: 1 }} nestedScrollEnabled>
           <View onLayout={(e) => setLargura(e.nativeEvent.layout.width)}>
             {largura > 0 ? (
               <ScrollView
@@ -216,10 +232,11 @@ export function Bilhete({
           {draft.multiplas.map((m, i) => {
             const cor = corMultipla(i + offsetMultiplas, scheme);
             const curta = m.mercados.length < 2;
+            if (m.mercados.length === 0) return null;
             return (
               <View key={i}>
                 <View
-                  className="mb-1.5 flex-row items-center rounded-xl px-2 py-1.5"
+                  className="mb-1.5 flex-row items-center rounded-xl bg-card px-2 py-1.5"
                   style={{
                     borderWidth: 1.5,
                     borderStyle: curta ? "dashed" : "solid",
@@ -232,7 +249,7 @@ export function Bilhete({
                   <T className="ml-2 flex-1 text-[11px] text-muted" numberOfLines={1}>
                     {m.mercados.length} {m.mercados.length === 1 ? "palpite" : "palpites"} · odd{" "}
                     <T className="font-mont-xb text-[12px]" style={{ color: cor }}>
-                      {fmtOddExata(oddDaMultipla(m.mercados, opcoes))}
+                      {fmtOdd(oddDaMultipla(m.mercados, opcoes))}
                     </T>
                   </T>
                   <Stepper
@@ -257,7 +274,7 @@ export function Bilhete({
               </View>
             );
           })}
-        </>
+        </ScrollView>
       ) : null}
       <Button title="Ver resumo" onPress={onResumo} disabled={pequena} className="mt-1" />
 

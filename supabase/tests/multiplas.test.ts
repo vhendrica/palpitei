@@ -72,10 +72,11 @@ describe('bilhete com Simples e Múltiplas', () => {
     });
     assert.deepEqual(r, { fichas_distribuidas: 160, fichas_livres: 40 });
     assert.equal(await fichasDisponiveis(sql, u, ligaId), 40);
-    const p = await palpiteirosDoDia(sql, null, '2030-01-01');
-    assert.equal(p.palpiteiros[0].fichas_apostadas, 160);
+    const p = await palpiteirosDoDia(sql, { id: u } as never, '2030-01-01');
     assert.equal(p.palpiteiros[0].multiplas.length, 2);
     assert.equal(p.palpiteiros[0].multiplas[0].odd, 4);
+    assert.equal(p.palpiteiros[0].multiplas[0].fichas, 90);
+    assert.equal((await palpiteirosDoDia(sql, null, '2030-01-01')).palpiteiros[0].multiplas.length, 0);
   });
 
   test('validações da múltipla', async () => {

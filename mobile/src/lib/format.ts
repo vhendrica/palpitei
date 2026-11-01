@@ -46,3 +46,18 @@ export function fmtOddExata(n: number) {
 
 /** Fichas/pontos sem arredondar. */
 export const fmtExato = (n: number) => n.toLocaleString("pt-BR", { maximumFractionDigits: 8 });
+
+const MINUSC = new Set(["de", "da", "do", "ou", "e"]);
+const titulo = (s: string) =>
+  s
+    .toLowerCase()
+    .split(" ")
+    .map((w, i) => (i > 0 && MINUSC.has(w) ? w : w.charAt(0).toUpperCase() + w.slice(1)))
+    .join(" ");
+
+/** "AMBOS MARCAM" + "NÃO" → "Ambos marcam: Não". */
+export function rotuloPalpite(grupo: string, descricao: string) {
+  const g = grupo.trim().toLowerCase();
+  const d = titulo(descricao.trim());
+  return g ? `${g.charAt(0).toUpperCase()}${g.slice(1)}: ${d}` : d;
+}

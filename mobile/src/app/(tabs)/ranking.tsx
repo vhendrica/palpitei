@@ -76,7 +76,6 @@ export default function Ranking() {
                   {r.nome}
                   {r.eu ? " (você)" : ""}
                 </T>
-                <T className="text-xs text-muted">{r.bairro}</T>
               </View>
               <View className="items-end">
                 <T className="font-odds text-lg text-primary">

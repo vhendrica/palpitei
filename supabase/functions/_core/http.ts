@@ -3,6 +3,7 @@ import * as auth from './auth.ts';
 import type { Db } from './db.ts';
 import { ForbiddenError, NotFoundError, RuleError } from './errors.ts';
 import { importarOdds, mercadosDaApi, type OddsConfig } from './odds.ts';
+import { aplicarPlacar, atualizarResultados } from './resultados.ts';
 import { apostar, type MultiplaInput, entrarNaLiga, finalizarLiga, reativarLiga, getLigaAtual } from './rules.ts';
 import { home, jogosComMercados, palpiteirosDoDia, perfil, rankingDoDia } from './services.ts';
 import { hojeISO } from './validation.ts';
@@ -16,6 +17,8 @@ export type ApiDeps = {
   hoje?: () => string;
   corsOrigin?: string;
   odds?: OddsConfig;
+  /** Segredo do agendador (pg_cron) para POST /cron/resultados. */
+  cronSecret?: string;
 };
 
 type Ctx = {
@@ -75,6 +78,16 @@ export function createApi(deps: ApiDeps) {
           ? { simples: b.simples as Record<string, number>, multiplas: b.multiplas as MultiplaInput[] }
           : ((b.distribuicao ?? {}) as Record<string, number>);
       return apostar(sql, u.id, (await ligaDeHoje()).id, bilhete);
+    }],
+    ['POST', /^\/cron\/resultados$/, async (c) => {
+      const segredo = c.req.headers.get('x-cron-secret');
+      if (!deps.cronSecret || segredo !== deps.cronSecret) await c.requireAdmin();
+      return atualizarResultados(sql, deps.odds);
+    }],
+    ['POST', /^\/admin\/jogos\/([^/]+)\/placar$/, async (c) => {
+      await c.requireAdmin();
+      const b = await c.body();
+      return aplicarPlacar(sql, c.params[0], Number(b.casa), Number(b.fora));
     }],
     ['GET', /^\/me$/, async (c) => perfil(sql, await c.requireUser())],
 

@@ -304,8 +304,17 @@ test('palpiteiros do dia lista quem entrou e as fichas de cada um', async () => 
   await entrarNaLiga(sql, b, ligaId);
   await apostar(sql, a, ligaId, { [mercados[0]]: 50, [mercados[1]]: 20 });
   const [{ data }] = await sql`select to_char(data, 'YYYY-MM-DD') as data from ligas where id = ${ligaId}`;
+  // Jogos ainda não começaram: os outros só veem quem entrou.
   const r = await palpiteirosDoDia(sql, null, data);
-  assert.deepEqual(r.palpiteiros.map((p) => [p.nome, p.fichas_apostadas, p.palpites.length]), [['Ana', 70, 2], ['Bia', 0, 0]]);
+  assert.deepEqual(r.palpiteiros.map((p) => [p.nome, p.palpites.length]), [['Ana', 0], ['Bia', 0]]);
+  // A própria Ana vê o bilhete inteiro, com fichas.
+  const eu = await palpiteirosDoDia(sql, { id: a } as never, data);
+  assert.deepEqual(eu.palpiteiros[0].palpites.map((p) => p.fichas), [50, 20]);
+  // Jogo começou: aparecem mercado e odd, sem fichas.
+  await sql`update jogos set horario = now() - interval '1 minute' where liga_id = ${ligaId}`;
+  const r2 = await palpiteirosDoDia(sql, null, data);
+  assert.equal(r2.palpiteiros[0].palpites.length, 2);
+  assert.equal(r2.palpiteiros[0].palpites[0].fichas, undefined);
 });
 
 describe('salvarPremioEscada com prêmio inicial', () => {

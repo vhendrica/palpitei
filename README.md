@@ -118,3 +118,15 @@ Para virar admin: `update users set is_admin = true where whatsapp = '8599999000
 Fase 2 (fora deste escopo): jobs automáticos de jogos/odds e resultados (`mercados.resultado_final`), resgate de voucher, métricas.
 
 > O build do GitHub Pages embute o export web de `mobile/`; com a Fase 1 o app precisa da API (`EXPO_PUBLIC_API_URL`) no momento do build.
+
+### Resultado automático (a cada 10 min)
+
+`POST /cron/resultados` busca na The Odds API (`/scores`) o placar dos jogos da rodada que já começaram e ainda não terminaram, grava o placar e marca os mercados que bateram. Sem jogo rolando, não chama a API. Aceita o header `x-cron-secret` (secret `CRON_SECRET` da função) ou um admin logado. No Supabase, agendado com `pg_cron` + `pg_net`:
+
+```sql
+select cron.schedule('palpit-resultados', '*/10 * * * *', $$select net.http_post(
+  url := 'https://<ref>.supabase.co/functions/v1/api/cron/resultados',
+  headers := '{"Content-Type":"application/json","x-cron-secret":"<CRON_SECRET>"}'::jsonb, body := '{}'::jsonb)$$);
+```
+
+Placar manual (jogo cadastrado na mão): `POST /admin/jogos/:id/placar` com `{ "casa": 2, "fora": 1 }`.

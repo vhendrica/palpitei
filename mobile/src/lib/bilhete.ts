@@ -12,7 +12,12 @@ export type Draft = {
 
 export const DRAFT_VAZIO: Draft = { itens: [], simples: {}, multiplas: [] };
 
-const semMultiplasVazias = (ms: MultiplaDraft[]) => ms.filter((m) => m.mercados.length > 0);
+/** Tira só as múltiplas vazias do fim, para a numeração das outras não mudar. */
+function semMultiplasVazias(ms: MultiplaDraft[]) {
+  const out = [...ms];
+  while (out.length && out[out.length - 1].mercados.length === 0) out.pop();
+  return out;
+}
 
 export function removerPalpite(d: Draft, id: string): Draft {
   const { [id]: _, ...simples } = d.simples;
@@ -40,7 +45,9 @@ export function alternarSimples(d: Draft, id: string): Draft {
 }
 
 export function alternarMultipla(d: Draft, id: string, idx: number): Draft {
-  const multiplas = d.multiplas.map((m, i) =>
+  const base = [...d.multiplas];
+  while (base.length <= idx) base.push({ mercados: [], fichas: 0 });
+  const multiplas = base.map((m, i) =>
     i !== idx
       ? m
       : {

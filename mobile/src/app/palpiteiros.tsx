@@ -8,13 +8,14 @@ import { Ficha } from "../components/Ficha";
 import { ErrorBox } from "../components/Form";
 import { Card, EmptyState, T } from "../components/ui";
 import { api } from "../lib/api";
-import { fmtOddExata, fmtPts } from "../lib/format";
+import { corMultipla } from "../lib/bilhete";
+import { fmtOdd, rotuloPalpite } from "../lib/format";
 import { errorMessage } from "../store/AppStore";
 import { useTheme } from "../store/Theme";
-import type { PalpiteiroView } from "../types";
+import type { PalpiteiroView, Resultado } from "../types";
 
 export default function Palpiteiros() {
-  const { palette: C } = useTheme();
+  const { palette: C, scheme } = useTheme();
   const [rows, setRows] = useState<PalpiteiroView[] | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [aberto, setAberto] = useState<number | null>(null);
@@ -62,100 +63,136 @@ export default function Palpiteiros() {
           <T className="mb-3 text-sm text-muted">
             {rows.length}{" "}
             {rows.length === 1 ? "pessoa entrou" : "pessoas entraram"} na
-            múltipla. Toque no nome pra ver o bilhete.
+            rodada. Toque no nome pra ver o bilhete.
           </T>
         ) : null}
-        {rows?.map((p, i) => (
-          <Card
-            key={i}
-            className={`mb-2 ${p.eu ? "border-2 border-primary" : ""}`}
-          >
-            <Pressable
-              className="flex-row items-center"
-              onPress={() => setAberto(aberto === i ? null : i)}
+        {rows?.map((p, i) => {
+          const nada = p.palpites.length === 0 && p.multiplas.length === 0;
+          return (
+            <Card
+              key={i}
+              className={`mb-2 ${p.eu ? "border-2 border-primary" : ""}`}
             >
-              <View className="h-9 w-9 items-center justify-center rounded-full bg-cardAlt">
-                <T className="font-mont-xb text-sm">{p.nome.slice(0, 1)}</T>
-              </View>
-              <View className="ml-3 flex-1">
-                <T className="font-mont-b text-sm">
+              <Pressable
+                className="flex-row items-center"
+                onPress={() => setAberto(aberto === i ? null : i)}
+              >
+                <View className="h-9 w-9 items-center justify-center rounded-full bg-cardAlt">
+                  <T className="font-mont-xb text-sm">{p.nome.slice(0, 1)}</T>
+                </View>
+                <T className="ml-3 flex-1 font-mont-b text-sm">
                   {p.nome}
                   {p.eu ? " (você)" : ""}
                 </T>
-                <T className="text-xs text-muted">{p.bairro}</T>
-              </View>
-              <T className="font-odds text-base">
-                {fmtPts(p.fichas_apostadas)}
-              </T>
-              <View className="ml-1 mr-2">
-                <Ficha size={16} />
-              </View>
-              <Ionicons
-                name={aberto === i ? "chevron-up" : "chevron-down"}
-                size={18}
-                color={C.muted}
-              />
-            </Pressable>
-            {aberto === i ? (
-              <View className="mt-3 rounded-xl border-2 border-dashed border-primary p-3">
-                <View className="mb-1 flex-row items-center justify-between">
-                  <T className="font-mont-xb text-sm">
-                    Bilhete de {p.nome.split(" ")[0]}
-                  </T>
-                  <View className="flex-row items-center">
-                    <T className="mr-1 font-odds text-base">
-                      {fmtPts(p.fichas_apostadas)}
+                <Ionicons
+                  name={aberto === i ? "chevron-up" : "chevron-down"}
+                  size={18}
+                  color={C.muted}
+                />
+              </Pressable>
+              {aberto === i ? (
+                <View className="mt-3 rounded-xl border-2 border-dashed border-primary p-3">
+                  {nada ? (
+                    <T className="text-xs text-muted">
+                      {p.eu
+                        ? "Você ainda não distribuiu fichas."
+                        : "Os palpites aparecem quando os jogos começarem."}
                     </T>
-                    <Ficha size={14} />
-                  </View>
+                  ) : null}
+                  {p.palpites.length > 0 ? (
+                    <T className="mb-1 font-mont-xb text-xs" style={{ color: C.primary }}>
+                      Simples
+                    </T>
+                  ) : null}
+                  {p.palpites.map((x, k) => (
+                    <Linha
+                      key={k}
+                      rotulo={rotuloPalpite(x.grupo, x.descricao)}
+                      jogo={x.jogo}
+                      odd={x.multiplicador}
+                      resultado={x.resultado}
+                      fichas={x.fichas}
+                    />
+                  ))}
+                  {p.multiplas.map((m) => {
+                    const cor = corMultipla(m.numero - 1, scheme);
+                    return (
+                      <View
+                        key={m.numero}
+                        className="mt-2 rounded-lg px-2 py-1.5"
+                        style={{ borderWidth: 1.5, borderColor: cor }}
+                      >
+                        <View className="flex-row items-center justify-between">
+                          <T className="font-mont-xb text-xs" style={{ color: cor }}>
+                            Múltipla {m.numero}
+                          </T>
+                          <T className="text-xs text-muted">
+                            odd {fmtOdd(m.odd)}
+                            {m.fichas != null ? ` · ${m.fichas} fichas` : ""}
+                          </T>
+                        </View>
+                        {m.pernas.map((x, n) => (
+                          <Linha
+                            key={n}
+                            rotulo={rotuloPalpite(x.grupo, x.descricao)}
+                            jogo={x.jogo}
+                            odd={x.odd}
+                            resultado={x.resultado}
+                          />
+                        ))}
+                        {m.ocultas > 0 ? (
+                          <T className="text-[11px] text-muted">
+                            + {m.ocultas} {m.ocultas === 1 ? "palpite" : "palpites"} de jogos que ainda não começaram
+                          </T>
+                        ) : null}
+                      </View>
+                    );
+                  })}
                 </View>
-                {p.multiplas?.map((m, k) => (
-                  <View key={`m${k}`} className="mt-1 rounded-lg border border-line px-2 py-1.5">
-                    <View className="flex-row items-center justify-between">
-                      <T className="font-mont-xb text-xs">Múltipla {k + 1}</T>
-                      <View className="flex-row items-center">
-                        <T className="mr-1 font-odds text-sm text-primary">{m.fichas}</T>
-                        <Ficha size={12} />
-                      </View>
-                    </View>
-                    {m.pernas.map((x, n) => (
-                      <T key={n} className="text-xs text-muted">
-                        {x.descricao} · {x.jogo} · {x.odd.toFixed(2)}
-                      </T>
-                    ))}
-                    <T className="text-xs">odd total {fmtOddExata(m.odd)}</T>
-                  </View>
-                ))}
-                {p.palpites.length === 0 && !p.multiplas?.length ? (
-                  <T className="text-xs text-muted">
-                    Ainda não distribuiu fichas.
-                  </T>
-                ) : (
-                  p.palpites.map((x, k) => (
-                    <View key={k} className="flex-row items-center py-1.5">
-                      <View className="flex-1 pr-2">
-                        <T className="font-mont-b text-sm">
-                          {x.grupo ? `${x.grupo}: ` : ""}
-                          {x.descricao}
-                        </T>
-                        <T className="text-xs text-muted">
-                          {x.jogo} • odd {x.multiplicador.toFixed(2)}
-                        </T>
-                      </View>
-                      <T className="font-odds text-base text-primary">
-                        {x.fichas}
-                      </T>
-                      <View className="ml-1">
-                        <Ficha size={14} />
-                      </View>
-                    </View>
-                  ))
-                )}
-              </View>
-            ) : null}
-          </Card>
-        ))}
+              ) : null}
+            </Card>
+          );
+        })}
       </ScrollView>
+    </View>
+  );
+}
+
+function Linha({
+  rotulo,
+  jogo,
+  odd,
+  resultado,
+  fichas,
+}: {
+  rotulo: string;
+  jogo: string;
+  odd: number;
+  resultado: Resultado;
+  fichas?: number;
+}) {
+  const { palette: C } = useTheme();
+  return (
+    <View className="flex-row items-center py-1.5">
+      {resultado ? (
+        <Ionicons
+          name={resultado === "green" ? "checkmark-circle" : "close-circle"}
+          size={16}
+          color={resultado === "green" ? C.primary : C.danger}
+          style={{ marginRight: 6 }}
+        />
+      ) : null}
+      <View className="flex-1 pr-2">
+        <T className="font-mont-b text-sm">{rotulo}</T>
+        <T className="text-xs text-muted">{jogo}</T>
+      </View>
+      <T className="font-odds text-base text-primary">{fmtOdd(odd)}</T>
+      {fichas != null ? (
+        <View className="ml-2 flex-row items-center">
+          <T className="mr-0.5 font-odds text-xs">{fichas}</T>
+          <Ficha size={12} />
+        </View>
+      ) : null}
     </View>
   );
 }

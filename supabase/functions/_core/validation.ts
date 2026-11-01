@@ -64,10 +64,9 @@ export function validarNome(raw: unknown) {
   return nome;
 }
 
+/** Bairro saiu do cadastro: opcional (vazio quando não informado). */
 export function validarBairro(raw: unknown) {
-  const bairro = String(raw ?? '').trim();
-  if (!bairro) throw new RuleError('Escolha seu bairro.');
-  return bairro;
+  return String(raw ?? '').trim().slice(0, 80);
 }
 
 export function validarDataISO(raw: unknown): string {

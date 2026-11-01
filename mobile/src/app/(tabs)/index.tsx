@@ -37,6 +37,8 @@ import { useTheme } from "../../store/Theme";
 import { agruparMercados } from "../../types";
 import type { Jogo } from "../../types";
 
+const MERCADOS_VISIVEIS = 2;
+
 export default function HomeMultipla() {
   const { palette: C, scheme } = useTheme();
   const { home, homeErro, refreshHome, user, entrarNaLiga, apostar } = useApp();
@@ -51,6 +53,7 @@ export default function HomeMultipla() {
     [draftState, draftKey],
   );
   const [resumo, setResumo] = useState(false);
+  const [abertos, setAbertos] = useState<string[]>([]);
   const setDraft = (fn: Draft | ((d: Draft) => Draft)) =>
     setDraftState({
       key: draftKey,
@@ -124,7 +127,7 @@ export default function HomeMultipla() {
             .filter((id) => (draft.simples[id] ?? 0) > 0)
             .map((id) => [id, draft.simples[id]]),
         ),
-        multiplas: draft.multiplas,
+        multiplas: draft.multiplas.filter((m) => m.mercados.length > 0),
       });
       setDraft(DRAFT_VAZIO);
       setResumo(false);
@@ -189,10 +192,6 @@ export default function HomeMultipla() {
         : [],
     ),
   ];
-  const escolhas = home.jogos.reduce(
-    (s, j) => s + j.mercados.filter((m) => (m.minhas_fichas ?? 0) > 0).length,
-    0,
-  );
   const destaque = home.jogos.find((j) => j.destaque);
   const outros = home.jogos.filter((j) => j !== destaque);
 
@@ -213,15 +212,19 @@ export default function HomeMultipla() {
         ) : null}
         <T className="text-[11px] uppercase tracking-widest text-muted">
           {j.campeonato} • {fmtData(j.horario)}
-          {j.comecou ? " • EM JOGO" : ""}
+          {j.finalizado ? " • ENCERRADO" : j.comecou ? " • EM JOGO" : ""}
         </T>
         <T
           className={`mt-1 font-mont-xb ${j.destaque ? "text-xl" : "text-base"}`}
         >
-          {j.time_casa} x {j.time_fora}
+          {j.time_casa}
+          {j.placar ? ` ${j.placar.casa} x ${j.placar.fora} ` : " x "}
+          {j.time_fora}
         </T>
         <View className="mt-3">
-          {agruparMercados(j.mercados).map((g) => {
+          {agruparMercados(j.mercados)
+            .filter((_, gi) => gi < MERCADOS_VISIVEIS || abertos.includes(j.id))
+            .map((g) => {
             return (
               <View key={g.grupo} className="mb-3">
                 {g.grupo ? (
@@ -234,7 +237,7 @@ export default function HomeMultipla() {
                     const minhas = m.minhas_fichas ?? 0;
                     const noBilhete = draft.itens.includes(m.id);
                     const resultado =
-                      home.liga?.status === "finalizada"
+                      home.liga?.status === "finalizada" || j.finalizado
                         ? m.resultado_final
                           ? "green"
                           : minhas > 0
@@ -244,7 +247,7 @@ export default function HomeMultipla() {
                     return (
                       <View
                         key={m.id}
-                        style={{ flexGrow: 1, flexBasis: "30%" }}
+                        style={{ flexGrow: 1, flexBasis: "30%", minWidth: 0 }}
                       >
                         <BetButton
                           compact
@@ -270,6 +273,27 @@ export default function HomeMultipla() {
               </View>
             );
           })}
+          {agruparMercados(j.mercados).length > MERCADOS_VISIVEIS ? (
+            <Pressable
+              onPress={() =>
+                setAbertos((a) =>
+                  a.includes(j.id) ? a.filter((x) => x !== j.id) : [...a, j.id],
+                )
+              }
+              className="flex-row items-center justify-center py-1 active:opacity-70"
+            >
+              <T className="font-mont-b text-xs text-primary">
+                {abertos.includes(j.id)
+                  ? "Ver menos mercados"
+                  : `Ver mais mercados (${agruparMercados(j.mercados).length - MERCADOS_VISIVEIS})`}
+              </T>
+              <Ionicons
+                name={abertos.includes(j.id) ? "chevron-up" : "chevron-down"}
+                size={14}
+                color={C.primary}
+              />
+            </Pressable>
+          ) : null}
           {j.mercados.length === 0 ? (
             <T className="text-sm text-muted">Mercados em breve.</T>
           ) : null}
@@ -368,27 +392,11 @@ export default function HomeMultipla() {
                       <SituacaoFichas livres={livres} noBilhete={noDraft} />
                     ) : null}
                     <View className="flex-row justify-around">
-                      {valendo ? (
-                        <>
-                          <Stat
-                            label="Pontuação"
-                            value={fmtPts(eu.pontuacao)}
-                          />
-                          <Stat
-                            label="Posição"
-                            value={eu.posicao ? `${eu.posicao}º` : "—"}
-                          />
-                        </>
-                      ) : (
-                        <>
-                          <Stat
-                            label="Fichas apostadas"
-                            value={fmtPts(eu.fichas_usadas)}
-                            ficha
-                          />
-                          <Stat label="Escolhas" value={String(escolhas)} />
-                        </>
-                      )}
+                      <Stat label="Pontuação" value={fmtPts(eu.pontuacao)} />
+                      <Stat
+                        label="Posição"
+                        value={eu.posicao ? `${eu.posicao}º` : "—"}
+                      />
                       <Stat
                         label="Palpiteiros ›"
                         value={fmtPts(home.premio.palpiteiros)}
@@ -602,9 +610,10 @@ function SlideJogo({ jogo, onOdd }: { jogo: Jogo; onOdd: () => void }) {
             <Pressable
               key={m.id}
               onPress={onOdd}
-              className="flex-1 items-center rounded-lg border border-line bg-cardAlt py-1.5 active:opacity-70"
+              className="flex-1 items-center rounded-lg border border-line bg-cardAlt px-1 py-1.5 active:opacity-70"
+              style={{ minWidth: 0 }}
             >
-              <T className="text-[9px] font-mont-b uppercase" numberOfLines={1}>
+              <T className="text-[9px] font-mont-b uppercase" numberOfLines={1} style={{ maxWidth: "100%" }}>
                 {m.descricao}
               </T>
               <T className="font-odds text-sm text-primary">
@@ -621,7 +630,12 @@ function SlideJogo({ jogo, onOdd }: { jogo: Jogo; onOdd: () => void }) {
 function Time({ nome }: { nome: string }) {
   return (
     <View className="w-[42%] items-center">
-      <T className="text-center font-mont-xb text-base" numberOfLines={2}>
+      <T
+        className="text-center font-mont-xb text-base"
+        numberOfLines={2}
+        adjustsFontSizeToFit
+        minimumFontScale={0.7}
+      >
         {nome}
       </T>
     </View>
