@@ -12,7 +12,7 @@ import {
   reativarLiga,
   pontuacaoUsuario,
 } from '../functions/_core/rules.ts';
-import { removerPalpiteiro } from '../functions/_core/admin.ts';
+import { removerPalpiteiro, salvarPremioEscada } from '../functions/_core/admin.ts';
 import { palpiteirosDoDia } from '../functions/_core/services.ts';
 import { criarLiga, criarUser, limpar, saldo, setupDb, type Sql } from './helpers.ts';
 
@@ -227,6 +227,20 @@ describe('finalizarLiga', () => {
     await assert.rejects(reativarLiga(sql, ligaId), { message: 'O voucher desse palpite já foi resgatado.' });
   });
 
+  test('reativar é bloqueada se o vencedor já gastou os PONTOS devolvidos', async () => {
+    const a = await criarUser(sql, { saldo_pontos: 100 });
+    const { ligaId, mercados } = await criarLiga(sql);
+    await entrarNaLiga(sql, a, ligaId);
+    await apostar(sql, a, ligaId, { [mercados[0]]: 50 });
+    await finalizarLiga(sql, ligaId, [mercados[0]]);
+    await sql`update users set saldo_pontos = 20 where id = ${a}`;
+    await assert.rejects(reativarLiga(sql, ligaId), {
+      message: 'O vencedor já gastou os PONTOS devolvidos na finalização. Não dá pra reativar.',
+    });
+    assert.equal(await saldo(sql, a), 20);
+    assert.equal((await sql`select status from ligas where id = ${ligaId}`)[0].status, 'finalizada');
+  });
+
   test('premio_final limitado à meta (teto)', async () => {
     await sql`delete from premio_escada`;
     await sql`insert into premio_escada (ordem, usuarios_min, valor) values (1, 1, 100), (2, 2, 250)`;
@@ -292,4 +306,16 @@ test('palpiteiros do dia lista quem entrou e as fichas de cada um', async () => 
   const [{ data }] = await sql`select to_char(data, 'YYYY-MM-DD') as data from ligas where id = ${ligaId}`;
   const r = await palpiteirosDoDia(sql, null, data);
   assert.deepEqual(r.palpiteiros.map((p) => [p.nome, p.fichas_apostadas, p.palpites.length]), [['Ana', 70, 2], ['Bia', 0, 0]]);
+});
+
+describe('salvarPremioEscada com prêmio inicial', () => {
+  test('valida o prêmio inicial contra a escada nova e grava tudo junto', async () => {
+    await salvarPremioEscada(sql, [{ usuarios_min: 50, valor: 200 }, { usuarios_min: 100, valor: 600 }], 150);
+    assert.equal(Number((await sql`select premio_inicial from config`)[0].premio_inicial), 150);
+    await assert.rejects(salvarPremioEscada(sql, [{ usuarios_min: 50, valor: 40 }], 50), {
+      message: 'A 1ª faixa precisa valer mais que o prêmio inicial.',
+    });
+    assert.equal(Number((await sql`select premio_inicial from config`)[0].premio_inicial), 150);
+    assert.equal((await sql`select valor from premio_escada order by ordem`).map((r) => Number(r.valor)).join(), '200,600');
+  });
 });

@@ -88,8 +88,8 @@ export const api = {
   admin: {
     config: () => req<{ config: Config; premio_escada: Faixa[] }>('GET', '/admin/config'),
     salvarConfig: (c: Partial<Config>) => req<{ config: Config; premio_escada: Faixa[] }>('PUT', '/admin/config', c),
-    salvarEscada: (faixas: { usuarios_min: number; valor: number }[]) =>
-      req<{ premio_escada: Faixa[] }>('PUT', '/admin/premio-escada', { faixas }),
+    salvarEscada: (faixas: { usuarios_min: number; valor: number }[], premio_inicial?: number) =>
+      req<{ premio_escada: Faixa[] }>('PUT', '/admin/premio-escada', { faixas, premio_inicial }),
     fixtures: (data: string) => req<{ fixtures: Fixture[] }>('GET', `/admin/fixtures?data=${data}`),
     importarOdds: (data: string) =>
       req<{ importados: { fixture_id: number }[]; creditos_restantes: number | null }>('POST', '/admin/fixtures/importar', { data }),

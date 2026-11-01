@@ -382,7 +382,11 @@ export async function reativarLiga(sql: Db, ligaId: string) {
     const vouchers = await tx`select user_id, resgatado from vouchers where liga_id = ${ligaId} for update`;
     if (vouchers.some((v) => v.resgatado)) throw new RuleError('O voucher desse palpite já foi resgatado.');
     for (const v of vouchers) {
-      await tx`update users set saldo_pontos = greatest(0, saldo_pontos - ${liga.custo_entrada}) where id = ${v.user_id}`;
+      const [u] = await tx`select saldo_pontos from users where id = ${v.user_id} for update`;
+      if (num(u.saldo_pontos) < liga.custo_entrada) {
+        throw new RuleError('O vencedor já gastou os PONTOS devolvidos na finalização. Não dá pra reativar.');
+      }
+      await tx`update users set saldo_pontos = saldo_pontos - ${liga.custo_entrada} where id = ${v.user_id}`;
     }
     await tx`delete from vouchers where liga_id = ${ligaId}`;
     await tx`

@@ -57,5 +57,5 @@ export async function limpar(sql: Sql) {
   await sql`truncate users, ligas, jogos, mercados, entradas, apostas, vouchers, sessions, otp_codes, fixtures_dia cascade`;
   await sql`delete from premio_escada`;
   await sql`insert into premio_escada (ordem, usuarios_min, valor) values (1, 100, 100), (2, 250, 300), (3, 500, 500)`;
-  await sql`update config set qtd_jogos_dia = 3, fichas_por_entrada = 200, custo_entrada_pontos = 100 where id = 1`;
+  await sql`update config set qtd_jogos_dia = 3, fichas_por_entrada = 200, custo_entrada_pontos = 100, premio_inicial = 0 where id = 1`;
 }

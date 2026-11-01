@@ -51,12 +51,15 @@ export async function atualizarConfig(db: Db, input: Record<string, unknown>) {
 }
 
 /** Substitui a escada inteira. A ordem do array é a ordem das faixas; a última é a META/TETO. */
-export async function salvarPremioEscada(sql: Db, faixasInput: unknown) {
+export async function salvarPremioEscada(sql: Db, faixasInput: unknown, premioInicialInput?: unknown) {
   if (!Array.isArray(faixasInput)) throw new RuleError('Envie a lista de faixas.');
   const faixas = faixasInput.map((f) => ({ usuarios_min: Number(f?.usuarios_min), valor: Number(f?.valor) }));
-  const erro = validarEscada(faixas, (await getConfig(sql)).premio_inicial);
+  const inicial = premioInicialInput == null ? (await getConfig(sql)).premio_inicial : Number(premioInicialInput);
+  if (!Number.isFinite(inicial) || inicial < 0) throw new RuleError('Prêmio inicial inválido.');
+  const erro = validarEscada(faixas, inicial);
   if (erro) throw new RuleError(erro);
   await sql.begin(async (tx: Tx) => {
+    await tx`update config set premio_inicial = ${inicial}, updated_at = now() where id = 1`;
     await tx`delete from premio_escada`;
     await tx`insert into premio_escada ${tx(faixas.map((f, i) => ({ ...f, ordem: i + 1 })), 'ordem', 'usuarios_min', 'valor')}`;
   });

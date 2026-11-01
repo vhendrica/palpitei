@@ -83,7 +83,8 @@ export function createApi(deps: ApiDeps) {
     ['PUT', /^\/admin\/config$/, async (c) => (await c.requireAdmin(), admin.atualizarConfig(sql, await c.body()))],
     ['PUT', /^\/admin\/premio-escada$/, async (c) => {
       await c.requireAdmin();
-      return { premio_escada: await admin.salvarPremioEscada(sql, (await c.body()).faixas) };
+      const b = await c.body();
+      return { premio_escada: await admin.salvarPremioEscada(sql, b.faixas, b.premio_inicial) };
     }],
     ['GET', /^\/admin\/fixtures$/, async (c) => {
       await c.requireAdmin();

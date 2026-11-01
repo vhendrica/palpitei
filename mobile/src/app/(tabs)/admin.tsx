@@ -893,14 +893,12 @@ function AbaConfig({ run }: { run: Run }) {
           className="flex-1"
           onPress={() =>
             run(async () => {
-              await api.admin.salvarConfig({
-                premio_inicial: Number(cfg.premio_inicial.replace(",", ".")) || 0,
-              });
               await api.admin.salvarEscada(
                 faixas.map((f) => ({
                   usuarios_min: Number(f.usuarios_min),
                   valor: Number(f.valor.replace(",", ".")),
                 })),
+                Number(cfg.premio_inicial.replace(",", ".")) || 0,
               );
               return "Escada salva.";
             })
