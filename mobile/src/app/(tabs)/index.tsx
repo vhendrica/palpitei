@@ -20,7 +20,7 @@ import { EntradaModal } from "../../components/EntradaModal";
 import { Escudo } from "../../components/Escudo";
 import { ErrorBox } from "../../components/Form";
 import { Ficha } from "../../components/Ficha";
-import { PremioBar } from "../../components/PremioBar";
+import { PremioBar, PremioLinha } from "../../components/PremioBar";
 import { useToast } from "../../components/Toast";
 import {
   Button,
@@ -284,13 +284,10 @@ export default function HomeMultipla() {
               </T>
               <StatusBadge status={home.liga.status} />
             </View>
-            <PremioBar
+            <PremioLinha
               premio={home.premio}
-              finalizada={home.liga.status === "finalizada"}
               descricao={home.liga.premio_desc}
-              onPalpiteiros={eu ? undefined : () => router.push("/palpiteiros")}
-              semContagem={!!eu}
-              onConvidar={() => convidar(home.liga?.premio_desc)}
+              finalizada={home.liga.status === "finalizada"}
             />
 
             {user && !eu ? (
@@ -379,6 +376,19 @@ export default function HomeMultipla() {
                 )}
                 <ErrorBox erro={erro} />
               </Card>
+            </View>
+
+            <View className="mt-3">
+              <PremioBar
+                premio={home.premio}
+                finalizada={home.liga.status === "finalizada"}
+                descricao={home.liga.premio_desc}
+                onPalpiteiros={
+                  eu ? undefined : () => router.push("/palpiteiros")
+                }
+                semContagem={!!eu}
+                onConvidar={() => convidar(home.liga?.premio_desc)}
+              />
             </View>
 
             <View onLayout={(e) => (jogosY.current = e.nativeEvent.layout.y)}>

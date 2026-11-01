@@ -138,3 +138,33 @@ function Foguinho() {
     </Animated.View>
   );
 }
+
+/** Linha fina do prêmio no topo da home: só o troféu e o que o campeão leva. */
+export function PremioLinha({
+  premio,
+  descricao,
+  finalizada,
+}: {
+  premio: Premio;
+  descricao?: string | null;
+  finalizada?: boolean;
+}) {
+  const { palette: C } = useTheme();
+  const valor =
+    descricao ||
+    (premio.premio_atual > 0
+      ? fmtReais(premio.premio_atual)
+      : premio.meta
+        ? `até ${fmtReais(premio.meta.valor)}`
+        : null);
+  if (!valor) return null;
+  return (
+    <View className="flex-row items-center rounded-xl border border-gold/40 bg-gold/10 px-3 py-2">
+      <Ionicons name="trophy" size={16} color={C.gold} />
+      <T className="ml-2 flex-1 text-sm" numberOfLines={1}>
+        {finalizada ? "Campeão levou " : "Campeão leva "}
+        <T className="font-mont-xb text-sm text-gold">{valor}</T>
+      </T>
+    </View>
+  );
+}
