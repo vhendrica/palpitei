@@ -29,8 +29,9 @@ export function PremioBar({
   const { palette: C } = useTheme();
   const { meta, palpiteiros, premio_atual, meta_atingida, faltam_meta } =
     premio;
-  const alvo = premio.proxima?.usuarios_min ?? meta?.usuarios_min ?? 0;
-  const pct = alvo ? Math.min(100, Math.round((palpiteiros / alvo) * 100)) : 0;
+  // A barra mostra o prêmio em R$ até a meta, já começando preenchida no prêmio inicial.
+  const pct = meta?.valor ? Math.min(100, (premio_atual / meta.valor) * 100) : 0;
+  const faltam = premio.proxima?.faltam ?? faltam_meta;
 
   return (
     <View className="rounded-2xl border border-gold/40 bg-card p-4">
@@ -65,11 +66,15 @@ export function PremioBar({
 
       {meta && !finalizada ? (
         <>
-          <View className="mt-3 h-2 overflow-hidden rounded-full bg-cardAlt">
+          <View className="mt-3 h-2.5 overflow-hidden rounded-full bg-cardAlt">
             <View
-              className="h-2 rounded-full bg-gold"
+              className="h-2.5 rounded-full bg-gold"
               style={{ width: `${pct}%` }}
             />
+          </View>
+          <View className="mt-1 flex-row justify-between">
+            <T className="font-odds text-[11px] text-gold">{fmtReais(premio_atual)}</T>
+            <T className="text-[11px] text-muted">meta {fmtReais(meta.valor)}</T>
           </View>
           <View className="mt-1.5 flex-row items-center">
             {meta_atingida ? null : <Foguinho />}
@@ -78,9 +83,7 @@ export function PremioBar({
             >
               {meta_atingida
                 ? `Meta batida: prêmio de ${fmtReais(meta.valor)}`
-                : premio.proxima
-                  ? `Faltam ${premio.proxima.faltam} ${premio.proxima.faltam === 1 ? "palpiteiro" : "palpiteiros"} pro prêmio de ${fmtReais(premio.proxima.valor)}`
-                  : `Faltam ${faltam_meta} palpiteiros pro prêmio de ${fmtReais(meta.valor)}`}
+                : `${faltam === 1 ? "Falta 1 palpiteiro" : `Faltam ${fmtPts(faltam)} palpiteiros`} pro prêmio subir pra ${fmtReais(premio.proxima?.valor ?? meta.valor)}`}
             </T>
           </View>
         </>

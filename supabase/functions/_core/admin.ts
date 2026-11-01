@@ -11,6 +11,12 @@ const inteiroPositivo = (v: unknown, campo: string) => {
   return n;
 };
 
+const inteiroNaoNegativo = (v: unknown, campo: string) => {
+  const n = Number(v);
+  if (!Number.isInteger(n) || n < 0) throw new RuleError(`${campo} inválido.`);
+  return n;
+};
+
 const texto = (v: unknown, campo: string, max = 80) => {
   const s = String(v ?? '').trim();
   if (!s || s.length > max) throw new RuleError(`${campo} inválido.`);
@@ -28,9 +34,18 @@ export async function atualizarConfig(db: Db, input: Record<string, unknown>) {
     input.fichas_por_entrada == null ? atual.fichas_por_entrada : inteiroPositivo(input.fichas_por_entrada, 'Fichas por entrada');
   const custo =
     input.custo_entrada_pontos == null ? atual.custo_entrada_pontos : inteiroPositivo(input.custo_entrada_pontos, 'Custo de entrada');
+  const boas =
+    input.pontos_boas_vindas == null ? atual.pontos_boas_vindas : inteiroNaoNegativo(input.pontos_boas_vindas, 'Bônus de cadastro');
+  let inicial = atual.premio_inicial;
+  if (input.premio_inicial != null) {
+    inicial = Number(input.premio_inicial);
+    if (!Number.isFinite(inicial) || inicial < 0) throw new RuleError('Prêmio inicial inválido.');
+    const [primeira] = await getEscada(db);
+    if (primeira && primeira.valor <= inicial) throw new RuleError('O prêmio inicial precisa ser menor que a 1ª faixa da escada.');
+  }
   await db`
     update config set qtd_jogos_dia = ${qtd}, fichas_por_entrada = ${fichas}, custo_entrada_pontos = ${custo},
-                      updated_at = now()
+                      pontos_boas_vindas = ${boas}, premio_inicial = ${inicial}, updated_at = now()
     where id = 1`;
   return configAdmin(db);
 }
@@ -39,7 +54,7 @@ export async function atualizarConfig(db: Db, input: Record<string, unknown>) {
 export async function salvarPremioEscada(sql: Db, faixasInput: unknown) {
   if (!Array.isArray(faixasInput)) throw new RuleError('Envie a lista de faixas.');
   const faixas = faixasInput.map((f) => ({ usuarios_min: Number(f?.usuarios_min), valor: Number(f?.valor) }));
-  const erro = validarEscada(faixas);
+  const erro = validarEscada(faixas, (await getConfig(sql)).premio_inicial);
   if (erro) throw new RuleError(erro);
   await sql.begin(async (tx: Tx) => {
     await tx`delete from premio_escada`;

@@ -799,6 +799,7 @@ function AbaConfig({ run }: { run: Run }) {
         fichas_por_entrada: String(r.config.fichas_por_entrada),
         custo_entrada_pontos: String(r.config.custo_entrada_pontos),
         pontos_boas_vindas: String(r.config.pontos_boas_vindas),
+        premio_inicial: String(r.config.premio_inicial),
       });
       setFaixas(
         r.premio_escada.map((f) => ({
@@ -824,9 +825,22 @@ function AbaConfig({ run }: { run: Run }) {
     <>
       <SectionTitle>Escada de prêmio</SectionTitle>
       <T className="mb-2 text-xs text-muted">
-        Palpiteiros (quem pagou a entrada) → valor. A última faixa é a META e o
-        teto do prêmio.
+        A barra começa no prêmio inicial e sobe a cada faixa: palpiteiros (quem
+        pagou a entrada) → valor. A última faixa é a META e o teto do prêmio.
       </T>
+      <View className="mb-2 flex-row items-center">
+        <T className="w-14 text-xs text-muted">Início</T>
+        <TextInput
+          className="mr-2 flex-1 rounded-lg border border-line bg-card px-2 py-2 font-odds text-sm text-fg"
+          value={cfg.premio_inicial}
+          keyboardType="decimal-pad"
+          placeholder="Prêmio inicial (R$)"
+          placeholderTextColor={C.muted}
+          onChangeText={(t) => setCfg({ ...cfg, premio_inicial: t })}
+        />
+        <T className="flex-1 text-[11px] text-muted">prêmio inicial (R$)</T>
+        <View className="ml-1 w-[26px]" />
+      </View>
       {faixas.map((f, i) => (
         <View key={i} className="mb-2 flex-row items-center">
           <T className="w-14 text-xs text-muted">
@@ -879,6 +893,9 @@ function AbaConfig({ run }: { run: Run }) {
           className="flex-1"
           onPress={() =>
             run(async () => {
+              await api.admin.salvarConfig({
+                premio_inicial: Number(cfg.premio_inicial.replace(",", ".")) || 0,
+              });
               await api.admin.salvarEscada(
                 faixas.map((f) => ({
                   usuarios_min: Number(f.usuarios_min),
@@ -904,7 +921,9 @@ function AbaConfig({ run }: { run: Run }) {
           run(async () => {
             await api.admin.salvarConfig(
               Object.fromEntries(
-                Object.entries(cfg).map(([k, v]) => [k, Number(v)]),
+                Object.entries(cfg)
+                  .filter(([k]) => k !== "premio_inicial")
+                  .map(([k, v]) => [k, Number(v)]),
               ) as Partial<Config>,
             );
             return "Regras salvas.";

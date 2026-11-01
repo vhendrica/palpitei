@@ -37,6 +37,20 @@ test('progressoPremio usa premio_final gravado quando a liga já foi finalizada'
   assert.equal(progressoPremio(escada, 900, 300).premio_atual, 300);
 });
 
+test('prêmio inicial: rodada já começa valendo, escada só faz subir', () => {
+  const e = [
+    { ordem: 1, usuarios_min: 50, valor: 500 },
+    { ordem: 2, usuarios_min: 100, valor: 600 },
+  ];
+  assert.equal(resolverPremio(e, 0, 400), 400);
+  assert.equal(resolverPremio(e, 60, 400), 500);
+  const p = progressoPremio(e, 10, null, 400);
+  assert.equal(p.premio_atual, 400);
+  assert.equal(p.premio_inicial, 400);
+  assert.deepEqual(p.proxima, { usuarios_min: 50, valor: 500, faltam: 40 });
+  assert.ok(validarEscada([{ usuarios_min: 50, valor: 400 }], 400));
+});
+
 test('validarEscada exige faixas crescentes', () => {
   assert.equal(validarEscada([{ usuarios_min: 100, valor: 100 }, { usuarios_min: 250, valor: 300 }]), null);
   assert.ok(validarEscada([]));

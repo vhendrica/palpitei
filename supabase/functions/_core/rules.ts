@@ -81,6 +81,11 @@ export async function getEscada(db: Db): Promise<Faixa[]> {
   return rows.map((r) => ({ ordem: num(r.ordem), usuarios_min: num(r.usuarios_min), valor: num(r.valor) }));
 }
 
+export async function getPremioInicial(db: Db) {
+  const [c] = await db`select premio_inicial from config where id = 1`;
+  return num(c?.premio_inicial ?? 0);
+}
+
 export async function contarPalpiteiros(db: Db, ligaId: string) {
   const [r] = await db`select count(*)::int as n from entradas where liga_id = ${ligaId}`;
   return num(r.n);
@@ -339,7 +344,7 @@ export async function finalizarLiga(sql: Db, ligaId: string, mercadosVencedores:
       from jogos j where j.id = m.jogo_id and j.liga_id = ${ligaId}`;
 
     const palpiteiros = await contarPalpiteiros(tx, ligaId);
-    const premioFinal = resolverPremio(await getEscada(tx), palpiteiros);
+    const premioFinal = resolverPremio(await getEscada(tx), palpiteiros, await getPremioInicial(tx));
     await tx`
       update ligas set status = 'finalizada', premio_final = ${premioFinal}, finalizada_em = now()
       where id = ${ligaId}`;

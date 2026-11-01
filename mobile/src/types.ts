@@ -57,6 +57,7 @@ export type Faixa = { ordem: number; usuarios_min: number; valor: number };
 
 export type Premio = {
   palpiteiros: number;
+  premio_inicial: number;
   premio_atual: number;
   proxima: { usuarios_min: number; valor: number; faltam: number } | null;
   meta: { usuarios_min: number; valor: number } | null;
@@ -174,6 +175,7 @@ export type Config = {
   fichas_por_entrada: number;
   custo_entrada_pontos: number;
   pontos_boas_vindas: number;
+  premio_inicial: number;
 };
 
 export type LigaHistorico = {

@@ -9,6 +9,7 @@ import {
   getEntrada,
   getEscada,
   getLigaAtual,
+  getPremioInicial,
   type LigaRow,
   pontuacaoUsuario,
 } from './rules.ts';
@@ -42,6 +43,7 @@ export async function getConfig(db: Db) {
     fichas_por_entrada: num(c.fichas_por_entrada),
     custo_entrada_pontos: num(c.custo_entrada_pontos),
     pontos_boas_vindas: num(c.pontos_boas_vindas),
+    premio_inicial: num(c.premio_inicial),
     termos_versao: c.termos_versao as string,
     consentimento_versao: c.consentimento_versao as string,
   };
@@ -81,8 +83,12 @@ export async function jogosComMercados(db: Db, ligaId: string, userId?: string |
 }
 
 async function premioDaLiga(db: Db, liga: LigaRow) {
-  const [escada, palpiteiros] = await Promise.all([getEscada(db), contarPalpiteiros(db, liga.id)]);
-  return progressoPremio(escada, palpiteiros, liga.status === 'finalizada' ? liga.premio_final : null);
+  const [escada, palpiteiros, inicial] = await Promise.all([
+    getEscada(db),
+    contarPalpiteiros(db, liga.id),
+    getPremioInicial(db),
+  ]);
+  return progressoPremio(escada, palpiteiros, liga.status === 'finalizada' ? liga.premio_final : null, inicial);
 }
 
 export type MultiplaView = {
@@ -158,7 +164,7 @@ export async function home(db: Db, user: UserPublico | null, data = hojeISO()) {
     },
     usuario: user ? { id: user.id, nome: user.nome, saldo_pontos: user.saldo_pontos, is_admin: user.is_admin } : null,
   };
-  if (!liga) return { ...base, liga: null, jogos: [], premio: progressoPremio(await getEscada(db), 0), eu: null };
+  if (!liga) return { ...base, liga: null, jogos: [], premio: progressoPremio(await getEscada(db), 0, null, config.premio_inicial), eu: null };
   const [jogos, premio, eu] = await Promise.all([
     jogosComMercados(db, liga.id, user?.id),
     premioDaLiga(db, liga),
