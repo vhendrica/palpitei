@@ -87,7 +87,7 @@ export function Bilhete({
     const naSimples = id in draft.simples;
     const bloqueada = draft.multiplas.findIndex((_, i) => !cabeNaMultipla(draft, opcoes, id, i));
     return (
-      <View key={id} className="mb-2 rounded-xl border border-line bg-card px-3 py-2">
+      <View key={id} className="mb-1.5 rounded-xl border border-line bg-card px-3 py-1.5">
         <View className="flex-row items-center">
           <View className="flex-1 pr-2">
             <T className="text-[10px] text-muted" numberOfLines={1}>
@@ -106,7 +106,7 @@ export function Bilhete({
             <Ionicons name="close" size={14} color={C.muted} />
           </Pressable>
         </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mt-2">
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mt-1.5">
           <View className="flex-row" style={{ gap: 5 }}>
             <Chip
               label="Simples"
@@ -159,7 +159,7 @@ export function Bilhete({
           </View>
         ) : null}
         {naSimples ? (
-          <View className="mt-2 flex-row items-center justify-between">
+          <View className="mt-1.5 flex-row items-center justify-between">
             <T className="text-[11px] text-muted">Fichas na Simples</T>
             <Stepper
               value={draft.simples[id] ?? 0}
@@ -200,6 +200,25 @@ export function Bilhete({
           </View>
         </View>
       </Pressable>
+      {aberto && paginas.length > 1 ? (
+        <View className="mb-1.5 flex-row items-center justify-between">
+          {expandido ? (
+            <View />
+          ) : (
+            <View className="flex-row items-center" style={{ gap: 4 }}>
+              <Ionicons name="chevron-back" size={14} color={pagina > 0 ? C.primary : C.line} />
+              <T className="font-mont-b text-[11px] text-primary">
+                {pagina + 1} de {paginas.length} · deslize
+              </T>
+              <Ionicons name="chevron-forward" size={14} color={pagina < paginas.length - 1 ? C.primary : C.line} />
+            </View>
+          )}
+          <Pressable onPress={() => setExpandido((v) => !v)} hitSlop={8} className="flex-row items-center">
+            <T className="mr-1 font-mont-b text-[11px] text-primary">{expandido ? "Recolher" : "Ver todos"}</T>
+            <Ionicons name={expandido ? "contract-outline" : "expand-outline"} size={14} color={C.primary} />
+          </Pressable>
+        </View>
+      ) : null}
       {aberto ? (
         <ScrollView style={{ flexShrink: 1 }} nestedScrollEnabled>
           <View onLayout={(e) => setLargura(e.nativeEvent.layout.width)}>
@@ -221,25 +240,6 @@ export function Bilhete({
               </ScrollView>
             ) : null}
           </View>
-          {paginas.length > 1 ? (
-            <View className="mb-2 flex-row items-center justify-between">
-              {expandido ? (
-                <View />
-              ) : (
-                <View className="flex-row items-center" style={{ gap: 4 }}>
-                  <Ionicons name="chevron-back" size={14} color={pagina > 0 ? C.primary : C.line} />
-                  <T className="font-mont-b text-[11px] text-primary">
-                    {pagina + 1} de {paginas.length} · deslize
-                  </T>
-                  <Ionicons name="chevron-forward" size={14} color={pagina < paginas.length - 1 ? C.primary : C.line} />
-                </View>
-              )}
-              <Pressable onPress={() => setExpandido((v) => !v)} hitSlop={8} className="flex-row items-center">
-                <T className="mr-1 font-mont-b text-[11px] text-primary">{expandido ? "Recolher" : "Ver todos"}</T>
-                <Ionicons name={expandido ? "contract-outline" : "expand-outline"} size={14} color={C.primary} />
-              </Pressable>
-            </View>
-          ) : null}
           {draft.multiplas.map((m, i) => {
             const cor = corMultipla(i + offsetMultiplas, scheme);
             const curta = m.mercados.length < 2;
