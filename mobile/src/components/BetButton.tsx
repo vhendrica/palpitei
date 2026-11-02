@@ -53,7 +53,7 @@ export function BetButton({
     >
       <View
         className="flex-row items-center"
-        style={compact ? undefined : { flex: 1, marginRight: 8 }}
+        style={compact ? { alignSelf: "stretch", minWidth: 0 } : { flex: 1, marginRight: 8 }}
       >
         {resultado === "green" ? (
           <Ionicons
@@ -73,6 +73,7 @@ export function BetButton({
         <T
           className={`font-mont-sb ${compact ? "text-[10px]" : "text-[13px]"} ${descColor}`}
           numberOfLines={compact ? 1 : 2}
+          style={{ flexShrink: 1 }}
         >
           {descricao}
         </T>

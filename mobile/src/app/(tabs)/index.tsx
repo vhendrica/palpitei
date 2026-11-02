@@ -253,13 +253,25 @@ export default function HomeMultipla() {
           {j.campeonato} • {fmtData(j.horario)}
           {j.finalizado ? " • ENCERRADO" : j.comecou ? " • EM JOGO" : ""}
         </T>
-        <T
-          className={`mt-1 font-mont-xb ${j.destaque ? "text-xl" : "text-base"}`}
-        >
-          {j.time_casa}
-          {j.placar ? ` ${j.placar.casa} x ${j.placar.fora} ` : " x "}
-          {j.time_fora}
-        </T>
+        <View className="mt-1 flex-row items-center">
+          <T
+            className={`font-mont-xb ${j.destaque ? "text-xl" : "text-base"}`}
+            numberOfLines={1}
+            style={{ flexShrink: 1 }}
+          >
+            {j.time_casa}
+          </T>
+          <T className={`mx-1.5 font-mont-xb ${j.destaque ? "text-xl" : "text-base"}`}>
+            {j.placar ? `${j.placar.casa} x ${j.placar.fora}` : "x"}
+          </T>
+          <T
+            className={`font-mont-xb ${j.destaque ? "text-xl" : "text-base"}`}
+            numberOfLines={1}
+            style={{ flexShrink: 1 }}
+          >
+            {j.time_fora}
+          </T>
+        </View>
         <View className="mt-3">
           {agruparMercados(j.mercados)
             .filter((_, gi) => gi < MERCADOS_VISIVEIS || abertos.includes(j.id))
@@ -701,10 +713,9 @@ function Time({ nome }: { nome: string }) {
   return (
     <View className="w-[42%] items-center">
       <T
-        className="text-center font-mont-xb text-base"
+        className={`text-center font-mont-xb ${nome.length > 14 ? "text-sm" : "text-base"}`}
         numberOfLines={2}
-        adjustsFontSizeToFit
-        minimumFontScale={0.7}
+        style={{ maxWidth: "100%" }}
       >
         {nome}
       </T>
