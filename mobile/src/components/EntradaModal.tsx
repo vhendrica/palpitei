@@ -77,7 +77,7 @@ export function EntradaModal({
               />
               <Passo
                 n={3}
-                texto="Cada palpite certo multiplica suas fichas pela odd. Quem somar mais pontos leva o prêmio."
+                texto="Cada palpite certo multiplica suas fichas pelo multiplicador. Quem somar mais pontos leva o prêmio."
               />
             </View>
 

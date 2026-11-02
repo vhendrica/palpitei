@@ -11,7 +11,6 @@ import {
   getLigaAtual,
   getPremioInicial,
   type LigaRow,
-  pontuacaoUsuario,
 } from './rules.ts';
 import { placarDoJogo } from './resultados.ts';
 import { hojeISO } from './validation.ts';
@@ -153,19 +152,20 @@ async function multiplasDoUsuario(db: Db, userId: string, ligaId: string): Promi
 async function minhaSituacao(db: Db, userId: string, liga: LigaRow) {
   const entrada = await getEntrada(db, userId, liga.id);
   if (!entrada) return { entrou: false as const };
-  const [usadas, pontuacao, ranking] = await Promise.all([
+  const [usadas, ranking, multiplas] = await Promise.all([
     fichasUsadas(db, userId, liga.id),
-    pontuacaoUsuario(db, userId, liga.id),
     calcularRanking(db, liga.id),
+    multiplasDoUsuario(db, userId, liga.id),
   ]);
+  const eu = ranking.find((r) => r.user_id === userId);
   return {
     entrou: true as const,
-    multiplas: await multiplasDoUsuario(db, userId, liga.id),
+    multiplas,
     fichas_total: entrada.fichas_total,
     fichas_usadas: usadas,
     fichas_livres: Math.max(0, entrada.fichas_total - usadas),
-    pontuacao,
-    posicao: ranking.find((r) => r.user_id === userId)?.posicao ?? null,
+    pontuacao: eu?.pontuacao ?? 0,
+    posicao: eu?.posicao ?? null,
   };
 }
 

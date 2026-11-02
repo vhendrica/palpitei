@@ -109,7 +109,8 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       },
       entrarNaLiga: async () => {
         await api.entrar();
-        await refreshHome();
+        // Não segura o botão esperando a home inteira recarregar.
+        refreshHome();
       },
       apostar: async (bilhete) => {
         const r = await api.apostar(bilhete);

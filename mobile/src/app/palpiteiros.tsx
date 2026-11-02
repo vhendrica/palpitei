@@ -135,9 +135,9 @@ export function RankingDoDia({ voltar }: { voltar?: boolean }) {
                             Múltipla {m.numero}
                           </T>
                           <View className="flex-row items-center">
-                            <T className="text-xs text-muted">odd {fmtOdd(m.odd)}</T>
+                            <T className="text-xs text-muted">multiplicador {fmtOdd(m.odd)}</T>
                             {m.fichas != null ? (
-                              <View className="ml-2 flex-row items-center">
+                              <View className="ml-2 flex-row items-center rounded-md border border-line px-1">
                                 <T className="mr-0.5 font-odds text-xs">{m.fichas}</T>
                                 <Ficha size={12} />
                               </View>
@@ -153,6 +153,12 @@ export function RankingDoDia({ voltar }: { voltar?: boolean }) {
                             resultado={x.resultado}
                           />
                         ))}
+                        {m.fichas != null ? (
+                          <T className="text-right text-[11px] text-muted">
+                            se todas baterem →{" "}
+                            <T className="font-mont-xb text-[11px] text-primary">{fmtPts(m.fichas * m.odd)} pts</T>
+                          </T>
+                        ) : null}
                         {m.ocultas > 0 ? (
                           <T className="text-[11px] text-muted">
                             + {m.ocultas} {m.ocultas === 1 ? "palpite" : "palpites"} de jogos que ainda não começaram
@@ -207,9 +213,12 @@ function Linha({
       </View>
       <T className="font-odds text-base text-primary">{fmtOdd(odd)}</T>
       {fichas != null ? (
-        <View className="ml-2 flex-row items-center">
-          <T className="mr-0.5 font-odds text-xs">{fichas}</T>
-          <Ficha size={12} />
+        <View className="ml-2 items-end">
+          <View className="flex-row items-center rounded-md border border-line px-1">
+            <T className="mr-0.5 font-odds text-xs">{fichas}</T>
+            <Ficha size={12} />
+          </View>
+          <T className="text-[10px] text-muted">→ {fmtPts(fichas * odd)} pts</T>
         </View>
       ) : null}
     </View>

@@ -164,7 +164,7 @@ export function ResumoBilhete({
                   );
                 })}
                 <View className="flex-row items-center border-t border-line px-3 py-2" style={{ backgroundColor: m.cor + "18" }}>
-                  <T className="flex-1 font-mont-xb text-[10px] tracking-widest text-muted">ODD TOTAL</T>
+                  <T className="flex-1 font-mont-xb text-[10px] tracking-widest text-muted">MULTIPLICADOR TOTAL</T>
                   <T className="font-odds text-lg" style={{ color: m.cor }}>
                     <T className="text-xs text-muted">= </T>
                     {fmtOdd(m.odd).slice(0, -1)}

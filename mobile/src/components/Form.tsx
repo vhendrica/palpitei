@@ -97,7 +97,9 @@ export function Stepper({
       >
         <Ionicons name="remove" size={18} color={C.fg} />
       </Pressable>
-      <View className={`${editavel ? "w-20" : "w-16"} flex-row items-center justify-center`}>
+      <View
+        className={`mx-1 ${editavel ? "w-20" : "w-16"} flex-row items-center justify-center ${ficha ? "rounded-md border border-line bg-card px-1 py-0.5" : ""}`}
+      >
         {editavel ? (
           <TextInput
             value={value ? String(value) : ""}
@@ -111,7 +113,7 @@ export function Stepper({
               const d = t.replace(/\D/g, "");
               onChange(Math.min(d ? parseInt(d, 10) : 0, value + max));
             }}
-            className="w-12 rounded-md border border-line bg-card py-1 text-center font-odds text-base text-fg"
+            className={`${ficha ? "w-11 py-0.5" : "w-12 rounded-md border border-line bg-card py-1"} text-center font-odds text-base text-fg`}
           />
         ) : (
           <T className="font-odds text-base">{value}</T>

@@ -65,13 +65,14 @@ export function Bilhete({
   const [largura, setLargura] = useState(0);
   const [pagina, setPagina] = useState(0);
   const [info, setInfo] = useState(false);
+  const [expandido, setExpandido] = useState(false);
   const [perguntar, setPerguntar] = useState<string | null>(null);
   const { height } = useWindowDimensions();
   const fundo = misturar(C.primary, C.card, scheme === "dark" ? 0.14 : 0.1);
 
   const livres = fichasLivres - fichasNoDraft(draft);
   const paginas: string[][] = [];
-  for (let i = 0; i < draft.itens.length; i += 2) paginas.push(draft.itens.slice(i, i + 2));
+  for (const id of draft.itens) paginas.push([id]);
   const pequena = draft.multiplas.some((m) => m.mercados.length === 1);
   const slots = Math.max(2, draft.multiplas.length);
 
@@ -178,7 +179,7 @@ export function Bilhete({
       className="absolute bottom-0 left-0 right-0 rounded-t-3xl border-t-2 border-primary px-4 pb-3 pt-2"
       style={{
         backgroundColor: fundo,
-        maxHeight: height / 3,
+        maxHeight: expandido ? height * 0.75 : height / 3,
         shadowColor: "#000",
         shadowOpacity: 0.2,
         shadowRadius: 12,
@@ -202,7 +203,9 @@ export function Bilhete({
       {aberto ? (
         <ScrollView style={{ flexShrink: 1 }} nestedScrollEnabled>
           <View onLayout={(e) => setLargura(e.nativeEvent.layout.width)}>
-            {largura > 0 ? (
+            {expandido ? (
+              draft.itens.map(card)
+            ) : largura > 0 ? (
               <ScrollView
                 horizontal
                 pagingEnabled
@@ -219,14 +222,22 @@ export function Bilhete({
             ) : null}
           </View>
           {paginas.length > 1 ? (
-            <View className="mb-2 flex-row items-center justify-center" style={{ gap: 5 }}>
-              {paginas.map((_, i) => (
-                <View
-                  key={i}
-                  className={`h-1.5 rounded-full ${i === pagina ? "w-4 bg-primary" : "w-1.5 bg-line"}`}
-                />
-              ))}
-              <T className="ml-1.5 text-[10px] text-muted">deslize pra ver todos</T>
+            <View className="mb-2 flex-row items-center justify-between">
+              {expandido ? (
+                <View />
+              ) : (
+                <View className="flex-row items-center" style={{ gap: 4 }}>
+                  <Ionicons name="chevron-back" size={14} color={pagina > 0 ? C.primary : C.line} />
+                  <T className="font-mont-b text-[11px] text-primary">
+                    {pagina + 1} de {paginas.length} · deslize
+                  </T>
+                  <Ionicons name="chevron-forward" size={14} color={pagina < paginas.length - 1 ? C.primary : C.line} />
+                </View>
+              )}
+              <Pressable onPress={() => setExpandido((v) => !v)} hitSlop={8} className="flex-row items-center">
+                <T className="mr-1 font-mont-b text-[11px] text-primary">{expandido ? "Recolher" : "Ver todos"}</T>
+                <Ionicons name={expandido ? "contract-outline" : "expand-outline"} size={14} color={C.primary} />
+              </Pressable>
             </View>
           ) : null}
           {draft.multiplas.map((m, i) => {
@@ -247,7 +258,7 @@ export function Bilhete({
                     <T className="font-mont-xb text-[10px] text-white">M{i + 1 + offsetMultiplas}</T>
                   </View>
                   <T className="ml-2 flex-1 text-[11px] text-muted" numberOfLines={1}>
-                    {m.mercados.length} {m.mercados.length === 1 ? "palpite" : "palpites"} · odd{" "}
+                    {m.mercados.length} {m.mercados.length === 1 ? "palpite" : "palpites"} · mult.{" "}
                     <T className="font-mont-xb text-[12px]" style={{ color: cor }}>
                       {fmtOdd(oddDaMultipla(m.mercados, opcoes))}
                     </T>
