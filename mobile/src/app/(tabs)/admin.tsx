@@ -175,7 +175,7 @@ function AbaLiga({ data, run }: { data: string; run: Run }) {
               <Button
                 title="Salvar"
                 variant="ghost"
-                className="mr-2 flex-1"
+                className="flex-1"
                 onPress={() =>
                   run(async () => {
                     setLa(
@@ -187,22 +187,12 @@ function AbaLiga({ data, run }: { data: string; run: Run }) {
                   })
                 }
               />
-              <Button
-                title={liga.status === "aberta" ? "Fechar apostas" : "Reabrir"}
-                variant="outline"
-                className="flex-1"
-                onPress={() =>
-                  run(async () => {
-                    setLa(
-                      await api.admin.atualizarLiga(liga.id, {
-                        status:
-                          liga.status === "aberta" ? "em_andamento" : "aberta",
-                      }),
-                    );
-                  })
-                }
-              />
             </View>
+            <T className="mt-2 text-xs text-muted">
+              {liga.status === "aberta"
+                ? "As apostas fecham sozinhas quando o último jogo da rodada começar."
+                : "Apostas fechadas: todos os jogos já começaram."}
+            </T>
           </>
         ) : null}
       </Card>

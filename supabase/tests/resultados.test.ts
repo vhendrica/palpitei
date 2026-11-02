@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { after, before, beforeEach, test } from 'node:test';
 
-import { aplicarPlacar, atualizarResultados } from '../functions/_core/resultados.ts';
+import { aplicarPlacar, atualizarResultados, fecharApostasIniciadas } from '../functions/_core/resultados.ts';
 import {
   apostar,
   entrarNaLiga,
@@ -141,3 +141,15 @@ test('editar refaz só o que não começou; o que começou fica travado', async 
   await assert.rejects(apostar(sql, u, ligaId, { simples: { [mercados[0]]: 10 } }, { editar: true }), /começou/);
 });
 
+
+test('fecha as apostas sozinho só quando o último jogo da rodada começou', async () => {
+  const { ligaId, jogos } = await criarLiga(sql);
+  const status = async () => (await sql`select status from ligas where id = ${ligaId}`)[0].status;
+  await sql`update jogos set horario = now() - interval '1 hour' where id = ${jogos[0]}`;
+  await sql`update jogos set horario = now() + interval '1 hour' where id <> ${jogos[0]} and liga_id = ${ligaId}`;
+  assert.equal(await fecharApostasIniciadas(sql), 0);
+  assert.equal(await status(), 'aberta');
+  await sql`update jogos set horario = now() - interval '1 minute' where liga_id = ${ligaId}`;
+  assert.equal(await fecharApostasIniciadas(sql), 1);
+  assert.equal(await status(), 'em_andamento');
+});

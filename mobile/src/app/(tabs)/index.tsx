@@ -252,9 +252,8 @@ export default function HomeMultipla() {
         <View className="flex-row items-center">
           <T className="flex-shrink text-[11px] uppercase tracking-widest text-muted" numberOfLines={1}>
             {j.campeonato} • {fmtData(j.horario)}
-            {j.finalizado ? " • ENCERRADO" : ""}
           </T>
-          {!j.finalizado && j.comecou ? <AoVivo /> : null}
+          <StatusJogo jogo={j} />
         </View>
         <View className="mt-1 flex-row items-center">
           <T
@@ -680,6 +679,7 @@ function SlideJogo({ jogo, onOdd }: { jogo: Jogo; onOdd: () => void }) {
         <T className="ml-1 flex-1 font-mont-b text-[10px] uppercase tracking-widest text-primary">
           Rodada do dia • {fmtData(jogo.horario)}
         </T>
+        <StatusJogo jogo={jogo} />
         {jogo.destaque ? (
           <Ionicons name="star" size={16} color={C.primary} />
         ) : null}
@@ -710,6 +710,17 @@ function SlideJogo({ jogo, onOdd }: { jogo: Jogo; onOdd: () => void }) {
       ) : null}
     </View>
   );
+}
+
+function StatusJogo({ jogo }: { jogo: Jogo }) {
+  if (jogo.finalizado) {
+    return (
+      <View className="ml-2 rounded-full bg-cardAlt px-2 py-0.5">
+        <T className="font-mont-xb text-[9px] tracking-widest text-muted">FINALIZADO</T>
+      </View>
+    );
+  }
+  return jogo.comecou ? <AoVivo /> : null;
 }
 
 function AoVivo() {

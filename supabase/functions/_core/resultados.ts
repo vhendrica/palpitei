@@ -75,6 +75,7 @@ export async function aplicarParcial(sql: Db, jogoId: string, casa: number, fora
  * Sem jogo rolando, não chama a API (não gasta crédito). Cada campeonato consultado custa 2 créditos.
  */
 export async function atualizarResultados(sql: Db, cfg: OddsConfig | undefined) {
+  await fecharApostasIniciadas(sql);
   const pendentes = await sql`
     select j.id, j.time_casa, j.time_fora, f.externo_id, f.externo_esporte
     from jogos j
@@ -123,3 +124,14 @@ export async function atualizarResultados(sql: Db, cfg: OddsConfig | undefined) 
 
 export const placarDoJogo = (j: Record<string, unknown>) =>
   j.placar_casa == null ? null : { casa: num(j.placar_casa), fora: num(j.placar_fora) };
+
+/** Fecha as apostas das rodadas abertas cujo último jogo já começou. */
+export async function fecharApostasIniciadas(sql: Db) {
+  const r = await sql`
+    update ligas l set status = 'em_andamento'
+    where l.status = 'aberta'
+      and exists (select 1 from jogos j where j.liga_id = l.id)
+      and not exists (select 1 from jogos j where j.liga_id = l.id and j.horario > now())
+    returning l.id`;
+  return r.length;
+}
