@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { after, before, beforeEach, test } from 'node:test';
 
 import { aplicarPlacar, atualizarResultados } from '../functions/_core/resultados.ts';
-import { finalizarLiga } from '../functions/_core/rules.ts';
+import { finalizarLiga, reativarLiga } from '../functions/_core/rules.ts';
 import { criarLiga, limpar, setupDb, type Sql } from './helpers.ts';
 
 let sql: Sql;
@@ -88,4 +88,14 @@ test('finalizar preserva o que foi apurado sozinho e deixa o admin marcar mercad
   await aplicarPlacar(sql, jogos[0], 2, 1);
   await finalizarLiga(sql, ligaId, [esc.id as string]);
   assert.deepEqual(await marcados(jogos[0]), ['CASA VENCE', 'Escanteios: mais de 9']);
+});
+
+test('reativar mantém o que foi apurado pelo placar e o refinalizar usa esse resultado', async () => {
+  const { ligaId, jogos } = await criarLiga(sql);
+  await aplicarPlacar(sql, jogos[0], 2, 1);
+  await finalizarLiga(sql, ligaId, []);
+  await reativarLiga(sql, ligaId);
+  assert.deepEqual(await marcados(jogos[0]), ['CASA VENCE']);
+  await finalizarLiga(sql, ligaId, []);
+  assert.deepEqual(await marcados(jogos[0]), ['CASA VENCE']);
 });

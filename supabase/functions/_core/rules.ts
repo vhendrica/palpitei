@@ -401,7 +401,7 @@ export async function reativarLiga(sql: Db, ligaId: string) {
     await tx`delete from vouchers where liga_id = ${ligaId}`;
     await tx`
       update mercados m set resultado_final = false
-      from jogos j where j.id = m.jogo_id and j.liga_id = ${ligaId}`;
+      from jogos j where j.id = m.jogo_id and j.liga_id = ${ligaId} and m.decidido_em is null`;
     await tx`update ligas set status = 'aberta', premio_final = null, finalizada_em = null where id = ${ligaId}`;
     return { ok: true as const };
   });
