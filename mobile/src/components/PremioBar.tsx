@@ -29,10 +29,17 @@ export function PremioBar({
   const { palette: C } = useTheme();
   const { meta, palpiteiros, premio_atual, meta_atingida, faltam_meta } =
     premio;
-  // A barra anda a cada palpiteiro que entra, rumo ao nº de palpiteiros da meta; o valor só muda nas faixas.
-  const pct = meta?.usuarios_min
-    ? Math.min(100, (palpiteiros / meta.usuarios_min) * 100)
-    : 0;
+  // Barra em R$ de 0 até a próxima faixa: já preenchida no prêmio atual, e cada palpiteiro
+  // anda um pouco rumo à próxima faixa (o valor só muda quando ela é atingida).
+  const prox = premio.proxima;
+  const base =
+    [...premio.escada].reverse().find((f) => f.usuarios_min <= palpiteiros)?.usuarios_min ?? 0;
+  const frac = prox
+    ? Math.min(1, Math.max(0, (palpiteiros - base) / Math.max(1, prox.usuarios_min - base)))
+    : 1;
+  const pct = prox?.valor
+    ? Math.min(100, ((premio_atual + (prox.valor - premio_atual) * frac) / prox.valor) * 100)
+    : 100;
   const faltam = premio.proxima?.faltam ?? faltam_meta;
 
   return (
@@ -72,7 +79,9 @@ export function PremioBar({
           <View className="mt-1 flex-row justify-between">
             <T className="font-odds text-[11px] text-gold">{fmtReais(premio_atual)}</T>
             <T className="text-[11px] text-muted">
-              {fmtPts(Math.min(palpiteiros, meta.usuarios_min))}/{fmtPts(meta.usuarios_min)} • meta {fmtReais(meta.valor)}
+              {prox
+                ? `${fmtPts(palpiteiros)}/${fmtPts(prox.usuarios_min)} • próxima ${fmtReais(prox.valor)}`
+                : `meta ${fmtReais(meta.valor)}`}
             </T>
           </View>
           <View className="mt-1.5 flex-row items-center">
