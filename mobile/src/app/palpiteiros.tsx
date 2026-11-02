@@ -37,6 +37,8 @@ export function RankingDoDia({ voltar }: { voltar?: boolean }) {
   useFocusEffect(
     useCallback(() => {
       load();
+      const t = setInterval(load, 15000);
+      return () => clearInterval(t);
     }, [load]),
   );
 
@@ -135,7 +137,7 @@ export function RankingDoDia({ voltar }: { voltar?: boolean }) {
                             Múltipla {m.numero}
                           </T>
                           <View className="flex-row items-center">
-                            <T className="text-xs text-muted">multiplicador {fmtOdd(m.odd)}</T>
+                            {m.odd != null ? <T className="text-xs text-muted">multiplicador {fmtOdd(m.odd)}</T> : null}
                             {m.fichas != null ? (
                               <View className="ml-2 flex-row items-center rounded-md border border-line px-1">
                                 <T className="mr-0.5 font-odds text-xs">{m.fichas}</T>
@@ -156,7 +158,7 @@ export function RankingDoDia({ voltar }: { voltar?: boolean }) {
                         {m.fichas != null ? (
                           <T className="text-right text-[11px] text-muted">
                             se todas baterem →{" "}
-                            <T className="font-mont-xb text-[11px] text-primary">{fmtPts(m.fichas * m.odd)} pts</T>
+                            <T className="font-mont-xb text-[11px] text-primary">{fmtPts(m.fichas * (m.odd ?? 0))} pts</T>
                           </T>
                         ) : null}
                         {m.ocultas > 0 ? (
@@ -218,7 +220,7 @@ function Linha({
             <T className="mr-0.5 font-odds text-xs">{fichas}</T>
             <Ficha size={12} />
           </View>
-          <T className="text-[10px] text-muted">→ {fmtPts(fichas * odd)} pts</T>
+          <T className="text-[10px] text-muted">→ {fmtPts(resultado === "red" ? 0 : fichas * odd)} pts</T>
         </View>
       ) : null}
     </View>

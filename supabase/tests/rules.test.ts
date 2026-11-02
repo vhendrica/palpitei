@@ -266,15 +266,25 @@ describe('finalizarLiga', () => {
   });
 });
 
-test('liga atual: próxima múltipla não finalizada a partir de hoje; senão a de hoje', async () => {
+test('liga atual: a de hoje (mesmo finalizada); senão a próxima não finalizada', async () => {
   assert.equal(await getLigaAtual(sql, '2030-01-01'), null);
   await criarLiga(sql, '2029-12-30', 'aberta');
   await criarLiga(sql, '2030-01-01', 'finalizada');
   assert.equal((await getLigaAtual(sql, '2030-01-01'))?.data, '2030-01-01');
   await criarLiga(sql, '2030-01-03', 'aberta');
   await criarLiga(sql, '2030-01-02', 'em_andamento');
-  assert.equal((await getLigaAtual(sql, '2030-01-01'))?.data, '2030-01-02');
+  assert.equal((await getLigaAtual(sql, '2030-01-01'))?.data, '2030-01-01');
+  assert.equal((await getLigaAtual(sql, '2029-12-31'))?.data, '2030-01-02');
   assert.equal((await getLigaAtual(sql, '2030-01-04')), null);
+});
+
+test('apostar aceita UUID de mercado em maiúsculas', async () => {
+  const a = await criarUser(sql);
+  const { ligaId, mercados } = await criarLiga(sql);
+  await entrarNaLiga(sql, a, ligaId);
+  await apostar(sql, a, ligaId, { simples: { [mercados[0].toUpperCase()]: 10 } });
+  const [r] = await sql`select count(*)::int as n from apostas where user_id = ${a}`;
+  assert.equal(r.n, 1);
 });
 
 test('remover palpiteiro apaga as fichas e a entrada e devolve os PONTOS', async () => {
@@ -309,7 +319,7 @@ test('palpiteiros do dia lista quem entrou e as fichas de cada um', async () => 
   assert.deepEqual(r.palpiteiros.map((p) => [p.nome, p.palpites.length]), [['Ana', 0], ['Bia', 0]]);
   // A própria Ana vê o bilhete inteiro, com fichas.
   const eu = await palpiteirosDoDia(sql, { id: a } as never, data);
-  assert.deepEqual(eu.palpiteiros[0].palpites.map((p) => p.fichas), [50, 20]);
+  assert.deepEqual(eu.palpiteiros[0].palpites.map((p) => p.fichas).sort((x, y) => Number(y) - Number(x)), [50, 20]);
   // Jogo começou: aparecem mercado e odd, sem fichas.
   await sql`update jogos set horario = now() - interval '1 minute' where liga_id = ${ligaId}`;
   const r2 = await palpiteirosDoDia(sql, null, data);

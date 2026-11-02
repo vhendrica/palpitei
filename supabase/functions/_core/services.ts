@@ -253,7 +253,8 @@ export async function palpiteirosDoDia(db: Db, user: UserPublico | null, data = 
     liga: { id: liga.id, status: liga.status },
     palpiteiros: entradas.map((e) => {
       const eu = user?.id === e.user_id;
-      const ver = (comecou: boolean) => eu || tudo || comecou;
+      // Jogo que não começou continua oculto mesmo se a rodada for finalizada antes.
+      const ver = (comecou: boolean) => eu || comecou;
       const palpites = apostas
         .filter((a) => a.user_id === e.user_id && ver(!!a.comecou))
         .map((a) => ({
@@ -270,8 +271,9 @@ export async function palpiteirosDoDia(db: Db, user: UserPublico | null, data = 
           const pernas = m.pernas.filter((p) => ver(p.comecou));
           return {
             numero: k + 1,
-            odd: m.odd,
             ocultas: m.pernas.length - pernas.length,
+            // Com perna oculta, o total permitiria deduzir a odd escondida.
+            odd: pernas.length === m.pernas.length ? m.odd : null,
             pernas: pernas.map((p) => ({
               jogo: p.jogo,
               grupo: p.grupo,

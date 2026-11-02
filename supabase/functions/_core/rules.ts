@@ -66,12 +66,12 @@ export async function getLigaPorData(db: Db, data: string): Promise<LigaRow | nu
   return row ? mapLiga(row) : null;
 }
 
-/** Múltipla em vigor: a próxima ainda não finalizada a partir de hoje; senão, a de hoje. */
+/** Múltipla em vigor: a de hoje (mesmo finalizada, até virar o dia); senão, a próxima não finalizada. */
 export async function getLigaAtual(db: Db, hoje: string): Promise<LigaRow | null> {
   const [row] = await db`
     select * from ligas
     where (data >= ${hoje} and status <> 'finalizada') or data = ${hoje}
-    order by (status <> 'finalizada') desc, data
+    order by (data = ${hoje}) desc, (status <> 'finalizada') desc, data
     limit 1`;
   return row ? mapLiga(row) : null;
 }
@@ -123,6 +123,8 @@ export async function entrarNaLiga(sql: Db, userId: string, ligaId: string) {
     const custo = liga.custo_entrada;
 
     if (liga.status !== 'aberta') throw new RuleError('Esse palpite não está aberto para entrada.');
+    const [futuro] = await tx`select 1 from jogos where liga_id = ${ligaId} and horario > now() limit 1`;
+    if (!futuro) throw new RuleError('Todos os jogos dessa rodada já começaram.');
     if (await getEntrada(tx, userId, ligaId)) throw new RuleError('Você já está nesse palpite.');
     if (num(user.saldo_pontos) < custo) throw new RuleError(`Saldo insuficiente. Você precisa de ${custo} PONTOS.`);
 
@@ -152,15 +154,22 @@ export async function apostar(sql: Db, userId: string, ligaId: string, entrada: 
     entrada && ('simples' in entrada || 'multiplas' in entrada)
       ? (entrada as BilheteInput)
       : { simples: entrada as Record<string, number> };
-  const simples = Object.entries(bilhete.simples ?? {}).filter(([, f]) => Number(f) > 0);
-  const multiplas = Array.isArray(bilhete.multiplas) ? bilhete.multiplas : [];
-  for (const [, fichas] of simples) {
-    if (!Number.isInteger(fichas)) throw new RuleError('Use apenas números inteiros de fichas.');
+  const somaSimples = new Map<string, number>();
+  for (const [id, f] of Object.entries(bilhete.simples ?? {})) {
+    if (!(Number(f) > 0)) continue;
+    if (!Number.isInteger(f)) throw new RuleError('Use apenas números inteiros de fichas.');
+    const k = id.toLowerCase();
+    somaSimples.set(k, (somaSimples.get(k) ?? 0) + f);
   }
-  for (const m of multiplas) {
+  const simples = [...somaSimples.entries()];
+  const brutas = Array.isArray(bilhete.multiplas) ? bilhete.multiplas : [];
+  for (const m of brutas) {
     if (!m || !Array.isArray(m.mercados) || !m.mercados.every((id) => typeof id === 'string')) {
       throw new RuleError('Múltipla inválida.');
     }
+  }
+  const multiplas = brutas.map((m) => ({ ...m, mercados: m.mercados.map((id) => id.toLowerCase()) }));
+  for (const m of multiplas) {
     if (!Number.isInteger(m.fichas) || m.fichas <= 0) throw new RuleError('Coloque fichas em cada múltipla.');
     if (new Set(m.mercados).size !== m.mercados.length) throw new RuleError('Palpite repetido na mesma múltipla.');
     if (m.mercados.length < 2) throw new RuleError('Múltipla precisa de pelo menos 2 palpites.');
@@ -341,7 +350,7 @@ export async function finalizarLiga(sql: Db, ligaId: string, mercadosVencedores:
 
     await tx`
       update mercados m set resultado_final = (m.id = any(${vencedores}::uuid[]))
-      from jogos j where j.id = m.jogo_id and j.liga_id = ${ligaId}`;
+      from jogos j where j.id = m.jogo_id and j.liga_id = ${ligaId} and j.finalizado_em is null`;
 
     const palpiteiros = await contarPalpiteiros(tx, ligaId);
     const premioFinal = resolverPremio(await getEscada(tx), palpiteiros, await getPremioInicial(tx));
