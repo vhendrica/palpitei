@@ -18,6 +18,7 @@ export function PremioBar({
   onPalpiteiros,
   semContagem,
   onConvidar,
+  completo = true,
 }: {
   premio: Premio;
   finalizada?: boolean;
@@ -25,6 +26,8 @@ export function PremioBar({
   onPalpiteiros?: () => void;
   semContagem?: boolean;
   onConvidar?: () => void;
+  /** false = ainda não palpitou: só prêmio, barra e palpiteiros (sem valores, metas e convite). */
+  completo?: boolean;
 }) {
   const { palette: C } = useTheme();
   const { meta, palpiteiros, premio_atual, meta_atingida, faltam_meta } =
@@ -33,13 +36,29 @@ export function PremioBar({
   // anda um pouco rumo à próxima faixa; o valor do prêmio só muda quando ela é atingida.
   const prox = premio.proxima;
   const base =
-    [...premio.escada].reverse().find((f) => f.usuarios_min <= palpiteiros)?.usuarios_min ?? 0;
+    [...premio.escada].reverse().find((f) => f.usuarios_min <= palpiteiros)
+      ?.usuarios_min ?? 0;
   const frac = prox
-    ? Math.min(1, Math.max(0, (palpiteiros - base) / Math.max(1, prox.usuarios_min - base)))
+    ? Math.min(
+        1,
+        Math.max(
+          0,
+          (palpiteiros - base) / Math.max(1, prox.usuarios_min - base),
+        ),
+      )
     : 0;
-  const naBarra = premio_atual + (prox ? (prox.valor - premio_atual) * frac : 0);
+  const naBarra =
+    premio_atual + (prox ? (prox.valor - premio_atual) * frac : 0);
   const alvo = prox?.valor ?? meta?.valor ?? 0;
   const pct = alvo ? Math.min(100, (naBarra / alvo) * 100) : 0;
+  // Ao confirmar o palpite, a barra parte de um pouco antes e "pula" até o valor atual.
+  const [pulo, setPulo] = useState(0);
+  const [antes, setAntes] = useState(completo);
+  if (antes !== completo) {
+    setAntes(completo);
+    if (completo) setPulo((n) => n + 1);
+  }
+  const de = pulo ? Math.max(0, pct - Math.max(4, pct * 0.08)) : pct;
   const faltam = premio.proxima?.faltam ?? faltam_meta;
 
   return (
@@ -75,24 +94,32 @@ export function PremioBar({
 
       {meta && !finalizada ? (
         <>
-          <BarraAnimada pct={pct} />
-          <View className="mt-1 flex-row justify-between">
-            <T className="font-odds text-[11px] text-gold">{fmtReais(premio_atual)}</T>
-            <T className="font-odds text-[11px] text-gold">{fmtReais(alvo)}</T>
-          </View>
-          <View className="mt-1.5 flex-row items-center">
-            {meta_atingida ? null : <Foguinho />}
-            <T
-              className={`flex-1 text-xs ${meta_atingida ? "text-muted" : "font-mont-b text-fg"}`}
-            >
-              {meta_atingida
-                ? `Meta batida: prêmio de ${fmtReais(meta.valor)}`
-                : `${faltam === 1 ? "Falta 1 palpiteiro" : `Faltam ${fmtPts(faltam)} palpiteiros`} para o prêmio subir para ${fmtReais(premio.proxima?.valor ?? meta.valor)}`}
-            </T>
-          </View>
+          <BarraAnimada key={pulo} pct={pct} de={de} pular={pulo > 0} />
+          {completo ? (
+            <>
+              <View className="mt-1 flex-row justify-between">
+                <T className="font-odds text-[11px] text-gold">
+                  {fmtReais(premio_atual)}
+                </T>
+                <T className="font-odds text-[11px] text-gold">
+                  {fmtReais(alvo)}
+                </T>
+              </View>
+              <View className="mt-1.5 flex-row items-center">
+                {meta_atingida ? null : <Foguinho />}
+                <T
+                  className={`flex-1 text-xs ${meta_atingida ? "text-muted" : "font-mont-b text-fg"}`}
+                >
+                  {meta_atingida
+                    ? `Meta batida: prêmio de ${fmtReais(meta.valor)}`
+                    : `${faltam === 1 ? "Falta 1 palpiteiro" : `Faltam ${fmtPts(faltam)} palpiteiros`} para o prêmio subir para ${fmtReais(premio.proxima?.valor ?? meta.valor)}`}
+                </T>
+              </View>
+            </>
+          ) : null}
         </>
       ) : null}
-      {onConvidar && !finalizada ? (
+      {onConvidar && !finalizada && completo ? (
         <Pressable
           onPress={onConvidar}
           className="mt-3 flex-row items-center justify-center rounded-lg border border-primary py-2 active:opacity-70"
@@ -107,28 +134,76 @@ export function PremioBar({
   );
 }
 
-function BarraAnimada({ pct }: { pct: number }) {
+function BarraAnimada({
+  pct,
+  de,
+  pular,
+}: {
+  pct: number;
+  de: number;
+  pular?: boolean;
+}) {
   const { palette: C } = useTheme();
-  const [w] = useState(() => new Animated.Value(pct));
+  const [w] = useState(() => new Animated.Value(de));
+  const [s] = useState(() => new Animated.Value(1));
   useEffect(() => {
+    if (pular) {
+      Animated.parallel([
+        Animated.sequence([
+          Animated.delay(250),
+          Animated.spring(w, {
+            toValue: pct,
+            friction: 4,
+            tension: 60,
+            useNativeDriver: false,
+          }),
+        ]),
+        Animated.sequence([
+          Animated.delay(250),
+          Animated.timing(s, {
+            toValue: 1.6,
+            duration: 160,
+            useNativeDriver: false,
+          }),
+          Animated.spring(s, {
+            toValue: 1,
+            friction: 3,
+            useNativeDriver: false,
+          }),
+        ]),
+      ]).start();
+      return;
+    }
     Animated.timing(w, {
       toValue: pct,
       duration: 600,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: false,
     }).start();
-  }, [pct, w]);
+  }, [pct, w, s, pular]);
   return (
-    <View className="mt-3 h-2.5 overflow-hidden rounded-full bg-cardAlt">
+    <Animated.View
+      style={{
+        marginTop: 12,
+        height: 10,
+        overflow: "hidden",
+        borderRadius: 999,
+        backgroundColor: C.cardAlt,
+        transform: [{ scaleY: s }],
+      }}
+    >
       <Animated.View
         style={{
           height: 10,
           borderRadius: 999,
           backgroundColor: C.gold,
-          width: w.interpolate({ inputRange: [0, 100], outputRange: ["0%", "100%"] }),
+          width: w.interpolate({
+            inputRange: [0, 100],
+            outputRange: ["0%", "100%"],
+          }),
         }}
       />
-    </View>
+    </Animated.View>
   );
 }
 

@@ -495,6 +495,7 @@ export default function HomeMultipla() {
                 }
                 semContagem={!!eu}
                 onConvidar={() => convidar(home.liga?.premio_desc)}
+                completo={!!eu && eu.fichas_usadas > 0}
               />
             </View>
 
