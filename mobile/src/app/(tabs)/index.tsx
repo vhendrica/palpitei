@@ -605,7 +605,7 @@ function SituacaoFichas({
 }
 
 function convidar(premio?: string | null) {
-  const url = Linking.createURL("/");
+  const url = process.env.EXPO_PUBLIC_APP_URL ?? "https://vhendrica.github.io/palpitei/app/";
   const msg = `Bora palpitar comigo no PALPIT? É de graça${premio ? ` e o campeão leva ${premio}` : ""}! ${url}`;
   if (Platform.OS === "web") {
     Linking.openURL(`https://wa.me/?text=${encodeURIComponent(msg)}`);
