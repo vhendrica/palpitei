@@ -423,9 +423,9 @@ export async function calcularRanking(db: Db, ligaId: string): Promise<RankingRo
     const ant = lista[i - 1];
     // Quem ficou na frente mostra o que o pôs à frente; o último do empate, o critério que o deixou atrás.
     const desempate =
-      x.pontos > 0 && prox?.pontos === x.pontos
+      prox?.pontos === x.pontos
         ? criterio(x, prox, true)
-        : x.pontos > 0 && ant?.pontos === x.pontos
+        : ant?.pontos === x.pontos
           ? criterio(x, ant, false)
           : null;
     return {
