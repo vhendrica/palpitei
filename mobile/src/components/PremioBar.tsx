@@ -150,7 +150,7 @@ function BarraAnimada({
     if (pular) {
       Animated.parallel([
         Animated.sequence([
-          Animated.delay(250),
+          Animated.delay(700),
           Animated.spring(w, {
             toValue: pct,
             friction: 4,
@@ -159,7 +159,7 @@ function BarraAnimada({
           }),
         ]),
         Animated.sequence([
-          Animated.delay(250),
+          Animated.delay(700),
           Animated.timing(s, {
             toValue: 1.6,
             duration: 160,

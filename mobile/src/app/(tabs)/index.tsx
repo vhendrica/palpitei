@@ -31,7 +31,7 @@ import {
   T,
 } from "../../components/ui";
 import { alternarOdd, corMultipla, type Draft, DRAFT_VAZIO, fichasNoDraft } from "../../lib/bilhete";
-import { fmtData, fmtPts } from "../../lib/format";
+import { fmtData, fmtPontos, fmtPts } from "../../lib/format";
 import { errorMessage, useApp } from "../../store/AppStore";
 import { useTheme } from "../../store/Theme";
 import { agruparMercados } from "../../types";
@@ -81,6 +81,16 @@ export default function HomeMultipla() {
     scrollRef.current?.scrollTo({ y: 0, animated: true });
 
   const eu = home?.eu?.entrou ? home.eu : null;
+  const palpitou = !!eu && eu.fichas_usadas > 0;
+  // Ao confirmar o 1º palpite, sobe até o prêmio pra ver a barra pulando.
+  const palpitouAntes = useRef(palpitou);
+  useEffect(() => {
+    const antes = palpitouAntes.current;
+    palpitouAntes.current = palpitou;
+    if (!palpitou || antes) return;
+    const t = setTimeout(() => scrollRef.current?.scrollTo({ y: 0, animated: true }), 150);
+    return () => clearTimeout(t);
+  }, [palpitou]);
   const [editandoKey, setEditandoKey] = useState<string | null>(null);
   const editando = editandoKey === draftKey;
 
@@ -468,7 +478,7 @@ export default function HomeMultipla() {
                       />
                     ) : null}
                     <View className="flex-row justify-around">
-                      <Stat label="Pontuação" value={fmtPts(eu.pontuacao)} />
+                      <Stat label="Pontuação" value={fmtPontos(eu.pontuacao)} />
                       <Stat
                         label="Posição"
                         value={eu.posicao ? `${eu.posicao}º` : "—"}
@@ -495,7 +505,7 @@ export default function HomeMultipla() {
                 }
                 semContagem={!!eu}
                 onConvidar={() => convidar(home.liga?.premio_desc)}
-                completo={!!eu && eu.fichas_usadas > 0}
+                completo={palpitou}
               />
             </View>
 

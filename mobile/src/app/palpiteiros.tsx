@@ -9,7 +9,7 @@ import { ErrorBox } from "../components/Form";
 import { Card, EmptyState, T } from "../components/ui";
 import { api } from "../lib/api";
 import { corMultipla } from "../lib/bilhete";
-import { fmtOdd, fmtPts, rotuloPalpite } from "../lib/format";
+import { fmtOdd, fmtPontos, rotuloPalpite } from "../lib/format";
 import { errorMessage } from "../store/AppStore";
 import { useTheme } from "../store/Theme";
 import type { PalpiteiroView, Resultado } from "../types";
@@ -96,7 +96,7 @@ export function RankingDoDia({ voltar }: { voltar?: boolean }) {
                     <T className="text-[10px] text-muted">Desempate: {p.desempate}</T>
                   ) : null}
                 </View>
-                <T className="mr-2 font-odds text-base text-primary">{fmtPts(p.pontuacao)} pts</T>
+                <T className="mr-2 font-odds text-base text-primary">{fmtPontos(p.pontuacao)} pts</T>
                 <Ionicons
                   name={aberto === i ? "chevron-up" : "chevron-down"}
                   size={18}
@@ -163,7 +163,7 @@ export function RankingDoDia({ voltar }: { voltar?: boolean }) {
                         {m.fichas != null ? (
                           <T className="text-right text-[11px] text-muted">
                             se todas baterem →{" "}
-                            <T className="font-mont-xb text-[11px] text-primary">{fmtPts(m.fichas * (m.odd ?? 0))} pts</T>
+                            <T className="font-mont-xb text-[11px] text-primary">{fmtPontos(m.fichas * (m.odd ?? 0))} pts</T>
                           </T>
                         ) : null}
                         {m.ocultas > 0 ? (
@@ -177,7 +177,7 @@ export function RankingDoDia({ voltar }: { voltar?: boolean }) {
                   {p.potencial != null ? (
                     <View className="mt-2 flex-row items-center justify-between border-t border-line pt-2">
                       <T className="font-mont-b text-xs text-muted">Potencial máximo</T>
-                      <T className="font-odds text-lg text-primary">{fmtPts(p.potencial)} pts</T>
+                      <T className="font-odds text-lg text-primary">{fmtPontos(p.potencial)} pts</T>
                     </View>
                   ) : null}
                 </View>
@@ -225,7 +225,7 @@ function Linha({
             <T className="mr-0.5 font-odds text-xs">{fichas}</T>
             <Ficha size={12} />
           </View>
-          <T className="text-[10px] text-muted">→ {fmtPts(resultado === "red" ? 0 : fichas * odd)} pts</T>
+          <T className="text-[10px] text-muted">→ {fmtPontos(resultado === "red" ? 0 : fichas * odd)} pts</T>
         </View>
       ) : null}
     </View>

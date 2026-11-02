@@ -44,8 +44,9 @@ export function fmtOddExata(n: number) {
   return `${i}.${d.padEnd(2, "0")}x`;
 }
 
-/** Fichas/pontos sem arredondar. */
-export const fmtExato = (n: number) => n.toLocaleString("pt-BR", { maximumFractionDigits: 8 });
+/** Pontos/retornos: até 2 casas, com ponto (151.23). */
+export const fmtPontos = (n: number) => String(Math.round(n * 100) / 100);
+export const fmtExato = fmtPontos;
 
 const MINUSC = new Set(["de", "da", "do", "ou", "e"]);
 const titulo = (s: string) =>
