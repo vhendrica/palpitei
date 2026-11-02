@@ -194,8 +194,16 @@ export async function apostar(
     // Trava a entrada para serializar distribuições simultâneas do mesmo usuário.
     const ent = await getEntrada(tx, userId, ligaId, true);
     if (!ent) throw new RuleError('Entre no palpite antes de distribuir fichas.');
+    let primeira: Date | null = null;
     if (opts.editar) {
       // Editar: refaz o que ainda não começou; o que já começou fica travado.
+      // A hora da 1ª aposta (desempate do ranking) não muda com a edição.
+      const [p] = await tx`
+        select least(
+          (select min(a.created_at) from apostas a join mercados m on m.id = a.mercado_id
+             join jogos j on j.id = m.jogo_id where a.user_id = ${userId} and j.liga_id = ${ligaId}),
+          (select min(created_at) from multiplas where user_id = ${userId} and liga_id = ${ligaId})) as t`;
+      primeira = (p.t as Date | null) ?? null;
       await tx`
         delete from apostas a using mercados m, jogos j
         where a.mercado_id = m.id and j.id = m.jogo_id and a.user_id = ${userId}
@@ -268,11 +276,16 @@ export async function apostar(
         fichas_apostadas,
         odd: porId.get(mercado_id)!.odd,
       }));
-      await tx`insert into apostas ${tx(rows, 'user_id', 'mercado_id', 'fichas_apostadas', 'odd')}`;
+      const novas = await tx`insert into apostas ${tx(rows, 'user_id', 'mercado_id', 'fichas_apostadas', 'odd')} returning id`;
+      if (primeira) {
+        await tx`update apostas set created_at = least(created_at, ${primeira})
+                 where id = any(${novas.map((r) => r.id as string)}::uuid[])`;
+      }
     }
     for (const m of multiplas) {
       const [mu] = await tx`
-        insert into multiplas (user_id, liga_id, fichas_apostadas) values (${userId}, ${ligaId}, ${m.fichas})
+        insert into multiplas (user_id, liga_id, fichas_apostadas, created_at)
+        values (${userId}, ${ligaId}, ${m.fichas}, coalesce(${primeira}::timestamptz, clock_timestamp()))
         returning id`;
       const pernas = m.mercados.map((mercado_id) => ({ multipla_id: mu.id, mercado_id, odd: porId.get(mercado_id)!.odd }));
       await tx`insert into multipla_pernas ${tx(pernas, 'multipla_id', 'mercado_id', 'odd')}`;

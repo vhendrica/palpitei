@@ -97,7 +97,7 @@ export async function atualizarResultados(sql: Db, cfg: OddsConfig | undefined) 
     const ids = jogos.map((j) => j.externo_id as string).join(',');
     const url =
       `https://api.the-odds-api.com/v4/sports/${encodeURIComponent(esporte)}/scores/?apiKey=${encodeURIComponent(cfg.apiKey)}` +
-      `&daysFrom=1&dateFormat=iso&eventIds=${encodeURIComponent(ids)}`;
+      `&daysFrom=3&dateFormat=iso&eventIds=${encodeURIComponent(ids)}`;
     const res = await (cfg.fetch ?? fetch)(url);
     if (!res.ok) {
       console.error('[resultados] falha', esporte, res.status, (await res.text().catch(() => '')).slice(0, 200));
