@@ -176,7 +176,7 @@ export function Bilhete({
 
   return (
     <View
-      className="absolute bottom-0 left-0 right-0 rounded-t-3xl border-t-2 border-primary px-4 pb-3 pt-2"
+      className="absolute bottom-0 left-0 right-0 rounded-t-3xl border-t-2 border-primary px-4 pb-1.5 pt-2"
       style={{
         backgroundColor: fundo,
         maxHeight: expandido ? height * 0.75 : height / 3,
@@ -287,7 +287,7 @@ export function Bilhete({
           })}
         </ScrollView>
       ) : null}
-      <Button title="Ver resumo" onPress={onResumo} disabled={pequena} className="mt-1" />
+      <Button title="Ver resumo" onPress={onResumo} disabled={pequena} compact />
 
       <Modal visible={!!perguntar} transparent animationType="fade" onRequestClose={() => setPerguntar(null)}>
         <ThemeVars>
