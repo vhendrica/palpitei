@@ -183,11 +183,12 @@ export function PremioLinha({
   finalizada?: boolean;
 }) {
   const { palette: C } = useTheme();
+  // Finalizada: só o prêmio real (sem a meta), em texto neutro — pode não ter havido campeão.
   const valor =
     descricao ||
     (premio.premio_atual > 0
       ? fmtReais(premio.premio_atual)
-      : premio.meta
+      : premio.meta && !finalizada
         ? `até ${fmtReais(premio.meta.valor)}`
         : null);
   if (!valor) return null;
@@ -195,7 +196,7 @@ export function PremioLinha({
     <View className="flex-row items-center rounded-xl border border-gold/40 bg-gold/10 px-3 py-2">
       <Ionicons name="trophy" size={16} color={C.gold} />
       <T className="ml-2 flex-1 text-sm" numberOfLines={1}>
-        {finalizada ? "Campeão levou " : "Campeão leva "}
+        {finalizada ? "Prêmio da rodada: " : "Campeão leva "}
         <T className="font-mont-xb text-sm text-gold">{valor}</T>
       </T>
     </View>
