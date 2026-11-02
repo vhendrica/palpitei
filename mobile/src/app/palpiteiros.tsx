@@ -92,9 +92,6 @@ export function RankingDoDia({ voltar }: { voltar?: boolean }) {
                     {p.nome}
                     {p.eu ? " (você)" : ""}
                   </T>
-                  {p.desempate ? (
-                    <T className="text-[10px] text-muted">Desempate: {p.desempate}</T>
-                  ) : null}
                 </View>
                 <T className="mr-2 font-odds text-base text-primary">{fmtPontos(p.pontuacao)} pts</T>
                 <Ionicons
