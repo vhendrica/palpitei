@@ -107,6 +107,7 @@ export function PremioBar({
 }
 
 function BarraAnimada({ pct }: { pct: number }) {
+  const { palette: C } = useTheme();
   const [w] = useState(() => new Animated.Value(pct));
   useEffect(() => {
     Animated.timing(w, {
@@ -119,8 +120,10 @@ function BarraAnimada({ pct }: { pct: number }) {
   return (
     <View className="mt-3 h-2.5 overflow-hidden rounded-full bg-cardAlt">
       <Animated.View
-        className="h-2.5 rounded-full bg-gold"
         style={{
+          height: 10,
+          borderRadius: 999,
+          backgroundColor: C.gold,
           width: w.interpolate({ inputRange: [0, 100], outputRange: ["0%", "100%"] }),
         }}
       />
