@@ -70,6 +70,12 @@ export function createApi(deps: ApiDeps) {
       const u = await c.requireUser();
       return entrarNaLiga(sql, u.id, (await ligaDeHoje()).id);
     }],
+    ['PUT', /^\/liga\/hoje\/apostas$/, async (c) => {
+      const u = await c.requireUser();
+      const b = await c.body();
+      const bilhete = { simples: (b.simples ?? {}) as Record<string, number>, multiplas: (b.multiplas ?? []) as MultiplaInput[] };
+      return apostar(sql, u.id, (await ligaDeHoje()).id, bilhete, { editar: true });
+    }],
     ['POST', /^\/liga\/hoje\/apostas$/, async (c) => {
       const u = await c.requireUser();
       const b = await c.body();

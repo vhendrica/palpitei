@@ -6,6 +6,8 @@ import {
   calcularRanking,
   contarPalpiteiros,
   fichasUsadas,
+  livresDe,
+  retornosPorUsuario,
   getEntrada,
   getEscada,
   getLigaAtual,
@@ -155,18 +157,21 @@ async function multiplasDoUsuario(db: Db, userId: string, ligaId: string): Promi
 async function minhaSituacao(db: Db, userId: string, liga: LigaRow) {
   const entrada = await getEntrada(db, userId, liga.id);
   if (!entrada) return { entrou: false as const };
-  const [usadas, ranking, multiplas] = await Promise.all([
+  const [usadas, ranking, multiplas, retornos] = await Promise.all([
     fichasUsadas(db, userId, liga.id),
     calcularRanking(db, liga.id),
     multiplasDoUsuario(db, userId, liga.id),
+    retornosPorUsuario(db, liga.id),
   ]);
+  const ganhas = retornos.get(userId) ?? 0;
   const eu = ranking.find((r) => r.user_id === userId);
   return {
     entrou: true as const,
     multiplas,
     fichas_total: entrada.fichas_total,
     fichas_usadas: usadas,
-    fichas_livres: Math.max(0, entrada.fichas_total - usadas),
+    fichas_ganhas: ganhas,
+    fichas_livres: livresDe(entrada.fichas_total, ganhas, usadas),
     pontuacao: eu?.pontuacao ?? 0,
     posicao: eu?.posicao ?? null,
   };
@@ -238,7 +243,7 @@ export async function palpiteirosDoDia(db: Db, user: UserPublico | null, data = 
   const liga = await getLigaAtual(db, data);
   if (!liga) return { data, liga: null, palpiteiros: [] };
   const [entradas, apostas, multiplas] = await Promise.all([
-    db`select e.user_id, u.nome, e.created_at from entradas e join users u on u.id = e.user_id
+    db`select e.user_id, u.nome, e.created_at, e.fichas_total from entradas e join users u on u.id = e.user_id
        where e.liga_id = ${liga.id} order by e.created_at`,
     db`select a.user_id, m.id as mercado_id, m.grupo, m.descricao, m.resultado_final, max(a.odd) as multiplicador,
          j.time_casa, j.time_fora, j.horario <= now() as comecou,
@@ -298,7 +303,14 @@ export async function palpiteirosDoDia(db: Db, user: UserPublico | null, data = 
               .reduce((t, a) => t + num(a.fichas) * num(a.multiplicador), 0) +
               multiplas
                 .filter((m) => m.user_id === e.user_id && !m.pernas.some((p) => p.finalizado && !p.resultado_final))
-                .reduce((t, m) => t + m.fichas * m.odd, 0),
+                .reduce((t, m) => t + m.fichas * m.odd, 0) -
+              // As fichas iniciais não contam: só o que passar delas sai do que já foi ganho.
+              Math.max(
+                0,
+                apostas.filter((a) => a.user_id === e.user_id).reduce((t, a) => t + num(a.fichas), 0) +
+                  multiplas.filter((m) => m.user_id === e.user_id).reduce((t, m) => t + m.fichas, 0) -
+                  num(e.fichas_total),
+              ),
           )
         : null;
       return {

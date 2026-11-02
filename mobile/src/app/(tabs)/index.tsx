@@ -81,8 +81,39 @@ export default function HomeMultipla() {
     scrollRef.current?.scrollTo({ y: 0, animated: true });
 
   const eu = home?.eu?.entrou ? home.eu : null;
+  const [editandoKey, setEditandoKey] = useState<string | null>(null);
+  const editando = editandoKey === draftKey;
+
+  // Palpites confirmados que ainda dá pra mexer: jogos que não começaram.
+  const editaveis = useMemo(() => {
+    const simples: Record<string, number> = {};
+    for (const j of home?.jogos ?? []) {
+      if (j.comecou) continue;
+      for (const m of j.mercados) if ((m.minhas_fichas ?? 0) > 0) simples[m.id] = m.minhas_fichas!;
+    }
+    const multiplas = (eu?.multiplas ?? []).filter((m) => m.pernas.every((p) => !p.comecou));
+    const fichas =
+      Object.values(simples).reduce((s, f) => s + f, 0) + multiplas.reduce((s, m) => s + m.fichas, 0);
+    return { simples, multiplas, fichas };
+  }, [home?.jogos, eu?.multiplas]);
+
+  const editarBilhete = () => {
+    const ms = editaveis.multiplas.map((m) => ({
+      mercados: m.pernas.map((p) => p.mercado_id),
+      fichas: m.fichas,
+    }));
+    const itens = [...new Set([...Object.keys(editaveis.simples), ...ms.flatMap((m) => m.mercados)])];
+    setDraft({ itens, simples: { ...editaveis.simples }, multiplas: ms });
+    setEditandoKey(draftKey);
+  };
+  const cancelarEdicao = () => {
+    setDraft(DRAFT_VAZIO);
+    setEditandoKey(null);
+  };
+
+  const fichasLivresBase = (eu?.fichas_livres ?? 0) + (editando ? editaveis.fichas : 0);
   const noDraft = useMemo(() => fichasNoDraft(draft), [draft]);
-  const livres = (eu?.fichas_livres ?? 0) - noDraft;
+  const livres = fichasLivresBase - noDraft;
   const aberta = home?.liga?.status === "aberta";
   const valendo =
     !!home?.liga &&
@@ -128,8 +159,14 @@ export default function HomeMultipla() {
             .map((id) => [id, draft.simples[id]]),
         ),
         multiplas: draft.multiplas.filter((m) => m.mercados.length > 0),
-      });
+      }, editando);
       setDraft(DRAFT_VAZIO);
+      setEditandoKey(null);
+      if (editando) {
+        setResumo(false);
+        irParaTopo();
+        return "Bilhete atualizado.";
+      }
       setResumo(false);
       irParaTopo();
       return `Palpite confirmado: ${n} fichas distribuídas.`;
@@ -172,7 +209,9 @@ export default function HomeMultipla() {
       ]),
     ),
   );
-  const confirmadas = eu?.multiplas ?? [];
+  const confirmadas = (eu?.multiplas ?? []).filter(
+    (m) => !editando || !editaveis.multiplas.includes(m),
+  );
   const offsetMultiplas = confirmadas.length;
   const selosDe = (id: string) => [
     ...confirmadas.flatMap((m, i) =>
@@ -234,7 +273,8 @@ export default function HomeMultipla() {
                 ) : null}
                 <View className="flex-row flex-wrap" style={{ gap: 6 }}>
                   {g.opcoes.map((m) => {
-                    const minhas = m.minhas_fichas ?? 0;
+                    const minhas =
+                      editando && !j.comecou ? 0 : (m.minhas_fichas ?? 0);
                     const noBilhete = draft.itens.includes(m.id);
                     const resultado =
                       home.liga?.status === "finalizada" || j.finalizado || m.decidido
@@ -388,8 +428,30 @@ export default function HomeMultipla() {
                   </>
                 ) : (
                   <>
-                    {!valendo && livres + noDraft > 0 ? (
+                    {(!valendo || editaveis.fichas > 0 || livres > 0) && livres + noDraft > 0 ? (
                       <SituacaoFichas livres={livres} noBilhete={noDraft} />
+                    ) : null}
+                    {(eu.fichas_ganhas ?? 0) > 0 ? (
+                      <T className="mb-2 text-center text-xs text-muted">
+                        Seus acertos já devolveram {fmtPts(eu.fichas_ganhas!)} fichas. Dá pra reapostar nos jogos que não começaram.
+                      </T>
+                    ) : null}
+                    {aberta && editando ? (
+                      <Button
+                        title="Cancelar edição"
+                        variant="ghost"
+                        icon="close"
+                        onPress={cancelarEdicao}
+                        className="mb-3"
+                      />
+                    ) : aberta && editaveis.fichas > 0 && draft.itens.length === 0 ? (
+                      <Button
+                        title="Editar bilhete"
+                        variant="ghost"
+                        icon="create-outline"
+                        onPress={editarBilhete}
+                        className="mb-3"
+                      />
                     ) : null}
                     <View className="flex-row justify-around">
                       <Stat label="Pontuação" value={fmtPts(eu.pontuacao)} />
@@ -435,7 +497,7 @@ export default function HomeMultipla() {
           <Bilhete
             draft={draft}
             opcoes={opcoes}
-            fichasLivres={eu.fichas_livres}
+            fichasLivres={fichasLivresBase}
             offsetMultiplas={offsetMultiplas}
             onChange={setDraft}
             onResumo={() => {
@@ -447,7 +509,7 @@ export default function HomeMultipla() {
             visible={resumo}
             draft={draft}
             opcoes={opcoes}
-            fichasLivres={eu.fichas_livres}
+            fichasLivres={fichasLivresBase}
             offsetMultiplas={offsetMultiplas}
             busy={busy}
             erro={erroBilhete}
@@ -456,6 +518,14 @@ export default function HomeMultipla() {
             onConfirmar={confirmar}
           />
         </>
+      ) : editando && eu ? (
+        <View className="absolute bottom-0 left-0 right-0 rounded-t-3xl border-t-2 border-primary bg-card p-4">
+          <T className="mb-2 text-center text-sm text-muted">
+            Você tirou todos os palpites dos jogos que não começaram.
+          </T>
+          <Button title="Salvar alterações" loading={busy} onPress={confirmar} />
+          <ErrorBox erro={erroBilhete} />
+        </View>
       ) : null}
       {toast.node}
     </View>

@@ -83,6 +83,8 @@ export const api = {
   entrar: () => req<{ fichas_total: number; saldo_pontos: number }>('POST', '/liga/hoje/entrar'),
   apostar: (bilhete: BilheteInput) =>
     req<{ fichas_distribuidas: number; fichas_livres: number }>('POST', '/liga/hoje/apostas', bilhete),
+  editarApostas: (bilhete: BilheteInput) =>
+    req<{ fichas_distribuidas: number; fichas_livres: number }>('PUT', '/liga/hoje/apostas', bilhete),
   me: () => req<Perfil>('GET', '/me'),
 
   admin: {

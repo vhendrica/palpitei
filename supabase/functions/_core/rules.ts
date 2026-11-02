@@ -108,11 +108,16 @@ export async function getEntrada(db: Db, userId: string, ligaId: string, lock = 
   return e ? { id: e.id as string, fichas_total: num(e.fichas_total), pontos_pagos: num(e.pontos_pagos), created_at: iso(e.created_at)! } : null;
 }
 
+/** Fichas pra apostar: as iniciais + o que voltou dos acertos − o que já foi apostado (só inteiras). */
 export async function fichasDisponiveis(db: Db, userId: string, ligaId: string) {
   const entrada = await getEntrada(db, userId, ligaId);
   if (!entrada) return 0;
-  return Math.max(0, entrada.fichas_total - (await fichasUsadas(db, userId, ligaId)));
+  const [usadas, retornos] = await Promise.all([fichasUsadas(db, userId, ligaId), retornosPorUsuario(db, ligaId)]);
+  return livresDe(entrada.fichas_total, retornos.get(userId) ?? 0, usadas);
 }
+
+export const livresDe = (total: number, retornos: number, usadas: number) =>
+  Math.max(0, Math.floor(exato(total + retornos - usadas)));
 
 /** Paga a entrada em PONTOS e recebe as FICHAS da liga. */
 export async function entrarNaLiga(sql: Db, userId: string, ligaId: string) {
@@ -149,7 +154,13 @@ const chaveMultipla = (ids: string[]) => [...ids].sort().join(',');
  * sem palpites incompatíveis do mesmo jogo, sem repetir uma múltipla igual). Aceita também o formato
  * antigo `{ mercadoId: fichas }`, tratado como Simples. Não toca em PONTOS.
  */
-export async function apostar(sql: Db, userId: string, ligaId: string, entrada: BilheteInput | Record<string, number>) {
+export async function apostar(
+  sql: Db,
+  userId: string,
+  ligaId: string,
+  entrada: BilheteInput | Record<string, number>,
+  opts: { editar?: boolean } = {},
+) {
   const bilhete: BilheteInput =
     entrada && ('simples' in entrada || 'multiplas' in entrada)
       ? (entrada as BilheteInput)
@@ -183,7 +194,21 @@ export async function apostar(sql: Db, userId: string, ligaId: string, entrada: 
     // Trava a entrada para serializar distribuições simultâneas do mesmo usuário.
     const ent = await getEntrada(tx, userId, ligaId, true);
     if (!ent) throw new RuleError('Entre no palpite antes de distribuir fichas.');
-    if (simples.length === 0 && multiplas.length === 0) throw new RuleError('Distribua pelo menos 1 ficha.');
+    if (opts.editar) {
+      // Editar: refaz o que ainda não começou; o que já começou fica travado.
+      await tx`
+        delete from apostas a using mercados m, jogos j
+        where a.mercado_id = m.id and j.id = m.jogo_id and a.user_id = ${userId}
+          and j.liga_id = ${ligaId} and j.horario > now()`;
+      await tx`
+        delete from multiplas mu where mu.user_id = ${userId} and mu.liga_id = ${ligaId}
+          and not exists (select 1 from multipla_pernas p join mercados m on m.id = p.mercado_id
+                          join jogos j on j.id = m.jogo_id where p.multipla_id = mu.id and j.horario <= now())`;
+    }
+    if (simples.length === 0 && multiplas.length === 0) {
+      if (opts.editar) return { fichas_distribuidas: 0, fichas_livres: await fichasDisponiveis(tx, userId, ligaId) };
+      throw new RuleError('Distribua pelo menos 1 ficha.');
+    }
 
     const ids = [...new Set([...simples.map(([id]) => id), ...multiplas.flatMap((m) => m.mercados)])];
     const mercados = ids.every(isUuid)
@@ -227,7 +252,11 @@ export async function apostar(sql: Db, userId: string, ligaId: string, entrada: 
     }
 
     const total = simples.reduce((s, [, f]) => s + f, 0) + multiplas.reduce((s, m) => s + m.fichas, 0);
-    const disponiveis = ent.fichas_total - (await fichasUsadas(tx, userId, ligaId));
+    const disponiveis = livresDe(
+      ent.fichas_total,
+      (await retornosPorUsuario(tx, ligaId)).get(userId) ?? 0,
+      await fichasUsadas(tx, userId, ligaId),
+    );
     if (total > disponiveis) {
       throw new RuleError(`Você tem ${disponiveis} fichas livres e tentou distribuir ${total}.`);
     }
@@ -252,8 +281,32 @@ export async function apostar(sql: Db, userId: string, ligaId: string, entrada: 
   });
 }
 
-/** Pontos de cada usuário na liga: simples certas + múltiplas com todas as pernas certas. Sem arredondar. */
+/**
+ * Pontos: fichas ganhas nos acertos − as ganhas que foram reapostadas. As iniciais não contam
+ * (nem as que sobraram) e são as primeiras a sair numa aposta. Sem arredondar.
+ */
 export async function pontosPorUsuario(db: Db, ligaId: string): Promise<Map<string, number>> {
+  const [retornos, gastos] = await Promise.all([
+    retornosPorUsuario(db, ligaId),
+    db`
+      select e.user_id, e.fichas_total,
+        coalesce((select sum(a.fichas_apostadas) from apostas a join mercados m on m.id = a.mercado_id
+                  join jogos j on j.id = m.jogo_id where a.user_id = e.user_id and j.liga_id = e.liga_id), 0)
+        + coalesce((select sum(mu.fichas_apostadas) from multiplas mu
+                    where mu.user_id = e.user_id and mu.liga_id = e.liga_id), 0) as usadas
+      from entradas e where e.liga_id = ${ligaId}`,
+  ]);
+  const out = new Map<string, number>();
+  for (const g of gastos) {
+    const r = retornos.get(g.user_id as string);
+    if (r == null) continue;
+    out.set(g.user_id as string, exato(r - Math.max(0, num(g.usadas) - num(g.fichas_total))));
+  }
+  return out;
+}
+
+/** Fichas que voltaram: simples certas + múltiplas com todas as pernas certas. Sem arredondar. */
+export async function retornosPorUsuario(db: Db, ligaId: string): Promise<Map<string, number>> {
   const [simples, pernas] = await Promise.all([
     db`
       select a.user_id, sum(a.fichas_apostadas * a.odd) as pontos

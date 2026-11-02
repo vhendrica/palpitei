@@ -30,7 +30,7 @@ type AppStore = {
   ) => Promise<{ nova_conta: boolean }>;
   sair: () => Promise<void>;
   entrarNaLiga: () => Promise<void>;
-  apostar: (bilhete: BilheteInput) => Promise<number>;
+  apostar: (bilhete: BilheteInput, editar?: boolean) => Promise<number>;
 };
 
 const Ctx = createContext<AppStore | null>(null);
@@ -112,8 +112,8 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         // Não segura o botão esperando a home inteira recarregar.
         refreshHome();
       },
-      apostar: async (bilhete) => {
-        const r = await api.apostar(bilhete);
+      apostar: async (bilhete, editar) => {
+        const r = editar ? await api.editarApostas(bilhete) : await api.apostar(bilhete);
         await refreshHome();
         return r.fichas_distribuidas;
       },

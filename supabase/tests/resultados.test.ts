@@ -2,8 +2,15 @@ import assert from 'node:assert/strict';
 import { after, before, beforeEach, test } from 'node:test';
 
 import { aplicarPlacar, atualizarResultados } from '../functions/_core/resultados.ts';
-import { finalizarLiga, reativarLiga } from '../functions/_core/rules.ts';
-import { criarLiga, limpar, setupDb, type Sql } from './helpers.ts';
+import {
+  apostar,
+  entrarNaLiga,
+  fichasDisponiveis,
+  finalizarLiga,
+  pontosPorUsuario,
+  reativarLiga,
+} from '../functions/_core/rules.ts';
+import { criarLiga, criarUser, limpar, setupDb, type Sql } from './helpers.ts';
 
 let sql: Sql;
 before(async () => (sql = await setupDb()));
@@ -98,4 +105,38 @@ test('reativar mantém o que foi apurado pelo placar e o refinalizar usa esse re
   assert.deepEqual(await marcados(jogos[0]), ['CASA VENCE']);
   await finalizarLiga(sql, ligaId, []);
   assert.deepEqual(await marcados(jogos[0]), ['CASA VENCE']);
+});
+
+test('fichas do acerto voltam; pontos = ganhas − ganhas reapostadas (iniciais não contam)', async () => {
+  const u = await criarUser(sql);
+  const { ligaId, jogos, mercados } = await criarLiga(sql);
+  await entrarNaLiga(sql, u, ligaId);
+  await apostar(sql, u, ligaId, { simples: { [mercados[0]]: 100 } });
+  assert.equal((await pontosPorUsuario(sql, ligaId)).get(u) ?? 0, 0);
+  await aplicarPlacar(sql, jogos[0], 1, 0);
+  assert.equal((await pontosPorUsuario(sql, ligaId)).get(u), 200);
+  assert.equal(await fichasDisponiveis(sql, u, ligaId), 300);
+  await apostar(sql, u, ligaId, { simples: { [mercados[2]]: 250 } });
+  assert.equal((await pontosPorUsuario(sql, ligaId)).get(u), 50);
+  assert.equal(await fichasDisponiveis(sql, u, ligaId), 50);
+  await assert.rejects(apostar(sql, u, ligaId, { simples: { [mercados[4]]: 51 } }), /50 fichas livres/);
+  await aplicarPlacar(sql, jogos[1], 1, 0);
+  assert.equal((await pontosPorUsuario(sql, ligaId)).get(u), 550);
+});
+
+test('editar refaz só o que não começou; o que começou fica travado', async () => {
+  const u = await criarUser(sql);
+  const { ligaId, jogos, mercados } = await criarLiga(sql);
+  await entrarNaLiga(sql, u, ligaId);
+  await apostar(sql, u, ligaId, {
+    simples: { [mercados[0]]: 50, [mercados[2]]: 30 },
+    multiplas: [{ mercados: [mercados[2], mercados[4]], fichas: 20 }],
+  });
+  await sql`update jogos set horario = now() - interval '1 minute' where id = ${jogos[0]}`;
+  await apostar(sql, u, ligaId, { simples: { [mercados[2]]: 60 } }, { editar: true });
+  const ap = await sql`select mercado_id, fichas_apostadas from apostas where user_id = ${u} order by fichas_apostadas`;
+  assert.deepEqual(ap.map((a) => [a.mercado_id, a.fichas_apostadas]), [[mercados[0], 50], [mercados[2], 60]]);
+  assert.equal((await sql`select count(*)::int as n from multiplas where user_id = ${u}`)[0].n, 0);
+  assert.equal(await fichasDisponiveis(sql, u, ligaId), 90);
+  await assert.rejects(apostar(sql, u, ligaId, { simples: { [mercados[0]]: 10 } }, { editar: true }), /começou/);
 });

@@ -76,6 +76,8 @@ export type MinhaSituacao =
       fichas_total: number;
       fichas_usadas: number;
       fichas_livres: number;
+      /** Fichas que voltaram de acertos (podem ser reapostadas). */
+      fichas_ganhas?: number;
       multiplas: MultiplaView[];
       pontuacao: number;
       posicao: number | null;
