@@ -143,33 +143,34 @@ describe('pontuação e ranking', () => {
     assert.equal(await pontuacaoUsuario(sql, u, ligaId), 100);
   });
 
-  test('desempate: quem apostou primeiro; depois quem criou a conta antes; sem aposta vai pro fim', async () => {
-    const antigo = await criarUser(sql, { nome: 'Antigo Silva', created_at: '2026-01-01T00:00:00.000Z' });
-    const novo = await criarUser(sql, { nome: 'Novo Souza', created_at: '2026-06-01T00:00:00.000Z' });
-    const rapido = await criarUser(sql, { nome: 'Rápido Lima', created_at: '2026-09-01T00:00:00.000Z' });
-    const parado = await criarUser(sql, { nome: 'Parado Costa', created_at: '2025-01-01T00:00:00.000Z' });
+  test('desempate: maior multiplicador acertado, depois mais acertos, depois quem entrou antes', async () => {
+    const arriscou = await criarUser(sql, { nome: 'Arriscou Silva' });
+    const simples = await criarUser(sql, { nome: 'Simples Souza' });
+    const cedo = await criarUser(sql, { nome: 'Cedo Lima' });
+    const tarde = await criarUser(sql, { nome: 'Tarde Costa' });
+    const parado = await criarUser(sql, { nome: 'Parado Rocha' });
     const { ligaId, mercados } = await criarLiga(sql);
-    for (const u of [antigo, novo, rapido, parado]) await entrarNaLiga(sql, u, ligaId);
-
-    await apostar(sql, rapido, ligaId, { [mercados[0]]: 100 });
-    await apostar(sql, novo, ligaId, { [mercados[0]]: 100 });
-    await apostar(sql, antigo, ligaId, { [mercados[0]]: 100 });
-    // empate exato de timestamp entre `novo` e `antigo` → decide users.created_at
-    await sql`update apostas set created_at = '2030-01-01T12:00:00.123Z' where user_id in ${sql([novo, antigo])}`;
-    await sql`update apostas set created_at = '2030-01-01T12:00:00.122Z' where user_id = ${rapido}`;
-    await sql`update mercados set resultado_final = true where id = ${mercados[0]}`;
+    for (const u of [cedo, tarde, arriscou, simples, parado]) await entrarNaLiga(sql, u, ligaId);
+    await sql`update entradas set created_at = '2030-01-01 12:00:00.000100+00' where user_id = ${cedo}`;
+    await sql`update entradas set created_at = '2030-01-01 12:00:00.000500+00' where user_id = ${tarde}`;
+    // mercados[0] (2.0) e mercados[2] (2.0) batem; múltipla 2 × 2 = 4.
+    await apostar(sql, arriscou, ligaId, { multiplas: [{ mercados: [mercados[0], mercados[2]], fichas: 60 }] });
+    await apostar(sql, simples, ligaId, { simples: { [mercados[0]]: 60, [mercados[2]]: 60 } });
+    await apostar(sql, cedo, ligaId, { simples: { [mercados[0]]: 120 } });
+    await apostar(sql, tarde, ligaId, { simples: { [mercados[2]]: 120 } });
+    await sql`update mercados set resultado_final = true where id in ${sql([mercados[0], mercados[2]])}`;
 
     const r = await calcularRanking(sql, ligaId);
     assert.deepEqual(
-      r.map((x) => [x.posicao, x.nome, x.pontuacao]),
+      r.map((x) => [x.posicao, x.nome, x.pontuacao, x.desempate]),
       [
-        [1, 'Rápido L.', 200],
-        [2, 'Antigo S.', 200],
-        [3, 'Novo S.', 200],
-        [4, 'Parado C.', 0],
+        [1, 'Arriscou S.', 240, 'maior multiplicador acertado: 4.00'],
+        [2, 'Simples S.', 240, '2 acertos'],
+        [3, 'Cedo L.', 240, 'entrou na rodada antes'],
+        [4, 'Tarde C.', 240, 'entrou na rodada depois'],
+        [5, 'Parado R.', 0, null],
       ],
     );
-    assert.equal(r[0].primeira_aposta_em, '2030-01-01T12:00:00.122Z');
   });
 });
 

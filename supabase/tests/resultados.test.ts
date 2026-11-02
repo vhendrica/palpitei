@@ -7,7 +7,6 @@ import {
   entrarNaLiga,
   fichasDisponiveis,
   finalizarLiga,
-  calcularRanking,
   pontosPorUsuario,
   reativarLiga,
 } from '../functions/_core/rules.ts';
@@ -142,31 +141,3 @@ test('editar refaz só o que não começou; o que começou fica travado', async 
   await assert.rejects(apostar(sql, u, ligaId, { simples: { [mercados[0]]: 10 } }, { editar: true }), /começou/);
 });
 
-test('editar o bilhete não muda o desempate pela 1ª aposta', async () => {
-  const ana = await criarUser(sql);
-  const beto = await criarUser(sql);
-  const { ligaId, mercados } = await criarLiga(sql);
-  await entrarNaLiga(sql, ana, ligaId);
-  await entrarNaLiga(sql, beto, ligaId);
-  const bilhete = { simples: { [mercados[0]]: 50 }, multiplas: [{ mercados: [mercados[0], mercados[2]], fichas: 20 }] };
-  await apostar(sql, ana, ligaId, bilhete);
-  await apostar(sql, beto, ligaId, bilhete);
-  await apostar(sql, ana, ligaId, bilhete, { editar: true });
-  const r = await calcularRanking(sql, ligaId);
-  assert.deepEqual(r.map((x) => x.user_id), [ana, beto]);
-});
-
-test('editar mantém os microssegundos da 1ª aposta no desempate', async () => {
-  const ana = await criarUser(sql);
-  const beto = await criarUser(sql);
-  const { ligaId, mercados } = await criarLiga(sql);
-  await entrarNaLiga(sql, ana, ligaId);
-  await entrarNaLiga(sql, beto, ligaId);
-  await apostar(sql, beto, ligaId, { simples: { [mercados[0]]: 50 } });
-  await apostar(sql, ana, ligaId, { simples: { [mercados[0]]: 50 } });
-  await sql`update apostas set created_at = '2020-01-01 12:00:00.000100+00' where user_id = ${beto}`;
-  await sql`update apostas set created_at = '2020-01-01 12:00:00.000500+00' where user_id = ${ana}`;
-  await apostar(sql, ana, ligaId, { simples: { [mercados[0]]: 50 } }, { editar: true });
-  const r = await calcularRanking(sql, ligaId);
-  assert.deepEqual(r.map((x) => x.user_id), [beto, ana]);
-});

@@ -34,7 +34,12 @@ export type RankingRow = {
   bairro: string;
   pontuacao: number;
   fichas_apostadas: number;
-  primeira_aposta_em: string | null;
+  /** Maior multiplicador que bateu (Simples ou Múltipla inteira). */
+  maior_acerto: number;
+  /** Bilhetes que bateram: cada Simples e cada Múltipla inteira contam 1. */
+  acertos: number;
+  /** Quando empata em pontos com o vizinho: o critério que decidiu. */
+  desempate: string | null;
 };
 
 export type Voucher = { id: string; liga_id: string; user_id: string; codigo: string; valor: number; resgatado: boolean };
@@ -194,17 +199,8 @@ export async function apostar(
     // Trava a entrada para serializar distribuições simultâneas do mesmo usuário.
     const ent = await getEntrada(tx, userId, ligaId, true);
     if (!ent) throw new RuleError('Entre no palpite antes de distribuir fichas.');
-    // Texto, pra não perder os microssegundos (Date só guarda ms).
-    let primeira: string | null = null;
     if (opts.editar) {
       // Editar: refaz o que ainda não começou; o que já começou fica travado.
-      // A hora da 1ª aposta (desempate do ranking) não muda com a edição.
-      const [p] = await tx`
-        select least(
-          (select min(a.created_at) from apostas a join mercados m on m.id = a.mercado_id
-             join jogos j on j.id = m.jogo_id where a.user_id = ${userId} and j.liga_id = ${ligaId}),
-          (select min(created_at) from multiplas where user_id = ${userId} and liga_id = ${ligaId}))::text as t`;
-      primeira = (p.t as string | null) ?? null;
       await tx`
         delete from apostas a using mercados m, jogos j
         where a.mercado_id = m.id and j.id = m.jogo_id and a.user_id = ${userId}
@@ -277,16 +273,11 @@ export async function apostar(
         fichas_apostadas,
         odd: porId.get(mercado_id)!.odd,
       }));
-      const novas = await tx`insert into apostas ${tx(rows, 'user_id', 'mercado_id', 'fichas_apostadas', 'odd')} returning id`;
-      if (primeira) {
-        await tx`update apostas set created_at = least(created_at, ${primeira}::text::timestamptz)
-                 where id = any(${novas.map((r) => r.id as string)}::uuid[])`;
-      }
+      await tx`insert into apostas ${tx(rows, 'user_id', 'mercado_id', 'fichas_apostadas', 'odd')}`;
     }
     for (const m of multiplas) {
       const [mu] = await tx`
-        insert into multiplas (user_id, liga_id, fichas_apostadas, created_at)
-        values (${userId}, ${ligaId}, ${m.fichas}, coalesce(${primeira}::text::timestamptz, clock_timestamp()))
+        insert into multiplas (user_id, liga_id, fichas_apostadas) values (${userId}, ${ligaId}, ${m.fichas})
         returning id`;
       const pernas = m.mercados.map((mercado_id) => ({ multipla_id: mu.id, mercado_id, odd: porId.get(mercado_id)!.odd }));
       await tx`insert into multipla_pernas ${tx(pernas, 'multipla_id', 'mercado_id', 'odd')}`;
@@ -353,51 +344,102 @@ export async function pontuacaoUsuario(db: Db, userId: string, ligaId: string) {
 
 export const round2 = (n: number) => Math.round(n * 100) / 100;
 
-/** Pontuação desc; empate → primeira aposta (timestamp µs) asc; persistindo → users.created_at asc. */
+/** Maior multiplicador acertado e nº de bilhetes certos (Múltipla inteira conta 1). */
+async function acertosPorUsuario(db: Db, ligaId: string) {
+  const [simples, pernas] = await Promise.all([
+    db`
+      select a.user_id, a.odd from apostas a join mercados m on m.id = a.mercado_id join jogos j on j.id = m.jogo_id
+      where j.liga_id = ${ligaId} and m.resultado_final`,
+    db`
+      select mu.id, mu.user_id, p.odd, m.resultado_final
+      from multiplas mu join multipla_pernas p on p.multipla_id = mu.id join mercados m on m.id = p.mercado_id
+      where mu.liga_id = ${ligaId}`,
+  ]);
+  const out = new Map<string, { maior: number; n: number }>();
+  const soma = (u: string, odd: number) => {
+    const x = out.get(u) ?? { maior: 0, n: 0 };
+    out.set(u, { maior: Math.max(x.maior, odd), n: x.n + 1 });
+  };
+  for (const a of simples) soma(a.user_id as string, num(a.odd));
+  const mults = new Map<string, { user: string; odds: number[]; ok: boolean }>();
+  for (const p of pernas) {
+    const m = mults.get(p.id as string) ?? { user: p.user_id as string, odds: [], ok: true };
+    m.odds.push(num(p.odd));
+    m.ok &&= !!p.resultado_final;
+    mults.set(p.id as string, m);
+  }
+  for (const m of mults.values()) if (m.ok) soma(m.user, oddTotal(m.odds));
+  return out;
+}
+
+/**
+ * Pontuação desc; empate → maior multiplicador acertado; depois mais bilhetes certos;
+ * persistindo → quem entrou na rodada primeiro (µs).
+ */
 export async function calcularRanking(db: Db, ligaId: string): Promise<RankingRow[]> {
-  const [rows, pontos] = await Promise.all([
+  const [rows, pontos, acertos] = await Promise.all([
     db`
       with ev as (
-        select a.user_id, a.fichas_apostadas as f, a.created_at as c
+        select a.user_id, a.fichas_apostadas as f
         from apostas a join mercados m on m.id = a.mercado_id join jogos j on j.id = m.jogo_id
         where j.liga_id = ${ligaId}
         union all
-        select user_id, fichas_apostadas, created_at from multiplas where liga_id = ${ligaId}
+        select user_id, fichas_apostadas from multiplas where liga_id = ${ligaId}
       )
-      select u.id, u.nome, u.bairro, coalesce(sum(ev.f), 0)::int as fichas, min(ev.c) as primeira,
-             (extract(epoch from min(ev.c)) * 1000000)::bigint::text as primeira_us,
-             (extract(epoch from u.created_at) * 1000000)::bigint::text as criado_us
-      from entradas e
-      join users u on u.id = e.user_id
-      left join ev on ev.user_id = e.user_id
-      where e.liga_id = ${ligaId}
-      group by u.id`,
+      select u.id, u.nome, u.bairro,
+             coalesce((select sum(ev.f) from ev where ev.user_id = e.user_id), 0)::int as fichas,
+             (extract(epoch from e.created_at) * 1000000)::bigint::text as entrou_us
+      from entradas e join users u on u.id = e.user_id
+      where e.liga_id = ${ligaId}`,
     pontosPorUsuario(db, ligaId),
+    acertosPorUsuario(db, ligaId),
   ]);
-  const big = (v: unknown) => (v == null ? null : BigInt(v as string));
-  const cmp = (a: bigint | null, b: bigint | null) => (a === b ? 0 : a === null ? 1 : b === null ? -1 : a < b ? -1 : 1);
   const lista = rows.map((r) => ({
     r,
     pontos: pontos.get(r.id as string) ?? 0,
-    primeira: big(r.primeira_us),
-    criado: big(r.criado_us)!,
+    maior: acertos.get(r.id as string)?.maior ?? 0,
+    n: acertos.get(r.id as string)?.n ?? 0,
+    entrou: BigInt(r.entrou_us as string),
   }));
+  type L = (typeof lista)[number];
+  const criterio = (a: L, b: L, frente: boolean): string | null =>
+    a.maior !== b.maior
+      ? `maior multiplicador acertado: ${a.maior.toFixed(2)}`
+      : a.n !== b.n
+        ? `${a.n} ${a.n === 1 ? 'acerto' : 'acertos'}`
+        : a.entrou !== b.entrou
+          ? `entrou na rodada ${frente ? 'antes' : 'depois'}`
+          : null;
   lista.sort(
     (a, b) =>
       b.pontos - a.pontos ||
-      cmp(a.primeira, b.primeira) ||
-      cmp(a.criado, b.criado) ||
+      b.maior - a.maior ||
+      b.n - a.n ||
+      (a.entrou === b.entrou ? 0 : a.entrou < b.entrou ? -1 : 1) ||
       String(a.r.id).localeCompare(String(b.r.id)),
   );
-  return lista.map(({ r, pontos: p }, i) => ({
-    posicao: i + 1,
-    user_id: r.id as string,
-    nome: nomePublico(r.nome as string),
-    bairro: r.bairro as string,
-    pontuacao: p,
-    fichas_apostadas: num(r.fichas),
-    primeira_aposta_em: iso(r.primeira),
-  }));
+  return lista.map((x, i) => {
+    const prox = lista[i + 1];
+    const ant = lista[i - 1];
+    // Quem ficou na frente mostra o que o pôs à frente; o último do empate, o critério que o deixou atrás.
+    const desempate =
+      x.pontos > 0 && prox?.pontos === x.pontos
+        ? criterio(x, prox, true)
+        : x.pontos > 0 && ant?.pontos === x.pontos
+          ? criterio(x, ant, false)
+          : null;
+    return {
+      posicao: i + 1,
+      user_id: x.r.id as string,
+      nome: nomePublico(x.r.nome as string),
+      bairro: x.r.bairro as string,
+      pontuacao: x.pontos,
+      fichas_apostadas: num(x.r.fichas),
+      maior_acerto: x.maior,
+      acertos: x.n,
+      desempate,
+    };
+  });
 }
 
 /**

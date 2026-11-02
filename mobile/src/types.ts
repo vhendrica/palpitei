@@ -119,6 +119,8 @@ export type PalpiteiroView = {
   eu: boolean;
   posicao: number | null;
   pontuacao: number;
+  /** Critério que decidiu o empate em pontos com o vizinho. */
+  desempate?: string | null;
   /** Potencial máximo de pontos (só no próprio bilhete). */
   potencial: number | null;
   /** Simples. Dos outros, só os jogos que já começaram, sem fichas. */

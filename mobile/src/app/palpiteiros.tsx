@@ -87,10 +87,15 @@ export function RankingDoDia({ voltar }: { voltar?: boolean }) {
                 <View className="h-9 w-9 items-center justify-center rounded-full bg-cardAlt">
                   <T className="font-mont-xb text-sm">{p.posicao ? `${p.posicao}º` : "—"}</T>
                 </View>
-                <T className="ml-3 flex-1 font-mont-b text-sm">
-                  {p.nome}
-                  {p.eu ? " (você)" : ""}
-                </T>
+                <View className="ml-3 flex-1">
+                  <T className="font-mont-b text-sm">
+                    {p.nome}
+                    {p.eu ? " (você)" : ""}
+                  </T>
+                  {p.desempate ? (
+                    <T className="text-[10px] text-muted">Desempate: {p.desempate}</T>
+                  ) : null}
+                </View>
                 <T className="mr-2 font-odds text-base text-primary">{fmtPts(p.pontuacao)} pts</T>
                 <Ionicons
                   name={aberto === i ? "chevron-up" : "chevron-down"}
