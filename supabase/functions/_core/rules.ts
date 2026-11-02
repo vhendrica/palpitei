@@ -374,7 +374,7 @@ async function acertosPorUsuario(db: Db, ligaId: string) {
 
 /**
  * Pontuação desc; empate → maior multiplicador acertado; depois mais bilhetes certos;
- * persistindo → quem entrou na rodada primeiro (µs).
+ * persistindo, a ordem entre eles é só técnica (id) e sem critério exibido.
  */
 export async function calcularRanking(db: Db, ligaId: string): Promise<RankingRow[]> {
   const [rows, pontos, acertos] = await Promise.all([
@@ -387,8 +387,7 @@ export async function calcularRanking(db: Db, ligaId: string): Promise<RankingRo
         select user_id, fichas_apostadas from multiplas where liga_id = ${ligaId}
       )
       select u.id, u.nome, u.bairro,
-             coalesce((select sum(ev.f) from ev where ev.user_id = e.user_id), 0)::int as fichas,
-             (extract(epoch from e.created_at) * 1000000)::bigint::text as entrou_us
+             coalesce((select sum(ev.f) from ev where ev.user_id = e.user_id), 0)::int as fichas
       from entradas e join users u on u.id = e.user_id
       where e.liga_id = ${ligaId}`,
     pontosPorUsuario(db, ligaId),
@@ -399,23 +398,19 @@ export async function calcularRanking(db: Db, ligaId: string): Promise<RankingRo
     pontos: pontos.get(r.id as string) ?? 0,
     maior: acertos.get(r.id as string)?.maior ?? 0,
     n: acertos.get(r.id as string)?.n ?? 0,
-    entrou: BigInt(r.entrou_us as string),
   }));
   type L = (typeof lista)[number];
-  const criterio = (a: L, b: L, frente: boolean): string | null =>
+  const criterio = (a: L, b: L): string | null =>
     a.maior !== b.maior
       ? `maior multiplicador acertado: ${a.maior.toFixed(2)}`
       : a.n !== b.n
         ? `${a.n} ${a.n === 1 ? 'acerto' : 'acertos'}`
-        : a.entrou !== b.entrou
-          ? `entrou na rodada ${frente ? 'antes' : 'depois'}`
-          : null;
+        : null;
   lista.sort(
     (a, b) =>
       b.pontos - a.pontos ||
       b.maior - a.maior ||
       b.n - a.n ||
-      (a.entrou === b.entrou ? 0 : a.entrou < b.entrou ? -1 : 1) ||
       String(a.r.id).localeCompare(String(b.r.id)),
   );
   return lista.map((x, i) => {
@@ -424,9 +419,9 @@ export async function calcularRanking(db: Db, ligaId: string): Promise<RankingRo
     // Quem ficou na frente mostra o que o pôs à frente; o último do empate, o critério que o deixou atrás.
     const desempate =
       prox?.pontos === x.pontos
-        ? criterio(x, prox, true)
+        ? criterio(x, prox)
         : ant?.pontos === x.pontos
-          ? criterio(x, ant, false)
+          ? criterio(x, ant)
           : null;
     return {
       posicao: i + 1,

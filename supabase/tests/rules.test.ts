@@ -143,7 +143,7 @@ describe('pontuação e ranking', () => {
     assert.equal(await pontuacaoUsuario(sql, u, ligaId), 100);
   });
 
-  test('desempate: maior multiplicador acertado, depois mais acertos, depois quem entrou antes', async () => {
+  test('desempate: maior multiplicador acertado, depois mais acertos; sem critério de entrada', async () => {
     const arriscou = await criarUser(sql, { nome: 'Arriscou Silva' });
     const simples = await criarUser(sql, { nome: 'Simples Souza' });
     const cedo = await criarUser(sql, { nome: 'Cedo Lima' });
@@ -162,15 +162,22 @@ describe('pontuação e ranking', () => {
 
     const r = await calcularRanking(sql, ligaId);
     assert.deepEqual(
-      r.map((x) => [x.posicao, x.nome, x.pontuacao, x.desempate]),
+      r.slice(0, 2).map((x) => [x.posicao, x.nome, x.pontuacao, x.desempate, x.maior_acerto, x.acertos]),
       [
-        [1, 'Arriscou S.', 240, 'maior multiplicador acertado: 4.00'],
-        [2, 'Simples S.', 240, '2 acertos'],
-        [3, 'Cedo L.', 240, 'entrou na rodada antes'],
-        [4, 'Tarde C.', 240, 'entrou na rodada depois'],
-        [5, 'Parado R.', 0, null],
+        [1, 'Arriscou S.', 240, 'maior multiplicador acertado: 4.00', 4, 1],
+        [2, 'Simples S.', 240, '2 acertos', 2, 2],
       ],
     );
+    // Cedo e Tarde empatam em tudo: a hora de entrada não desempata nem aparece.
+    assert.deepEqual(
+      r.slice(2, 4).map((x) => [x.posicao, x.pontuacao, x.desempate, x.maior_acerto, x.acertos]),
+      [
+        [3, 240, null, 2, 1],
+        [4, 240, null, 2, 1],
+      ],
+    );
+    assert.deepEqual(r.slice(2, 4).map((x) => x.nome).sort(), ['Cedo L.', 'Tarde C.']);
+    assert.deepEqual([r[4].posicao, r[4].nome, r[4].desempate], [5, 'Parado R.', null]);
   });
 });
 
