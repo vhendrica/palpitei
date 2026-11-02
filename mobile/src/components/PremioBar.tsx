@@ -26,7 +26,7 @@ export function PremioBar({
   onPalpiteiros?: () => void;
   semContagem?: boolean;
   onConvidar?: () => void;
-  /** false = ainda não palpitou: só prêmio, barra e palpiteiros (sem valores, metas e convite). */
+  /** false = ainda não palpitou: só o prêmio (sem palpiteiros, barra, metas e convite). */
   completo?: boolean;
 }) {
   const { palette: C } = useTheme();
@@ -78,7 +78,7 @@ export function PremioBar({
             </T>
           ) : null}
         </View>
-        {semContagem ? null : (
+        {semContagem || !completo ? null : (
           <Pressable
             className="items-end active:opacity-70"
             onPress={onPalpiteiros}
@@ -92,7 +92,7 @@ export function PremioBar({
         )}
       </View>
 
-      {meta && !finalizada ? (
+      {meta && !finalizada && completo ? (
         <>
           <BarraAnimada key={pulo} pct={pct} de={de} pular={pulo > 0} />
           {completo ? (
