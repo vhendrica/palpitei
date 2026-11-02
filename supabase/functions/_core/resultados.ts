@@ -38,7 +38,7 @@ export async function aplicarPlacar(sql: Db, jogoId: string, casa: number, fora:
       if (!p) continue;
       const bateu = p(casa, fora);
       if (bateu) marcados++;
-      await tx`update mercados set resultado_final = ${bateu} where id = ${m.id}`;
+      await tx`update mercados set resultado_final = ${bateu}, decidido_em = coalesce(decidido_em, now()) where id = ${m.id}`;
     }
     return { jogo_id: jogoId, placar: [casa, fora] as const, mercados_certos: marcados };
   });

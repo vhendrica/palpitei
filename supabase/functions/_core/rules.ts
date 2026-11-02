@@ -351,7 +351,7 @@ export async function finalizarLiga(sql: Db, ligaId: string, mercadosVencedores:
     await tx`
       update mercados m set resultado_final = (m.id = any(${vencedores}::uuid[]))
       from jogos j where j.id = m.jogo_id and j.liga_id = ${ligaId}
-        and j.finalizado_em is null and m.decidido_em is null`;
+        and m.decidido_em is null`;
 
     const palpiteiros = await contarPalpiteiros(tx, ligaId);
     const premioFinal = resolverPremio(await getEscada(tx), palpiteiros, await getPremioInicial(tx));

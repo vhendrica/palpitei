@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { after, before, beforeEach, test } from 'node:test';
 
 import { aplicarPlacar, atualizarResultados } from '../functions/_core/resultados.ts';
+import { finalizarLiga } from '../functions/_core/rules.ts';
 import { criarLiga, limpar, setupDb, type Sql } from './helpers.ts';
 
 let sql: Sql;
@@ -77,4 +78,14 @@ test('placar parcial marca na hora só os mercados que já não mudam', async ()
   const [pl] = await sql`select placar_casa, finalizado_em from jogos where id = ${jogo}`;
   assert.equal(pl.placar_casa, 2);
   assert.equal(pl.finalizado_em, null);
+});
+
+test('finalizar preserva o que foi apurado sozinho e deixa o admin marcar mercado desconhecido', async () => {
+  const { ligaId, jogos } = await criarLiga(sql);
+  const [esc] = await sql`insert into mercados (jogo_id, grupo, descricao, multiplicador) values
+    (${jogos[0]}, 'ESCANTEIOS', 'MAIS DE 9 ESCANTEIOS?', 2) returning id`;
+  await sql`update mercados set descricao = 'Escanteios: mais de 9' where id = ${esc.id}`;
+  await aplicarPlacar(sql, jogos[0], 2, 1);
+  await finalizarLiga(sql, ligaId, [esc.id as string]);
+  assert.deepEqual(await marcados(jogos[0]), ['CASA VENCE', 'Escanteios: mais de 9']);
 });
