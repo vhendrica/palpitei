@@ -29,7 +29,7 @@ export function PremioBar({
   const { palette: C } = useTheme();
   const { meta, palpiteiros, premio_atual, meta_atingida, faltam_meta } =
     premio;
-  // Barra em R$ de 0 até a meta final, preenchida até o prêmio atual. Cada palpiteiro que entra
+  // Barra em R$ de 0 até a próxima faixa, preenchida até o prêmio atual. Cada palpiteiro que entra
   // anda um pouco rumo à próxima faixa; o valor do prêmio só muda quando ela é atingida.
   const prox = premio.proxima;
   const base =
@@ -38,7 +38,8 @@ export function PremioBar({
     ? Math.min(1, Math.max(0, (palpiteiros - base) / Math.max(1, prox.usuarios_min - base)))
     : 0;
   const naBarra = premio_atual + (prox ? (prox.valor - premio_atual) * frac : 0);
-  const pct = meta?.valor ? Math.min(100, (naBarra / meta.valor) * 100) : 0;
+  const alvo = prox?.valor ?? meta?.valor ?? 0;
+  const pct = alvo ? Math.min(100, (naBarra / alvo) * 100) : 0;
   const faltam = premio.proxima?.faltam ?? faltam_meta;
 
   return (
@@ -77,7 +78,7 @@ export function PremioBar({
           <BarraAnimada pct={pct} />
           <View className="mt-1 flex-row justify-between">
             <T className="font-odds text-[11px] text-gold">{fmtReais(premio_atual)}</T>
-            <T className="font-odds text-[11px] text-gold">{fmtReais(meta.valor)}</T>
+            <T className="font-odds text-[11px] text-gold">{fmtReais(alvo)}</T>
           </View>
           <View className="mt-1.5 flex-row items-center">
             {meta_atingida ? null : <Foguinho />}
@@ -86,7 +87,7 @@ export function PremioBar({
             >
               {meta_atingida
                 ? `Meta batida: prêmio de ${fmtReais(meta.valor)}`
-                : `${faltam === 1 ? "Falta 1 palpiteiro" : `Faltam ${fmtPts(faltam)} palpiteiros`} pro prêmio subir pra ${fmtReais(premio.proxima?.valor ?? meta.valor)}`}
+                : `${faltam === 1 ? "Falta 1 palpiteiro" : `Faltam ${fmtPts(faltam)} palpiteiros`} para o prêmio subir para ${fmtReais(premio.proxima?.valor ?? meta.valor)}`}
             </T>
           </View>
         </>
