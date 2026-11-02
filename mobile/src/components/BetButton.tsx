@@ -1,5 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Pressable, View } from "react-native";
+import { useEffect, useState } from "react";
+import { Animated, Easing, Pressable, View } from "react-native";
 
 import { fmtOdd } from "../lib/format";
 import { Ficha } from "./Ficha";
@@ -56,12 +57,9 @@ export function BetButton({
         style={compact ? { alignSelf: "stretch", minWidth: 0 } : { flex: 1, marginRight: 8 }}
       >
         {resultado === "green" ? (
-          <Ionicons
-            name="checkmark-circle"
-            size={16}
-            color={C.primary}
-            style={{ marginRight: 6 }}
-          />
+          <Pulo>
+            <Ionicons name="checkmark-circle" size={16} color={C.primary} />
+          </Pulo>
         ) : resultado === "red" ? (
           <Ionicons
             name="close-circle"
@@ -106,5 +104,29 @@ export function BetButton({
         </View>
       ) : null}
     </Pressable>
+  );
+}
+
+/** O ✓ entra com um "pulo" curto. */
+function Pulo({ children }: { children: React.ReactNode }) {
+  const [a] = useState(() => new Animated.Value(0));
+  useEffect(() => {
+    Animated.sequence([
+      Animated.timing(a, { toValue: 1, duration: 180, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+      Animated.spring(a, { toValue: 2, friction: 3, tension: 120, useNativeDriver: true }),
+    ]).start();
+  }, [a]);
+  return (
+    <Animated.View
+      style={{
+        marginRight: 6,
+        transform: [
+          { translateY: a.interpolate({ inputRange: [0, 1, 2], outputRange: [0, -8, 0] }) },
+          { scale: a.interpolate({ inputRange: [0, 1, 2], outputRange: [0.4, 1.3, 1] }) },
+        ],
+      }}
+    >
+      {children}
+    </Animated.View>
   );
 }

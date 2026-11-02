@@ -29,8 +29,10 @@ export function PremioBar({
   const { palette: C } = useTheme();
   const { meta, palpiteiros, premio_atual, meta_atingida, faltam_meta } =
     premio;
-  // A barra mostra o prêmio em R$ até a meta, já começando preenchida no prêmio inicial.
-  const pct = meta?.valor ? Math.min(100, (premio_atual / meta.valor) * 100) : 0;
+  // A barra anda a cada palpiteiro que entra, rumo ao nº de palpiteiros da meta; o valor só muda nas faixas.
+  const pct = meta?.usuarios_min
+    ? Math.min(100, (palpiteiros / meta.usuarios_min) * 100)
+    : 0;
   const faltam = premio.proxima?.faltam ?? faltam_meta;
 
   return (
@@ -66,15 +68,12 @@ export function PremioBar({
 
       {meta && !finalizada ? (
         <>
-          <View className="mt-3 h-2.5 overflow-hidden rounded-full bg-cardAlt">
-            <View
-              className="h-2.5 rounded-full bg-gold"
-              style={{ width: `${pct}%` }}
-            />
-          </View>
+          <BarraAnimada pct={pct} />
           <View className="mt-1 flex-row justify-between">
             <T className="font-odds text-[11px] text-gold">{fmtReais(premio_atual)}</T>
-            <T className="text-[11px] text-muted">meta {fmtReais(meta.valor)}</T>
+            <T className="text-[11px] text-muted">
+              {fmtPts(Math.min(palpiteiros, meta.usuarios_min))}/{fmtPts(meta.usuarios_min)} • meta {fmtReais(meta.valor)}
+            </T>
           </View>
           <View className="mt-1.5 flex-row items-center">
             {meta_atingida ? null : <Foguinho />}
@@ -99,6 +98,28 @@ export function PremioBar({
           </T>
         </Pressable>
       ) : null}
+    </View>
+  );
+}
+
+function BarraAnimada({ pct }: { pct: number }) {
+  const [w] = useState(() => new Animated.Value(pct));
+  useEffect(() => {
+    Animated.timing(w, {
+      toValue: pct,
+      duration: 600,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    }).start();
+  }, [pct, w]);
+  return (
+    <View className="mt-3 h-2.5 overflow-hidden rounded-full bg-cardAlt">
+      <Animated.View
+        className="h-2.5 rounded-full bg-gold"
+        style={{
+          width: w.interpolate({ inputRange: [0, 100], outputRange: ["0%", "100%"] }),
+        }}
+      />
     </View>
   );
 }

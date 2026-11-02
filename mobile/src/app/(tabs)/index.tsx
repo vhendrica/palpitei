@@ -249,10 +249,13 @@ export default function HomeMultipla() {
             </T>
           </View>
         ) : null}
-        <T className="text-[11px] uppercase tracking-widest text-muted">
-          {j.campeonato} • {fmtData(j.horario)}
-          {j.finalizado ? " • ENCERRADO" : j.comecou ? " • EM JOGO" : ""}
-        </T>
+        <View className="flex-row items-center">
+          <T className="flex-shrink text-[11px] uppercase tracking-widest text-muted" numberOfLines={1}>
+            {j.campeonato} • {fmtData(j.horario)}
+            {j.finalizado ? " • ENCERRADO" : ""}
+          </T>
+          {!j.finalizado && j.comecou ? <AoVivo /> : null}
+        </View>
         <View className="mt-1 flex-row items-center">
           <T
             className={`font-mont-xb ${j.destaque ? "text-xl" : "text-base"}`}
@@ -705,6 +708,29 @@ function SlideJogo({ jogo, onOdd }: { jogo: Jogo; onOdd: () => void }) {
           ))}
         </View>
       ) : null}
+    </View>
+  );
+}
+
+function AoVivo() {
+  const { palette: C } = useTheme();
+  const [a] = useState(() => new Animated.Value(1));
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(a, { toValue: 0.25, duration: 600, useNativeDriver: true }),
+        Animated.timing(a, { toValue: 1, duration: 600, useNativeDriver: true }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [a]);
+  return (
+    <View className="ml-2 flex-row items-center rounded-full bg-primary/15 px-2 py-0.5">
+      <Animated.View
+        style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: C.primary, opacity: a }}
+      />
+      <T className="ml-1 font-mont-xb text-[9px] tracking-widest text-primary">AO VIVO</T>
     </View>
   );
 }
