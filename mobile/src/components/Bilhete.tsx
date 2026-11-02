@@ -314,7 +314,7 @@ export function Bilhete({
   );
 }
 
-function Chip({
+export function Chip({
   label,
   cor,
   ligado,

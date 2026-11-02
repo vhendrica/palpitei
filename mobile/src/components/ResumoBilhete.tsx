@@ -2,11 +2,11 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { useState } from "react";
 import { Modal, Pressable, ScrollView, View } from "react-native";
 
-import { corMultipla, type Draft, fichasNoDraft } from "../lib/bilhete";
+import { alternarMultipla, alternarSimples, corMultipla, type Draft, fichasNoDraft } from "../lib/bilhete";
 import { exato } from "../lib/compat";
 import { fmtExato, fmtOdd, fmtOddExata, fmtPts, rotuloPalpite } from "../lib/format";
 import { ThemeVars, useTheme } from "../store/Theme";
-import { oddDaMultipla, type OpcaoBilhete } from "./Bilhete";
+import { cabeNaMultipla, Chip, oddDaMultipla, type OpcaoBilhete } from "./Bilhete";
 import { ErrorBox, Stepper } from "./Form";
 import { Button, T } from "./ui";
 
@@ -55,6 +55,9 @@ export function ResumoBilhete({
   const setMult = (i: number, v: number) =>
     onChange({ ...draft, multiplas: draft.multiplas.map((x, k) => (k === i ? { ...x, fichas: v } : x)) });
 
+  const slots = Math.max(2, draft.multiplas.length);
+  const itens = draft.itens.filter((id) => opcoes[id]);
+
   const segmentos = [
     { cor: C.primary, n: totalSimples, label: "Simples" },
     ...mults.map((m) => ({ cor: m.cor, n: m.fichas, label: `Múltipla ${m.i + 1 + offsetMultiplas}` })),
@@ -96,6 +99,58 @@ export function ResumoBilhete({
                 ) : null}
               </View>
             </View>
+
+            {itens.length > 0 ? (
+              <View className="mb-3 rounded-2xl border border-line bg-card">
+                <T className="px-3 pt-2.5 font-mont-b text-sm">Seus palpites</T>
+                <T className="px-3 text-[11px] text-muted">Toque pra pôr na Simples ou numa Múltipla</T>
+                {itens.map((id, k) => {
+                  const o = opcoes[id];
+                  return (
+                    <View key={id} className={`px-3 py-2 ${k ? "border-t border-line" : ""}`}>
+                      <View className="flex-row items-center">
+                        <View className="flex-1 pr-2">
+                          <T className="text-[10px] text-muted" numberOfLines={1}>
+                            {o.jogo}
+                          </T>
+                          <T className="font-mont-b text-[13px]" numberOfLines={1}>
+                            {rotuloPalpite(o.grupo, o.descricao)}
+                          </T>
+                        </View>
+                        <T className="font-odds text-base text-primary">{fmtOddExata(o.odd)}</T>
+                      </View>
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mt-1.5">
+                        <View className="flex-row" style={{ gap: 5 }}>
+                          <Chip
+                            label="Simples"
+                            cor={C.primary}
+                            ligado={id in draft.simples}
+                            onPress={() => onChange(alternarSimples(draft, id))}
+                          />
+                          {Array.from({ length: slots }, (_, i) => (
+                            <Chip
+                              key={i}
+                              label={`Múltipla ${i + 1 + offsetMultiplas}`}
+                              cor={corMultipla(i + offsetMultiplas, scheme)}
+                              ligado={!!draft.multiplas[i]?.mercados.includes(id)}
+                              bloqueado={!cabeNaMultipla(draft, opcoes, id, i)}
+                              onPress={() => onChange(alternarMultipla(draft, id, i))}
+                            />
+                          ))}
+                          <Pressable
+                            onPress={() => onChange(alternarMultipla(draft, id, slots))}
+                            accessibilityLabel="Nova múltipla"
+                            className="h-8 w-8 items-center justify-center rounded-lg border border-dashed border-line bg-card"
+                          >
+                            <Ionicons name="add" size={16} color={C.fg} />
+                          </Pressable>
+                        </View>
+                      </ScrollView>
+                    </View>
+                  );
+                })}
+              </View>
+            ) : null}
 
             {simples.length > 0 ? (
               <Grupo titulo="SIMPLES" legenda="cada palpite vale por si só" cor={C.primary}>
