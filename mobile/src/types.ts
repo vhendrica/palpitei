@@ -121,6 +121,10 @@ export type PalpiteiroView = {
   pontuacao: number;
   /** Critério que decidiu o empate em pontos com o vizinho. */
   desempate?: string | null;
+  /** Maior multiplicador acertado (Simples ou Múltipla inteira). */
+  maior_acerto?: number;
+  /** Bilhetes certos: cada Simples ou Múltipla inteira conta 1. */
+  acertos?: number;
   /** Potencial máximo de pontos (só no próprio bilhete). */
   potencial: number | null;
   /** Simples. Dos outros, só os jogos que já começaram, sem fichas. */

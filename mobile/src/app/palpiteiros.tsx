@@ -171,6 +171,26 @@ export function RankingDoDia({ voltar }: { voltar?: boolean }) {
                       </View>
                     );
                   })}
+                  {(() => {
+                    // Só quando há empate em pontos (acima de 0) com outro palpiteiro.
+                    const empatados = (rows ?? []).filter((o) => o !== p && p.pontuacao > 0 && o.pontuacao === p.pontuacao);
+                    if (!empatados.length) return null;
+                    const naOdd = empatados.some((o) => (o.maior_acerto ?? 0) === (p.maior_acerto ?? 0));
+                    return (
+                      <>
+                        <CaixaDesempate
+                          titulo="Critério de desempate: odd maior"
+                          valor={p.maior_acerto ? fmtOdd(p.maior_acerto) : "—"}
+                        />
+                        {naOdd ? (
+                          <CaixaDesempate
+                            titulo="Critério de desempate 2: maior número de acertos"
+                            valor={`${p.acertos ?? 0} ${p.acertos === 1 ? "acerto" : "acertos"}`}
+                          />
+                        ) : null}
+                      </>
+                    );
+                  })()}
                   {p.potencial != null ? (
                     <View className="mt-2 flex-row items-center justify-between border-t border-line pt-2">
                       <T className="font-mont-b text-xs text-muted">Potencial máximo</T>
@@ -183,6 +203,15 @@ export function RankingDoDia({ voltar }: { voltar?: boolean }) {
           );
         })}
       </ScrollView>
+    </View>
+  );
+}
+
+function CaixaDesempate({ titulo, valor }: { titulo: string; valor: string }) {
+  return (
+    <View className="mt-2 flex-row items-center justify-between rounded-lg border border-gold/40 bg-gold/10 px-2 py-1.5">
+      <T className="flex-1 pr-2 font-mont-b text-[11px]">{titulo}</T>
+      <T className="font-odds text-sm text-gold">{valor}</T>
     </View>
   );
 }

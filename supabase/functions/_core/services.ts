@@ -319,6 +319,8 @@ export async function palpiteirosDoDia(db: Db, user: UserPublico | null, data = 
         eu,
         posicao: r?.posicao ?? null,
         desempate: r?.desempate ?? null,
+        maior_acerto: r?.maior_acerto ?? 0,
+        acertos: r?.acertos ?? 0,
         pontuacao: r?.pontuacao ?? 0,
         potencial,
         palpites,
