@@ -1,4 +1,4 @@
-import { predicado } from './compat.ts';
+import { decidido, predicado } from './compat.ts';
 import { type Db, num, type Tx } from './db.ts';
 import { NotFoundError, RuleError } from './errors.ts';
 import { ESPORTES_PADRAO, type OddsConfig } from './odds.ts';
@@ -44,6 +44,32 @@ export async function aplicarPlacar(sql: Db, jogoId: string, casa: number, fora:
   });
 }
 
+/** Placar parcial: grava o placar ao vivo e marca só os mercados que já não podem mudar. */
+export async function aplicarParcial(sql: Db, jogoId: string, casa: number, fora: number) {
+  return sql.begin(async (tx: Tx) => {
+    const [j] = await tx`
+      select id, time_casa, time_fora from jogos where id = ${jogoId} and finalizado_em is null for update`;
+    if (!j) return 0;
+    await tx`update jogos set placar_casa = ${casa}, placar_fora = ${fora} where id = ${jogoId}`;
+    const mercados = await tx`select id, grupo, descricao from mercados where jogo_id = ${jogoId} and decidido_em is null`;
+    let n = 0;
+    for (const m of mercados) {
+      const p = predicado({
+        jogo_id: jogoId,
+        time_casa: j.time_casa as string,
+        time_fora: j.time_fora as string,
+        grupo: (m.grupo as string) ?? '',
+        descricao: m.descricao as string,
+      });
+      const v = p ? decidido(p, casa, fora) : null;
+      if (v == null) continue;
+      n++;
+      await tx`update mercados set resultado_final = ${v}, decidido_em = now() where id = ${m.id}`;
+    }
+    return n;
+  });
+}
+
 /**
  * Busca na The Odds API o placar dos jogos da rodada que já começaram e ainda não terminaram.
  * Sem jogo rolando, não chama a API (não gasta crédito). Cada campeonato consultado custa 2 créditos.
@@ -56,7 +82,7 @@ export async function atualizarResultados(sql: Db, cfg: OddsConfig | undefined) 
     join fixtures_dia f on f.fixture_id = j.fixture_id
     where l.status <> 'finalizada' and j.finalizado_em is null and f.externo_id is not null
       and j.horario <= now() and j.horario > now() - interval '3 days'`;
-  if (pendentes.length === 0) return { consultados: 0, finalizados: [], creditos_restantes: null };
+  if (pendentes.length === 0) return { consultados: 0, finalizados: [], mercados_decididos: 0, creditos_restantes: null };
   if (!cfg?.apiKey) throw new RuleError('Integração de odds não configurada (THE_ODDS_API_KEY).');
 
   const porEsporte = new Map<string, Record<string, unknown>[]>();
@@ -65,6 +91,7 @@ export async function atualizarResultados(sql: Db, cfg: OddsConfig | undefined) 
     porEsporte.set(e, [...(porEsporte.get(e) ?? []), p]);
   }
   const finalizados = [];
+  let decididos = 0;
   let restantes: number | null = null;
   for (const [esporte, jogos] of porEsporte) {
     const ids = jogos.map((j) => j.externo_id as string).join(',');
@@ -80,17 +107,18 @@ export async function atualizarResultados(sql: Db, cfg: OddsConfig | undefined) 
     if (r != null) restantes = Number(r);
     const eventos = (await res.json()) as Score[];
     for (const ev of eventos) {
-      if (!ev.completed || !ev.scores) continue;
+      if (!ev.scores) continue;
       const jogo = jogos.find((j) => j.externo_id === ev.id);
       if (!jogo) continue;
       const gols = (time: string) => ev.scores!.find((s) => s.name === time)?.score;
       const casa = Number(gols(ev.home_team));
       const fora = Number(gols(ev.away_team));
-      if (!Number.isInteger(casa) || !Number.isInteger(fora)) continue;
-      finalizados.push(await aplicarPlacar(sql, jogo.id as string, casa, fora));
+      if (!Number.isInteger(casa) || !Number.isInteger(fora) || casa < 0 || fora < 0) continue;
+      if (ev.completed) finalizados.push(await aplicarPlacar(sql, jogo.id as string, casa, fora));
+      else decididos += await aplicarParcial(sql, jogo.id as string, casa, fora);
     }
   }
-  return { consultados: pendentes.length, finalizados, creditos_restantes: restantes };
+  return { consultados: pendentes.length, finalizados, mercados_decididos: decididos, creditos_restantes: restantes };
 }
 
 export const placarDoJogo = (j: Record<string, unknown>) =>

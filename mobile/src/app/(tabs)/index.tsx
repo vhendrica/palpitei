@@ -237,7 +237,7 @@ export default function HomeMultipla() {
                     const minhas = m.minhas_fichas ?? 0;
                     const noBilhete = draft.itens.includes(m.id);
                     const resultado =
-                      home.liga?.status === "finalizada" || j.finalizado
+                      home.liga?.status === "finalizada" || j.finalizado || m.decidido
                         ? m.resultado_final
                           ? "green"
                           : minhas > 0

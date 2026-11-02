@@ -53,6 +53,17 @@ export function predicado(o: OpcaoCompat): Pred | null {
 }
 
 /**
+ * Resultado que não muda mais com o placar parcial (gols só aumentam): true/false, ou null se ainda pode virar.
+ */
+export function decidido(p: Pred, casa: number, fora: number): boolean | null {
+  const v = p(casa, fora);
+  for (let h = 0; h <= 10; h++) {
+    for (let a = 0; a <= 10; a++) if (p(casa + h, fora + a) !== v) return null;
+  }
+  return v;
+}
+
+/**
  * Dois palpites do mesmo jogo não podem ficar na mesma múltipla quando nenhum placar faz os dois
  * baterem, ou quando um garante o outro (ex.: "casa vence" + "mais de 0.5 gols").
  * Opções da mesma pergunta (grupo) são sempre incompatíveis entre si.

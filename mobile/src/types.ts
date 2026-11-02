@@ -27,6 +27,7 @@ export type Mercado = {
   descricao: string;
   multiplicador: number;
   resultado_final: boolean;
+  decidido?: boolean;
   minhas_fichas?: number;
 };
 

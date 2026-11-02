@@ -21,6 +21,7 @@ export type MercadoView = {
   descricao: string;
   multiplicador: number;
   resultado_final: boolean;
+  decidido: boolean;
   minhas_fichas?: number;
 };
 
@@ -81,6 +82,7 @@ export async function jogosComMercados(db: Db, ligaId: string, userId?: string |
         descricao: m.descricao as string,
         multiplicador: num(m.multiplicador),
         resultado_final: !!m.resultado_final,
+        decidido: m.decidido_em != null,
         ...(userId ? { minhas_fichas: num(m.minhas) } : {}),
       })),
   }));
@@ -115,7 +117,8 @@ export type MultiplaView = {
 async function multiplasDaLiga(db: Db, ligaId: string, userId?: string) {
   const rows = await db`
     select mu.id, mu.user_id, mu.fichas_apostadas, p.mercado_id, p.odd, m.grupo, m.descricao, m.resultado_final,
-           j.time_casa, j.time_fora, j.horario <= now() as comecou, j.finalizado_em is not null as finalizado
+           j.time_casa, j.time_fora, j.horario <= now() as comecou,
+           (j.finalizado_em is not null or m.decidido_em is not null) as finalizado
     from multiplas mu join multipla_pernas p on p.multipla_id = mu.id
     join mercados m on m.id = p.mercado_id join jogos j on j.id = m.jogo_id
     where mu.liga_id = ${ligaId} and (${userId ?? null}::uuid is null or mu.user_id = ${userId ?? null}::uuid)
@@ -238,7 +241,8 @@ export async function palpiteirosDoDia(db: Db, user: UserPublico | null, data = 
     db`select e.user_id, u.nome, e.created_at from entradas e join users u on u.id = e.user_id
        where e.liga_id = ${liga.id} order by e.created_at`,
     db`select a.user_id, m.id as mercado_id, m.grupo, m.descricao, m.resultado_final, max(a.odd) as multiplicador,
-         j.time_casa, j.time_fora, j.horario <= now() as comecou, j.finalizado_em is not null as finalizado,
+         j.time_casa, j.time_fora, j.horario <= now() as comecou,
+         (j.finalizado_em is not null or m.decidido_em is not null) as finalizado,
          sum(a.fichas_apostadas)::int as fichas
        from apostas a join mercados m on m.id = a.mercado_id join jogos j on j.id = m.jogo_id
        where j.liga_id = ${liga.id}
