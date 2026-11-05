@@ -4,12 +4,20 @@ import { useCallback, useMemo, useState } from "react";
 import { Alert, Platform, Pressable, RefreshControl, ScrollView, Share, View } from "react-native";
 
 import { AppHeader } from "../../components/AppHeader";
-import { Ficha } from "../../components/Ficha";
+import { BetButton } from "../../components/BetButton";
+import { Bilhete, type OpcaoBilhete } from "../../components/Bilhete";
 import { GrupoTitulo } from "../../components/GrupoTitulo";
-import { ErrorBox, Stepper } from "../../components/Form";
+import { ErrorBox } from "../../components/Form";
 import { Button, Card, StatusBadge, T } from "../../components/ui";
 import { api } from "../../lib/api";
-import { fmtData, fmtOdd, fmtPontos, rotuloPalpite } from "../../lib/format";
+import {
+  alternarOdd,
+  corMultipla,
+  DRAFT_VAZIO,
+  fichasNoDraft,
+  type Draft,
+} from "../../lib/bilhete";
+import { fmtData, fmtPontos } from "../../lib/format";
 import { errorMessage, useApp } from "../../store/AppStore";
 import { useTheme } from "../../store/Theme";
 import { agruparMercados, type DesafioDetalhe } from "../../types";
@@ -20,11 +28,11 @@ const horaFmt = (iso: string) =>
 /** Tela do desafio: jogos+mercados, distribuição de fichas (Simples), ranking, compartilhar. */
 export default function Detalhe() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { palette: C } = useTheme();
+  const { palette: C, scheme } = useTheme();
   const { user } = useApp();
   const [d, setD] = useState<DesafioDetalhe | null>(null);
   const [erro, setErro] = useState<string | null>(null);
-  const [draft, setDraft] = useState<Record<string, number>>({});
+  const [draft, setDraft] = useState<Draft>(DRAFT_VAZIO);
   const [salvando, setSalvando] = useState(false);
   const [entrando, setEntrando] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -33,12 +41,25 @@ export default function Detalhe() {
     try {
       const r = await api.desafios.detalhe(String(id));
       setD(r);
-      // Draft inicial = fichas já confirmadas em mercados de jogos que não começaram.
-      const ini: Record<string, number> = {};
+      // Draft inicial = bilhete confirmado que ainda dá pra editar (jogos não iniciados).
+      const ini: Draft = { itens: [], simples: {}, multiplas: [] };
       for (const j of r.jogos) {
         if (j.comecou) continue;
         for (const m of j.mercados) {
-          if (m.minhas_fichas && m.minhas_fichas > 0) ini[m.id] = m.minhas_fichas;
+          if ((m.minhas_fichas ?? 0) > 0) {
+            ini.itens.push(m.id);
+            ini.simples[m.id] = m.minhas_fichas!;
+          }
+        }
+      }
+      for (const m of r.eu && r.eu.entrou ? r.eu.multiplas ?? [] : []) {
+        if (!m.pernas.every((p) => !p.comecou)) continue;
+        ini.multiplas.push({
+          mercados: m.pernas.map((p) => p.mercado_id),
+          fichas: m.fichas,
+        });
+        for (const p of m.pernas) {
+          if (!ini.itens.includes(p.mercado_id)) ini.itens.push(p.mercado_id);
         }
       }
       setDraft(ini);
@@ -67,8 +88,50 @@ export default function Detalhe() {
     }
     return b;
   }, [d, eu]);
-  const totalDraft = Object.values(draft).reduce((s, v) => s + v, 0);
-  const livres = Math.max(0, base - totalDraft);
+  const noDraft = fichasNoDraft(draft);
+  const livres = Math.max(0, base - noDraft);
+
+  // Múltiplas confirmadas com perna já iniciada: ficam travadas (offset dos selos).
+  const travadas = (eu?.multiplas ?? []).filter(
+    (m) => !m.pernas.every((p) => !p.comecou),
+  );
+  const opcoes: Record<string, OpcaoBilhete> = d
+    ? Object.fromEntries(
+        d.jogos.flatMap((j) =>
+          j.mercados.map((m) => [
+            m.id,
+            {
+              id: m.id,
+              jogo_id: j.id,
+              time_casa: j.time_casa,
+              time_fora: j.time_fora,
+              jogo: `${j.time_casa} x ${j.time_fora}`,
+              grupo: m.grupo,
+              descricao: m.descricao,
+              odd: m.multiplicador,
+            },
+          ]),
+        ),
+      )
+    : {};
+  const selosDe = (id: string) => [
+    ...(id in draft.simples ? [{ label: "S", cor: C.primary }] : []),
+    ...travadas.flatMap((m, i) =>
+      m.pernas.some((p) => p.mercado_id === id)
+        ? [{ label: `M${i + 1}`, cor: corMultipla(i, scheme) }]
+        : [],
+    ),
+    ...draft.multiplas.flatMap((m, i) =>
+      m.mercados.includes(id)
+        ? [
+            {
+              label: `M${i + 1 + travadas.length}`,
+              cor: corMultipla(i + travadas.length, scheme),
+            },
+          ]
+        : [],
+    ),
+  ];
 
   const compartilhar = useCallback(() => {
     if (!liga) return;
@@ -97,7 +160,14 @@ export default function Detalhe() {
   const confirmar = useCallback(async () => {
     setSalvando(true);
     try {
-      await api.desafios.apostar(String(id), { simples: draft, multiplas: [] });
+      await api.desafios.apostar(String(id), {
+        simples: Object.fromEntries(
+          draft.itens
+            .filter((mid) => (draft.simples[mid] ?? 0) > 0)
+            .map((mid) => [mid, draft.simples[mid]]),
+        ),
+        multiplas: draft.multiplas.filter((m) => m.mercados.length > 0),
+      });
       await load();
       Alert.alert("Feito!", "Palpites confirmados.");
     } catch (e) {
@@ -208,60 +278,41 @@ export default function Detalhe() {
               {agruparMercados(j.mercados).map((g) => (
                 <View key={g.grupo || "_"} className="mt-2">
                   {g.grupo ? <GrupoTitulo grupo={g.grupo} /> : null}
+                  <View className="flex-row flex-wrap" style={{ gap: 6 }}>
                   {g.opcoes.map((m) => {
-                    const val = draft[m.id] ?? 0;
                     const pode = !!(aberta && !j.comecou && eu);
-                    const travado = m.decidido || m.resultado_final;
+                    const resultado =
+                      j.finalizado || m.decidido
+                        ? m.resultado_final
+                          ? "green"
+                          : (m.minhas_fichas ?? 0) > 0
+                            ? "red"
+                            : null
+                        : null;
                     return (
-                      <View key={m.id} className="flex-row items-center py-1.5">
-                        <View className="flex-1 pr-2">
-                          <T className="text-sm">
-                            {rotuloPalpite(m.grupo, m.descricao)}
-                            {(m.minhas_fichas ?? 0) > 0 && !pode ? ` · ${m.minhas_fichas} fichas` : ""}
-                          </T>
-                        </View>
-                        <T className="mr-2 font-odds text-sm text-primary">{fmtOdd(m.multiplicador)}</T>
-                        {pode ? (
-                          <Stepper
-                            value={val}
-                            onChange={(v) => setDraft((s) => ({ ...s, [m.id]: v }))}
-                            step={10}
-                            max={livres}
-                            ficha
-                            editavel
-                          />
-                        ) : travado ? (
-                          <Ionicons
-                            name={m.resultado_final ? "checkmark-circle" : "close-circle"}
-                            size={18}
-                            color={m.resultado_final ? C.primary : C.danger}
-                          />
-                        ) : null}
+                      <View key={m.id} style={{ flexGrow: 1, flexBasis: "30%", minWidth: 0 }}>
+                        <BetButton
+                          compact
+                          descricao={m.descricao}
+                          multiplicador={m.multiplicador}
+                          selected={draft.itens.includes(m.id)}
+                          fichas={pode ? 0 : (m.minhas_fichas ?? 0)}
+                          selos={selosDe(m.id)}
+                          resultado={resultado}
+                          disabled={!pode && !m.decidido && !m.resultado_final}
+                          onPress={() => (pode ? setDraft((d) => alternarOdd(d, m.id)) : undefined)}
+                        />
                       </View>
                     );
                   })}
+                </View>
                 </View>
               ))}
             </View>
           </Card>
         ))}
 
-        {eu && aberta ? (
-          <Card className="mt-2 flex-row items-center">
-            <View className="flex-row items-center">
-              <Ficha size={18} />
-              <T className="ml-1 font-mont-b text-sm">{livres} livres</T>
-            </View>
-            <View className="flex-1" />
-            <Button
-              title="Confirmar palpites"
-              compact
-              onPress={confirmar}
-              disabled={totalDraft === 0 || salvando}
-              loading={salvando}
-            />
-          </Card>
-        ) : null}
+        
 
         {d && d.ranking.length > 0 ? (
           <>
@@ -282,6 +333,16 @@ export default function Detalhe() {
           <Button title="Finalizar desafio" variant="danger" className="mt-4" onPress={finalizar} />
         ) : null}
       </ScrollView>
+      {eu && aberta && draft.itens.length > 0 ? (
+        <Bilhete
+          draft={draft}
+          opcoes={opcoes}
+          fichasLivres={base}
+          offsetMultiplas={travadas.length}
+          onChange={setDraft}
+          onResumo={confirmar}
+        />
+      ) : null}
     </View>
   );
 }
