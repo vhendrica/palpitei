@@ -114,7 +114,7 @@ export async function criarDesafio(sql: Db, user: UserPublico, input: Record<str
     const ligaId = liga.id as string;
 
     for (const [i, f] of pool.entries()) {
-      const escolhido = jogosIn.find((j) => Number(j.fixture_id) === f.fixture_id)!;
+      const escolhido = jogosIn.find((j) => Number(j.fixture_id) === Number(f.fixture_id))!;
       const jogo = `${f.time_casa} x ${f.time_fora}`;
       const mercados = validarMercados(escolhido.mercados, jogo);
       const [j] = await tx`

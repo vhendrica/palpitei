@@ -277,7 +277,10 @@ export function createApi(deps: ApiDeps) {
     } catch (e) {
       if (e instanceof RuleError) return json(e.status, { error: e.message });
       console.error('[api] erro inesperado', e);
-      return json(500, { error: 'Algo deu errado. Tente novamente.' });
+      return json(500, {
+        error: 'Algo deu errado. Tente novamente.',
+        detalhe: e instanceof Error ? `${e.name}: ${e.message}` : String(e),
+      });
     }
   };
 }
