@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from "react";
 
-import { api, ApiError, setToken, type BilheteInput, type CadastroInput } from "../lib/api";
+import { api, ApiError, setToken, wireFeedback, type BilheteInput, type CadastroInput } from "../lib/api";
 import type { CodigoEnviado, Home, User } from "../types";
 
 const TOKEN_KEY = "palpit:token:v1";
@@ -19,6 +19,9 @@ type AppStore = {
   user: User | null;
   home: Home | null;
   homeErro: string | null;
+  carregando: boolean;
+  toast: { texto: string; tipo: "erro" | "ok" } | null;
+  mostrarToast: (texto: string, tipo?: "erro" | "ok") => void;
   refreshHome: () => Promise<void>;
   refreshUser: () => Promise<void>;
   cadastrar: (input: CadastroInput) => Promise<CodigoEnviado>;
@@ -40,6 +43,20 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [home, setHome] = useState<Home | null>(null);
   const [homeErro, setHomeErro] = useState<string | null>(null);
+  const [carregando, setCarregando] = useState(false);
+  const [toast, setToast] = useState<{ texto: string; tipo: "erro" | "ok" } | null>(null);
+
+  const mostrarToast = useCallback((texto: string, tipo: "erro" | "ok" = "ok") => {
+    setToast({ texto, tipo });
+    setTimeout(() => setToast((t) => (t?.texto === texto ? null : t)), 4000);
+  }, []);
+
+  useEffect(() => {
+    wireFeedback({
+      onLoadingChange: setCarregando,
+      onApiError: (m) => mostrarToast(m, "erro"),
+    });
+  }, [mostrarToast]);
 
   const limparSessao = useCallback(async () => {
     setToken(null);
@@ -89,6 +106,9 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       user,
       home,
       homeErro,
+      carregando,
+      toast,
+      mostrarToast,
       refreshHome,
       refreshUser,
       cadastrar: (input) => api.cadastro(input),
@@ -118,7 +138,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         return r.fichas_distribuidas;
       },
     }),
-    [ready, user, home, homeErro, refreshHome, refreshUser, limparSessao],
+    [ready, user, home, homeErro, carregando, toast, mostrarToast, refreshHome, refreshUser, limparSessao],
   );
 
   return <Ctx.Provider value={store}>{children}</Ctx.Provider>;

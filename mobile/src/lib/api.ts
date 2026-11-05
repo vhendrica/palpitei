@@ -33,23 +33,48 @@ export const setToken = (t: string | null) => {
   token = t;
 };
 
+// Feedback global: contador de requests em voo (loading) + erros (toast).
+let onLoadingChange: ((carregando: boolean) => void) | null = null;
+let onApiError: ((mensagem: string) => void) | null = null;
+let emVoo = 0;
+const sinalizaLoading = (delta: number) => {
+  emVoo = Math.max(0, emVoo + delta);
+  onLoadingChange?.(emVoo > 0);
+};
+export function wireFeedback(handlers: {
+  onLoadingChange: (carregando: boolean) => void;
+  onApiError: (mensagem: string) => void;
+}) {
+  onLoadingChange = handlers.onLoadingChange;
+  onApiError = handlers.onApiError;
+}
+
 async function req<T>(method: string, path: string, body?: unknown): Promise<T> {
   let res: Response;
+  sinalizaLoading(1);
   try {
-    res = await fetch(`${API_URL}${path}`, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: body === undefined ? undefined : JSON.stringify(body),
-    });
-  } catch {
-    throw new ApiError('Sem conexão. Verifique sua internet.', 0);
+    try {
+      res = await fetch(`${API_URL}${path}`, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: body === undefined ? undefined : JSON.stringify(body),
+      });
+    } catch {
+      throw new ApiError('Sem conexão. Verifique sua internet.', 0);
+    }
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const erro = new ApiError(data.error ?? 'Algo deu errado. Tente novamente.', res.status);
+      if (res.status !== 401) onApiError?.(erro.message);
+      throw erro;
+    }
+    return data as T;
+  } finally {
+    sinalizaLoading(-1);
   }
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new ApiError(data.error ?? 'Algo deu errado. Tente novamente.', res.status);
-  return data as T;
 }
 
 export type CadastroInput = {
