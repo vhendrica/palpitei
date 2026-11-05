@@ -298,11 +298,14 @@ export default function HomeMultipla() {
           {agruparMercados(j.mercados)
             .filter((_, gi) => gi < MERCADOS_VISIVEIS || abertos.includes(j.id))
             .map((g, gi, arr) => {
-            const novaSecao = gi === 0 || secaoDo(g.grupo) !== secaoDo(arr[gi - 1].grupo);
+            const sec = g.opcoes[0]?.secao ?? secaoDo(g.grupo);
+            const novaSecao =
+              gi === 0 ||
+              (arr[gi - 1].opcoes[0]?.secao ?? secaoDo(arr[gi - 1].grupo)) !== sec;
             return (
               <View key={g.grupo} className="mb-3">
-                {novaSecao && secaoDo(g.grupo) !== "PRINCIPAL" ? (
-                  <T className="mb-1 mt-1 font-mont-xb text-sm text-primary">{secaoDo(g.grupo)}</T>
+                {novaSecao && sec !== "PRINCIPAL" ? (
+                  <T className="mb-1 mt-1 font-mont-xb text-sm text-primary">{sec}</T>
                 ) : null}
                 {g.grupo ? <GrupoTitulo grupo={g.grupo} /> : null}
                 <View className="flex-row flex-wrap" style={{ gap: 6 }}>

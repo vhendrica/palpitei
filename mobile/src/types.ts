@@ -25,6 +25,7 @@ export type Mercado = {
   id: string;
   grupo: string;
   descricao: string;
+  secao?: string | null;
   multiplicador: number;
   resultado_final: boolean;
   decidido?: boolean;

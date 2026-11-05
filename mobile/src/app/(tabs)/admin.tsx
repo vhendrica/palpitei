@@ -438,6 +438,27 @@ function JogoAdmin({
   };
 
   // Reordena grupos publicados: a lista enviada define a ordem no banco.
+  // Seção de cada grupo: editável pelo admin; default = mapa fixo.
+  const [secaoDraft, setSecaoDraft] = useState<Record<string, string>>({});
+  const secaoAtual = (g: { grupo: string; opcoes: { secao?: string | null }[] }) =>
+    g.opcoes[0]?.secao ?? secaoDo(g.grupo);
+  // Renomeia a seção inteira: todo mercado cuja seção efetiva for a atual entra na nova.
+  const salvarSecao = (g: { grupo: string; opcoes: { secao?: string | null }[] }) => {
+    const nome = (secaoDraft[g.grupo] ?? secaoAtual(g)).trim().toUpperCase();
+    const atual = secaoAtual(g);
+    setSecaoDraft((s) => ({ ...s, [g.grupo]: nome }));
+    if (!nome || nome === atual) return;
+    onSalvarMercados(
+      jogo.mercados.map((m) => ({
+        id: m.id,
+        grupo: m.grupo,
+        descricao: m.descricao,
+        multiplicador: m.multiplicador,
+        secao: (m.secao ?? secaoDo(m.grupo ?? '')) === atual ? nome : (m.secao ?? null),
+      })),
+    );
+  };
+
   // Ordem otimista: muda na hora; quando a API confirma, volta ao estado real.
   const [ordOverride, setOrdOverride] = useState<typeof jogo.mercados | null>(null);
   const mercadosVis = ordOverride ?? jogo.mercados;
@@ -504,8 +525,18 @@ function JogoAdmin({
         <View className="mt-2">
           {agruparMercados(mercadosVis).map((g, gi, arr) => (
             <View key={g.grupo} className="mt-1">
-              {gi === 0 || secaoDo(g.grupo) !== secaoDo(arr[gi - 1].grupo) ? (
-                <T className="mt-1 font-mont-xb text-sm text-primary">{secaoDo(g.grupo)}</T>
+              {gi === 0 || secaoAtual(arr[gi - 1]) !== secaoAtual(g) ? (
+                fechada ? (
+                  <T className="mt-1 font-mont-xb text-sm text-primary">{secaoAtual(g)}</T>
+                ) : (
+                  <TextInput
+                    className="mt-1 border-b border-line pb-0.5 font-mont-xb text-sm text-primary"
+                    value={secaoDraft[g.grupo] ?? secaoAtual(g)}
+                    onChangeText={(t) => setSecaoDraft((s) => ({ ...s, [g.grupo]: t.toUpperCase() }))}
+                    onEndEditing={() => salvarSecao(g)}
+                    onBlur={() => salvarSecao(g)}
+                  />
+                )
               ) : null}
               {g.grupo ? (
                 <View className="mt-1 flex-row items-center">

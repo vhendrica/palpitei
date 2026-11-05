@@ -233,7 +233,7 @@ export async function definirMercados(sql: Db, jogoId: string, mercadosInput: un
     if (m?.id != null && !isUuid(m.id)) throw new RuleError('Mercado inválido para esse palpite.');
     const grupo = m?.grupo == null ? '' : String(m.grupo).trim().toUpperCase();
     if (grupo.length > 40) throw new RuleError('Nome do mercado muito longo.');
-    return { id: (m?.id as string) ?? null, grupo, descricao: texto(m?.descricao, 'Descrição').toUpperCase(), multiplicador, ordem: i };
+    return { id: (m?.id as string) ?? null, grupo, descricao: texto(m?.descricao, 'Descrição').toUpperCase(), multiplicador, ordem: i, secao: (m?.secao as string) ?? null };
   });
 
   const ligaId = await sql.begin(async (tx: Tx) => {
@@ -286,12 +286,12 @@ export async function definirMercados(sql: Db, jogoId: string, mercadosInput: un
           throw new RuleError(`O mercado "${atual.descricao}" já recebeu fichas e não pode ser alterado.`);
         }
         await tx`
-          update mercados set grupo = ${it.grupo}, descricao = ${it.descricao}, multiplicador = ${it.multiplicador}, ordem = ${it.ordem}
+          update mercados set grupo = ${it.grupo}, descricao = ${it.descricao}, multiplicador = ${it.multiplicador}, ordem = ${it.ordem}, secao = coalesce(${it.secao}, secao)
           where id = ${it.id}`;
       } else {
         await tx`
-          insert into mercados (jogo_id, grupo, descricao, multiplicador, ordem)
-          values (${jogoId}, ${it.grupo}, ${it.descricao}, ${it.multiplicador}, ${it.ordem})`;
+          insert into mercados (jogo_id, grupo, descricao, multiplicador, ordem, secao)
+          values (${jogoId}, ${it.grupo}, ${it.descricao}, ${it.multiplicador}, ${it.ordem}, ${it.secao})`;
       }
     }
     return j.liga_id as string;

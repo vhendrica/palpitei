@@ -10,7 +10,7 @@ export function secaoDo(grupo: string): (typeof SECOES)[number] {
   if (g.startsWith('HANDICAP')) return 'HANDICAP';
   if (g.startsWith('ESCANTEIO')) return 'ESCANTEIOS';
   if (g.startsWith('CART')) return 'CARTÕES';
-  if (g.startsWith('GOLS') || g.startsWith('AMBOS')) return 'GOLS';
+  if (g.startsWith('GOLS')) return 'GOLS';
   if (g.startsWith('ESPECIAL') || g.includes('EXATO') || g.includes('MARCAR')) return 'ESPECIAIS';
   return 'PRINCIPAL';
 }
