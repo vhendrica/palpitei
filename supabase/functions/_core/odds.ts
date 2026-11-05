@@ -272,7 +272,9 @@ export async function mercadosDaFixture(db: Db, cfg: OddsConfig | undefined, ext
   const [f] = await db`select time_casa, time_fora, mercados_sugeridos from fixtures_dia where externo_id = ${externoId}`;
   if (!f) return [];
   const cache = f.mercados_sugeridos as MercadoApi[] | null;
-  if (cache?.length) return cache;
+  // Cache no formato antigo (família sem linha, ex.: "ESCANTEIOS") é refeito uma vez.
+  const legado = (m: MercadoApi) => /^(ESCANTEIOS|CARTÕES|ESCANTEIOS 1º TEMPO)$/.test(m.grupo);
+  if (cache?.length && !cache.some(legado)) return cache;
   const resp = (await req(cfg, `/fixtures/${externoId}/odds`)) as OddsResp;
   const mercados = mercadosDasOdds(resp, f.time_casa as string, f.time_fora as string);
   await db`update fixtures_dia set mercados_sugeridos = ${db.json(mercados)}, odds_atualizadas_em = now()
