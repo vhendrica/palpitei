@@ -1,7 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Redirect, router } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { Pressable, ScrollView, TextInput, View } from "react-native";
+import { Alert, Pressable, ScrollView, TextInput, View } from "react-native";
 
 import { AppHeader } from "../../components/AppHeader";
 import { Checkbox, ErrorBox, Field } from "../../components/Form";
@@ -259,8 +259,13 @@ function AbaLiga({ data, run }: { data: string; run: Run }) {
           }
           onSalvarMercados={(ms) =>
             run(async () => {
-              setLa(await api.admin.mercados(j.id, ms));
-              return "Mercados salvos.";
+              try {
+                setLa(await api.admin.mercados(j.id, ms));
+                return "Mercados salvos.";
+              } catch (e) {
+                Alert.alert("Não salvou os mercados", errorMessage(e));
+                throw e;
+              }
             })
           }
           onRenovarMercados={() =>
