@@ -25,7 +25,8 @@ const numeroDo = (grupo: string): { n: number; s: string } | null => {
 const linhaAjuda = (grupo: string, unidade: string) => {
   const num = numeroDo(grupo);
   if (!num) return '';
-  return `\n\n"Mais de ${num.s}" — precisa de ${Math.floor(num.n) + 1} ou mais ${unidade} pra acertar.\n"Menos de ${num.s}" — ${Math.floor(num.n)} ou menos.`;
+  const menos = Math.floor(num.n);
+  return `\n\n"Mais de ${num.s}" — precisa de ${menos + 1} ou mais ${unidade} pra acertar.\n"Menos de ${num.s}" — ${menos === 0 ? '0, ou seja, nenhum' : `${menos} ou menos`}.`;
 };
 
 /** Texto de ajuda do (?) por grupo/mercado — null nos comuns (1X2, gols simples). */
