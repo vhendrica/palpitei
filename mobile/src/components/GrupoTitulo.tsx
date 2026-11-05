@@ -11,11 +11,11 @@ export function GrupoTitulo({ grupo }: { grupo: string }) {
   const { palette: C } = useTheme();
   const [aberto, setAberto] = useState(false);
   const [pos, setPos] = useState({ x: 0, y: 0 });
-  const iconRef = useRef<View>(null);
+  const iconRef = useRef<any>(null);
   const dica = explicacaoDo(grupo);
 
   const abrir = () => {
-    iconRef.current?.measureInWindow((x, y, w, h) => {
+    iconRef.current?.measureInWindow?.((x: number, y: number, w: number, h: number) => {
       setPos({ x, y: y + h + 6 });
     });
     setAberto(true);
