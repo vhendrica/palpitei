@@ -1,7 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
-import { Alert, Pressable, RefreshControl, ScrollView, Share, View } from "react-native";
+import { Alert, Platform, Pressable, RefreshControl, ScrollView, Share, View } from "react-native";
 
 import { AppHeader } from "../../components/AppHeader";
 import { Ficha } from "../../components/Ficha";
@@ -72,8 +72,13 @@ export default function Detalhe() {
   const compartilhar = useCallback(() => {
     if (!liga) return;
     const nome = liga.titulo ?? `Desafio de ${liga.dono}`;
+    // Web: o app roda em <domínio>/app/... — o link precisa do prefixo. Nativo: scheme palpitei://.
+    const url =
+      Platform.OS === "web" && typeof window !== "undefined"
+        ? `${window.location.origin}${window.location.pathname.split("/desafio")[0]}/desafio/convite/${liga.convite}`
+        : `palpitei://desafio/convite/${liga.convite}`;
     Share.share({
-      message: `Entra no "${nome}" no PALPIT! ${liga.fichas_por_entrada} fichas grátis pra palpitar: palpitei://desafio/convite/${liga.convite}`,
+      message: `Entra no "${nome}" no PALPIT! ${liga.fichas_por_entrada} fichas grátis pra palpitar: ${url}`,
     }).catch(() => {});
   }, [liga]);
 
