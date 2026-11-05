@@ -398,6 +398,22 @@ function JogoAdmin({
     }
   };
 
+  // Check = toggle: tirar o grupo inteiro dos publicados (salva direto ou no rascunho).
+  const removerGrupo = (g: { grupo: string; opcoes: { descricao: string }[] }) => {
+    const descs = new Set(g.opcoes.map((o) => normDescricao(o.descricao)));
+    const tirar = (m: { grupo?: string; descricao: string }) =>
+      (m.grupo ?? '').trim().toUpperCase() === g.grupo && descs.has(normDescricao(m.descricao));
+    if (editando) {
+      setMs((s) => s.filter((m) => !tirar(m)));
+    } else {
+      onSalvarMercados(
+        jogo.mercados
+          .filter((m) => !tirar(m))
+          .map((m) => ({ id: m.id, grupo: m.grupo, descricao: m.descricao, multiplicador: m.multiplicador })),
+      );
+    }
+  };
+
   const abrirEditor = () => {
     setMs(
       jogo.mercados.map((m) => ({
@@ -589,7 +605,7 @@ function JogoAdmin({
           ) : (
             <View className="mt-2 rounded-lg border border-line p-2">
               <T className="mb-1 text-[11px] uppercase tracking-widest text-muted">
-                Mercados da API — toque para adicionar
+                Mercados da API — toque para publicar/remover
                 {daApi.creditos_restantes != null
                   ? ` • ${daApi.creditos_restantes} créditos`
                   : ""}
@@ -606,8 +622,7 @@ function JogoAdmin({
                 return (
                   <Pressable
                     key={g.grupo}
-                    disabled={ja}
-                    onPress={() => adicionarGrupo(g)}
+                    onPress={() => (ja ? removerGrupo(g) : adicionarGrupo(g))}
                     className={`border-b border-line py-2 ${ja ? "opacity-40" : ""}`}
                   >
                     <View className="flex-row items-center">
@@ -619,9 +634,9 @@ function JogoAdmin({
                         </T>
                       </T>
                       <Ionicons
-                        name={ja ? "checkmark" : "add-circle-outline"}
+                        name={ja ? "checkmark-circle" : "add-circle-outline"}
                         size={18}
-                        color={C.primary}
+                        color={ja ? C.primary : C.muted}
                       />
                     </View>
                     <T className="mt-0.5 text-sm">
