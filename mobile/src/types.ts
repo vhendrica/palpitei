@@ -294,5 +294,6 @@ export type MeuBilhete = {
     dono: string | null;
     premio_final: number | null;
   };
+  palpiteiros: PalpiteiroView[];
   minha: PalpiteiroView | null;
 };

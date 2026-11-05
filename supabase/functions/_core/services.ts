@@ -391,6 +391,8 @@ export async function meuBilhete(db: Db, user: UserPublico, ligaId: string) {
       dono: dono.length ? nomePublico(dono[0].nome as string) : null,
       premio_final: liga.premio_final,
     },
+    // Rank inteiro da rodada — a visão de palpiteiros já mascara fichas de jogos não iniciados.
+    palpiteiros: view.palpiteiros,
     minha: view.palpiteiros.find((p) => p.eu) ?? null,
   };
 }
