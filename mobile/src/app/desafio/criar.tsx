@@ -8,9 +8,10 @@ import { Checkbox, ErrorBox, Field } from "../../components/Form";
 import { Button, Card, EmptyState, T } from "../../components/ui";
 import { api } from "../../lib/api";
 import { fmtData, fmtOdd } from "../../lib/format";
+import { secaoDo } from "../../lib/secoes";
 import { errorMessage } from "../../store/AppStore";
 import { useTheme } from "../../store/Theme";
-import type { Fixture } from "../../types";
+import { agruparMercados, type Fixture } from "../../types";
 
 type Custom = { descricao: string; multiplicador: string };
 
@@ -28,7 +29,7 @@ export default function CriarDesafio() {
   const [fixtures, setFixtures] = useState<Fixture[] | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [selecionados, setSelecionados] = useState<number[]>([]);
-  const [marcados, setMarcados] = useState<Record<number, Set<number>>>({});
+  const [marcados, setMarcados] = useState<Record<number, Set<string>>>({});
   const [custom, setCustom] = useState<Record<number, Custom[]>>({});
   const [salvando, setSalvando] = useState(false);
 
@@ -49,11 +50,21 @@ export default function CriarDesafio() {
     setSelecionados((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
   }, []);
 
-  const toggleMercado = useCallback((fid: number, idx: number) => {
+  const toggleMercado = useCallback((fid: number, grupo: string) => {
     setMarcados((m) => {
       const s = new Set(m[fid] ?? []);
-      if (s.has(idx)) s.delete(idx);
-      else s.add(idx);
+      if (s.has(grupo)) s.delete(grupo);
+      else s.add(grupo);
+      return { ...m, [fid]: s };
+    });
+  }, []);
+
+  // Seção: todos os grupos dela selecionados → desmarca todos; senão marca todos.
+  const toggleSecao = useCallback((fid: number, grupos: { grupo: string }[]) => {
+    setMarcados((m) => {
+      const s = new Set(m[fid] ?? []);
+      const todos = grupos.every((g) => s.has(g.grupo));
+      for (const g of grupos) todos ? s.delete(g.grupo) : s.add(g.grupo);
       return { ...m, [fid]: s };
     });
   }, []);
@@ -86,9 +97,8 @@ export default function CriarDesafio() {
       const jogos = selecionados.map((fid) => {
         const f = fixtures!.find((x) => x.fixture_id === fid)!;
         const sug = (f.mercados_sugeridos ?? [])
-          .map((m, i) => ({ m, i }))
-          .filter(({ i }) => marcados[fid]?.has(i))
-          .map(({ m }) => ({ grupo: m.grupo ?? "", descricao: m.descricao, multiplicador: m.multiplicador }));
+          .filter((m) => marcados[fid]?.has(m.grupo ?? ""))
+          .map((m) => ({ grupo: m.grupo ?? "", descricao: m.descricao, multiplicador: m.multiplicador }));
         const manuais = (custom[fid] ?? [])
           .filter((m) => m.descricao.trim() && Number(m.multiplicador) > 0)
           .map((m) => ({ descricao: m.descricao.trim(), multiplicador: Number(m.multiplicador) }));
@@ -158,25 +168,42 @@ export default function CriarDesafio() {
               </Pressable>
               {sel ? (
                 <View className="mt-3 border-t border-line pt-3">
-                  {sug.map((m, i) => {
-                    const on = !!marcados[f.fixture_id]?.has(i);
+                  {agruparMercados(sug.map((m) => ({ ...m, grupo: m.grupo ?? "" }))).map((g, gi, arr) => {
+                    const sec = secaoDo(g.grupo);
+                    const daSecao = arr.filter((x) => secaoDo(x.grupo) === sec);
+                    const novaSecao = gi === 0 || secaoDo(arr[gi - 1].grupo) !== sec;
+                    const on = !!marcados[f.fixture_id]?.has(g.grupo);
+                    const todasDaSecao = daSecao.every((x) => marcados[f.fixture_id]?.has(x.grupo));
                     return (
-                      <Pressable
-                        key={i}
-                        className="flex-row items-center py-1.5"
-                        onPress={() => toggleMercado(f.fixture_id, i)}
-                      >
-                        <Ionicons
-                          name={on ? "checkbox" : "square-outline"}
-                          size={20}
-                          color={on ? C.primary : C.muted}
-                        />
-                        <T className="ml-2 flex-1 text-sm">
-                          {m.grupo ? `${m.grupo}: ` : ""}
-                          {m.descricao}
-                        </T>
-                        <T className="font-odds text-sm text-primary">{fmtOdd(m.multiplicador)}</T>
-                      </Pressable>
+                      <View key={g.grupo || `g${gi}`}>
+                        {novaSecao ? (
+                          <Pressable
+                            className="mt-2 flex-row items-center"
+                            onPress={() => toggleSecao(f.fixture_id, daSecao)}
+                          >
+                            <T className="flex-1 font-mont-xb text-sm text-primary">{sec}</T>
+                            <T className="text-xs text-muted">
+                              {todasDaSecao ? "desmarcar tudo" : "marcar tudo"}
+                            </T>
+                          </Pressable>
+                        ) : null}
+                        <Pressable
+                          className="flex-row items-start py-1.5"
+                          onPress={() => toggleMercado(f.fixture_id, g.grupo)}
+                        >
+                          <Ionicons
+                            name={on ? "checkbox" : "square-outline"}
+                            size={20}
+                            color={on ? C.primary : C.muted}
+                          />
+                          <View className="ml-2 flex-1">
+                            <T className="text-sm font-mont-b">{g.grupo || g.opcoes[0]?.descricao}</T>
+                            <T className="text-xs text-muted">
+                              {g.opcoes.map((o) => `${o.descricao} ${fmtOdd(o.multiplicador)}`).join("  ·  ")}
+                            </T>
+                          </View>
+                        </Pressable>
+                      </View>
                     );
                   })}
                   {(custom[f.fixture_id] ?? []).map((m, i) => (
