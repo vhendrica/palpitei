@@ -143,7 +143,7 @@ const handicap = (d: string, o: OpcaoCompat): Pred | null => {
 export function predicadoEx(o: OpcaoCompat): ((d: ExDados) => boolean) | null {
   const g = norm(o.grupo);
   const d = norm(o.descricao);
-  const t1 = g.includes('1 TEMPO') || g.includes('PRIMEIRO TEMPO') || g.endsWith(' 1T');
+  const t1 = g.includes('TEMPO') || g.endsWith(' 1T');
   const l = linha(d);
   const hc = handicap(d, o);
   if (g.startsWith('ESCANTEIO')) {

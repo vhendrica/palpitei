@@ -174,25 +174,23 @@ export function mercadosDasOdds(resp: OddsResp, casa: string, fora: string): Mer
   }
 
   // ESCANTEIOS / CARTÕES: escada de linhas derivada da linha real (mesma faixa do filtro 30-70%)
-  const escada = (grupo: string, real: OddsLinha, maxLinha: number) => {
+  // Um grupo por linha, como "GOLS 2.5" — a linha real da casa mantém o preço real.
+  const escada = (prefixo: string, real: OddsLinha, maxLinha: number) => {
     if (real.line == null || !real.over || !real.under) return;
     const po = 1 / real.over;
     const pu = 1 / real.under;
     const margem = po + pu;
     const mu = ajustaMu(Math.floor(real.line) + 1, po / margem);
-    const vistos = new Set(out.map((x) => `${x.grupo}|${x.descricao}`));
     for (let l = 0.5; l <= maxLinha; l += 1) {
+      const g = `${prefixo} ${l}`;
       const pO = poissonTail(Math.floor(l) + 1, mu);
       const pU = 1 - pO;
-      const overDesc = `MAIS DE ${l}`;
-      const underDesc = `MENOS DE ${l}`;
-      // a linha real fica com o preço real da casa
       if (l === real.line) {
-        push(grupo, overDesc, real.over);
-        push(grupo, underDesc, real.under);
+        push(g, `MAIS DE ${l}`, real.over);
+        push(g, `MENOS DE ${l}`, real.under);
       } else {
-        if (!vistos.has(`${grupo}|${overDesc}`)) push(grupo, overDesc, 1 / Math.max(0.001, pO * margem));
-        if (!vistos.has(`${grupo}|${underDesc}`)) push(grupo, underDesc, 1 / Math.max(0.001, pU * margem));
+        push(g, `MAIS DE ${l}`, 1 / Math.max(0.001, pO * margem));
+        push(g, `MENOS DE ${l}`, 1 / Math.max(0.001, pU * margem));
       }
     }
   };
@@ -201,8 +199,8 @@ export function mercadosDasOdds(resp: OddsResp, casa: string, fora: string): Mer
   const cornerHc = fechamento(m['corner_asian']);
   if (cornerHc?.line != null && cornerHc.line !== 0 && (linhaMeio(cornerHc.line) || Number.isInteger(cornerHc.line))) {
     const f = (l: number) => (l > 0 ? `+${l}` : `${l}`);
-    push('ESCANTEIOS', `CASA ${f(cornerHc.line)}`, cornerHc.home);
-    push('ESCANTEIOS', `FORA ${f(-cornerHc.line)}`, cornerHc.away);
+    push('ESCANTEIOS HCP', `CASA ${f(cornerHc.line)}`, cornerHc.home);
+    push('ESCANTEIOS HCP', `FORA ${f(-cornerHc.line)}`, cornerHc.away);
   }
   const cards = fechamento(m['card_line']);
   if (cards) escada('CARTÕES', cards, 11.5);
@@ -233,6 +231,8 @@ function filtrarJogaveis(ms: MercadoApi[]): MercadoApi[] {
   for (const m of ms) porGrupo.set(m.grupo, [...(porGrupo.get(m.grupo) ?? []), m]);
   const out: MercadoApi[] = [];
   for (const g of porGrupo.values()) {
+    // grupo cuja opção menos provável ainda tem >85% (linha extremada, ex.: "MENOS DE 15.5") cai fora
+    if (g.every((m) => 1 / m.multiplicador > 0.85)) continue;
     if (g.length <= 4) {
       out.push(...g);
       continue;
