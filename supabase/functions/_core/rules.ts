@@ -1,4 +1,4 @@
-﻿import { exato, incompativeis, oddTotal } from './compat.ts';
+import { exato, incompativeis, oddTotal } from './compat.ts';
 import { gerarCodigoVoucher } from './crypto.ts';
 import { type Db, iso, num, type Tx } from './db.ts';
 import { NotFoundError, RuleError } from './errors.ts';
@@ -230,7 +230,7 @@ export async function apostar(
           select m.id, m.grupo, m.descricao, m.multiplicador, m.jogo_id, j.time_casa, j.time_fora,
                  j.horario <= now() as comecou
           from mercados m join jogos j on j.id = m.jogo_id
-          where m.id in ${tx(ids)} and j.liga_id = ${ligaId}`
+          where m.id in ${tx(ids)} and j.liga_id = ${ligaId} and m.oculto = false`
       : [];
     if (mercados.length !== ids.length) throw new RuleError('Mercado inválido para esse palpite.');
     if (mercados.some((m) => m.comecou)) throw new RuleError('Esse jogo já começou. Apostas encerradas para ele.');

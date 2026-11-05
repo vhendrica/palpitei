@@ -268,8 +268,11 @@ export async function definirMercados(sql: Db, jogoId: string, mercadosInput: un
     const manter = new Set(itensFinais.filter((i) => i.id).map((i) => i.id as string));
     for (const m of atuais) {
       if (!manter.has(m.id as string)) {
-        if (m.tem_apostas) throw new RuleError(`O mercado "${m.descricao}" já recebeu fichas e não pode ser removido.`);
-        await tx`delete from mercados where id = ${m.id}`;
+        // Com ficha apostada: esconde em vez de apagar (a aposta continua valendo).
+        if (m.tem_apostas) await tx`update mercados set oculto = true where id = ${m.id}`;
+        else await tx`delete from mercados where id = ${m.id}`;
+      } else if (m.oculto) {
+        await tx`update mercados set oculto = false where id = ${m.id}`;
       }
     }
     for (const it of itensFinais) {

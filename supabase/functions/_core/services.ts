@@ -65,7 +65,7 @@ export async function jogosComMercados(db: Db, ligaId: string, userId?: string |
   const mercados = await db`
     select m.*, coalesce((select sum(a.fichas_apostadas) from apostas a
                           where a.mercado_id = m.id and a.user_id = ${userId ?? null}::uuid), 0)::int as minhas
-    from mercados m where m.jogo_id in ${db(jogos.map((j) => j.id as string))}
+    from mercados m where m.jogo_id in ${db(jogos.map((j) => j.id as string))} and m.oculto = false
     order by m.ordem, m.descricao`;
   return jogos.map((j) => ({
     id: j.id as string,
