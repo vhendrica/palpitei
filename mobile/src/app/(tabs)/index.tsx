@@ -260,6 +260,13 @@ export default function HomeMultipla() {
             </T>
           </View>
         ) : null}
+        <Pressable
+          onPress={() =>
+            setAbertos((a) =>
+              a.includes(j.id) ? a.filter((x) => x !== j.id) : [...a, j.id],
+            )
+          }
+        >
         <View className="flex-row items-center">
           <T className="flex-shrink text-[11px] uppercase tracking-widest text-muted" numberOfLines={1}>
             {j.campeonato} • {fmtData(j.horario)}
@@ -285,6 +292,7 @@ export default function HomeMultipla() {
             {j.time_fora}
           </T>
         </View>
+        </Pressable>
         <View className="mt-3">
           {agruparMercados(j.mercados)
             .filter((_, gi) => gi < MERCADOS_VISIVEIS || abertos.includes(j.id))

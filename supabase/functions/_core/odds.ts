@@ -227,10 +227,14 @@ export function mercadosDasOdds(resp: OddsResp, casa: string, fora: string): Mer
  * Grupos com >4 opções ficam com as 4 mais equilibradas; com <=4 ficam todas.
  */
 function filtrarJogaveis(ms: MercadoApi[]): MercadoApi[] {
+  // Odd sem sentido nao aparece (ex.: "mais de 100 escanteios" @300+).
+  ms = ms.filter((m) => m.multiplicador <= 30);
   const porGrupo = new Map<string, MercadoApi[]>();
   for (const m of ms) porGrupo.set(m.grupo, [...(porGrupo.get(m.grupo) ?? []), m]);
   const out: MercadoApi[] = [];
   for (const g of porGrupo.values()) {
+    // linha que sobrou com 1 lado só não aparece (ex.: só "menos de 100" com odd ~1.0)
+    if (g.length < 2) continue;
     // grupo cuja opção menos provável ainda tem >85% (linha extremada, ex.: "MENOS DE 15.5") cai fora
     if (g.every((m) => 1 / m.multiplicador > 0.85)) continue;
     if (g.length <= 4) {

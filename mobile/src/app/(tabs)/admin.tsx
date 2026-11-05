@@ -436,6 +436,25 @@ function JogoAdmin({
     setMarcados({});
   };
 
+  // Reordena grupos publicados: a lista enviada define a ordem no banco.
+  const moverGrupo = (gi: number, dir: number) => {
+    const grupos = agruparMercados(jogo.mercados);
+    const alvo = gi + dir;
+    if (alvo < 0 || alvo >= grupos.length) return;
+    const ord = [...grupos];
+    [ord[gi], ord[alvo]] = [ord[alvo], ord[gi]];
+    onSalvarMercados(
+      ord.flatMap((g) =>
+        g.opcoes.map((m) => ({
+          id: m.id,
+          grupo: m.grupo,
+          descricao: m.descricao,
+          multiplicador: m.multiplicador,
+        })),
+      ),
+    );
+  };
+
   const abrirEditor = () => {
     setMs(
       jogo.mercados.map((m) => ({
@@ -476,10 +495,26 @@ function JogoAdmin({
 
       {!editando ? (
         <View className="mt-2">
-          {agruparMercados(jogo.mercados).map((g) => (
+          {agruparMercados(jogo.mercados).map((g, gi) => (
             <View key={g.grupo} className="mt-1">
               {g.grupo ? (
-                <T className="mt-1 font-mont-xb text-xs uppercase">{g.grupo}</T>
+                <View className="mt-1 flex-row items-center">
+                  <T className="flex-1 font-mont-xb text-xs uppercase">{g.grupo}</T>
+                  {!fechada ? (
+                    <View className="flex-row">
+                      <Pressable onPress={() => moverGrupo(gi, -1)}>
+                        <Ionicons name="arrow-up" size={14} color={gi === 0 ? C.muted : C.primary} />
+                      </Pressable>
+                      <Pressable className="ml-2" onPress={() => moverGrupo(gi, 1)}>
+                        <Ionicons
+                          name="arrow-down"
+                          size={14}
+                          color={gi === agruparMercados(jogo.mercados).length - 1 ? C.muted : C.primary}
+                        />
+                      </Pressable>
+                    </View>
+                  ) : null}
+                </View>
               ) : null}
               {g.opcoes.map((m) => (
                 <View
