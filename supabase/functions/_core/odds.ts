@@ -100,6 +100,28 @@ const fechamento = (b: OddsBloco | OddsBloco[] | undefined) =>
   !b || Array.isArray(b) ? null : (b.closing ?? b.opening ?? null);
 const linhaMeio = (x: unknown): x is number => typeof x === 'number' && Math.abs((x % 1) - 0.5) < 1e-9;
 
+// ---- Escada derivada: a API só dá 1 linha de escanteios/cartões; estimamos as vizinhas
+// ajustando um Poisson à probabilidade real (sem vig) da linha de mercado.
+const poissonTail = (n: number, mu: number) => {
+  let t = Math.exp(-mu);
+  let s = t;
+  for (let k = 1; k < n; k++) {
+    t = (t * mu) / k;
+    s += t;
+  }
+  return 1 - s;
+};
+const ajustaMu = (n: number, pAlvo: number) => {
+  let lo = 0.2;
+  let hi = 40;
+  for (let i = 0; i < 40; i++) {
+    const mid = (lo + hi) / 2;
+    if (poissonTail(n, mid) < pAlvo) lo = mid;
+    else hi = mid;
+  }
+  return (lo + hi) / 2;
+};
+
 /** Bet365: abertura/fechamento das 12 famílias de mercado -> nosso cardápio seccionado. */
 export function mercadosDasOdds(resp: OddsResp, casa: string, fora: string): MercadoApi[] {
   const bet = resp.bookmakers?.find((b) => b.slug === 'bet365') ?? resp.bookmakers?.[0];
@@ -151,12 +173,31 @@ export function mercadosDasOdds(resp: OddsResp, casa: string, fora: string): Mer
     push('HANDICAP', `FORA ${f(-hc.line)}`, hc.away);
   }
 
-  // ESCANTEIOS / CARTÕES: totais e handicap
+  // ESCANTEIOS / CARTÕES: escada de linhas derivada da linha real (mesma faixa do filtro 30-70%)
+  const escada = (grupo: string, real: OddsLinha, maxLinha: number) => {
+    if (real.line == null || !real.over || !real.under) return;
+    const po = 1 / real.over;
+    const pu = 1 / real.under;
+    const margem = po + pu;
+    const mu = ajustaMu(Math.floor(real.line) + 1, po / margem);
+    const vistos = new Set(out.map((x) => `${x.grupo}|${x.descricao}`));
+    for (let l = 0.5; l <= maxLinha; l += 1) {
+      const pO = poissonTail(Math.floor(l) + 1, mu);
+      const pU = 1 - pO;
+      const overDesc = `MAIS DE ${l}`;
+      const underDesc = `MENOS DE ${l}`;
+      // a linha real fica com o preço real da casa
+      if (l === real.line) {
+        push(grupo, overDesc, real.over);
+        push(grupo, underDesc, real.under);
+      } else {
+        if (!vistos.has(`${grupo}|${overDesc}`)) push(grupo, overDesc, 1 / Math.max(0.001, pO * margem));
+        if (!vistos.has(`${grupo}|${underDesc}`)) push(grupo, underDesc, 1 / Math.max(0.001, pU * margem));
+      }
+    }
+  };
   const corner = fechamento(m['corner_line']);
-  if (corner?.line != null && linhaMeio(corner.line)) {
-    push('ESCANTEIOS', `MAIS DE ${corner.line}`, corner.over);
-    push('ESCANTEIOS', `MENOS DE ${corner.line}`, corner.under);
-  }
+  if (corner) escada('ESCANTEIOS', corner, 19.5);
   const cornerHc = fechamento(m['corner_asian']);
   if (cornerHc?.line != null && cornerHc.line !== 0 && (linhaMeio(cornerHc.line) || Number.isInteger(cornerHc.line))) {
     const f = (l: number) => (l > 0 ? `+${l}` : `${l}`);
@@ -164,10 +205,7 @@ export function mercadosDasOdds(resp: OddsResp, casa: string, fora: string): Mer
     push('ESCANTEIOS', `FORA ${f(-cornerHc.line)}`, cornerHc.away);
   }
   const cards = fechamento(m['card_line']);
-  if (cards?.line != null && linhaMeio(cards.line)) {
-    push('CARTÕES', `MAIS DE ${cards.line}`, cards.over);
-    push('CARTÕES', `MENOS DE ${cards.line}`, cards.under);
-  }
+  if (cards) escada('CARTÕES', cards, 11.5);
 
   // 1º TEMPO: gols, handicap e escanteios do primeiro tempo
   const g1 = fechamento(m['goal_line_half']);
@@ -182,10 +220,7 @@ export function mercadosDasOdds(resp: OddsResp, casa: string, fora: string): Mer
     push('HANDICAP 1º TEMPO', `FORA ${f(-h1.line)}`, h1.away);
   }
   const c1 = fechamento(m['corner_line_half']);
-  if (c1?.line != null && linhaMeio(c1.line)) {
-    push('ESCANTEIOS 1º TEMPO', `MAIS DE ${c1.line}`, c1.over);
-    push('ESCANTEIOS 1º TEMPO', `MENOS DE ${c1.line}`, c1.under);
-  }
+  if (c1) escada('ESCANTEIOS 1º TEMPO', c1, 9.5);
   return filtrarJogaveis(out);
 }
 
