@@ -10,12 +10,14 @@ import {
   retornosPorUsuario,
   getEntrada,
   getEscada,
+  getLiga,
   getLigaAtual,
   getPremioInicial,
   type LigaRow,
 } from './rules.ts';
 import { placarDoJogo } from './resultados.ts';
-import { hojeISO } from './validation.ts';
+import { ForbiddenError } from './errors.ts';
+import { hojeISO, nomePublico } from './validation.ts';
 
 export type MercadoView = {
   id: string;
@@ -154,7 +156,7 @@ async function multiplasDoUsuario(db: Db, userId: string, ligaId: string): Promi
   return (await multiplasDaLiga(db, ligaId, userId)).map(({ user_id: _, ...m }) => m);
 }
 
-async function minhaSituacao(db: Db, userId: string, liga: LigaRow) {
+export async function minhaSituacao(db: Db, userId: string, liga: LigaRow) {
   const entrada = await getEntrada(db, userId, liga.id);
   if (!entrada) return { entrou: false as const };
   const [usadas, ranking, multiplas, retornos] = await Promise.all([
@@ -242,6 +244,12 @@ const resultadoDe = (finalizado: boolean, certo: boolean) => (finalizado ? (cert
 export async function palpiteirosDoDia(db: Db, user: UserPublico | null, data = hojeISO()) {
   const liga = await getLigaAtual(db, data);
   if (!liga) return { data, liga: null, palpiteiros: [] };
+  return palpiteirosDaLiga(db, user, liga);
+}
+
+/** Mesma visão de palpiteiros/bilhetes do dia, para uma liga qualquer (desafios). */
+export async function palpiteirosDaLiga(db: Db, user: UserPublico | null, liga: LigaRow, verTudo = false) {
+  const data = liga.data;
   const [entradas, apostas, multiplas] = await Promise.all([
     db`select e.user_id, u.nome, e.created_at, e.fichas_total from entradas e join users u on u.id = e.user_id
        where e.liga_id = ${liga.id} order by e.created_at`,
@@ -263,7 +271,7 @@ export async function palpiteirosDoDia(db: Db, user: UserPublico | null, data = 
     palpiteiros: entradas.map((e) => {
       const eu = user?.id === e.user_id;
       // Jogo que não começou continua oculto mesmo se a rodada for finalizada antes.
-      const ver = (comecou: boolean) => eu || comecou;
+      const ver = (comecou: boolean) => eu || comecou || verTudo;
       const palpites = apostas
         .filter((a) => a.user_id === e.user_id && ver(!!a.comecou))
         .map((a) => ({
@@ -272,7 +280,7 @@ export async function palpiteirosDoDia(db: Db, user: UserPublico | null, data = 
           descricao: a.descricao as string,
           multiplicador: num(a.multiplicador),
           resultado: resultadoDe(!!a.finalizado || tudo, !!a.resultado_final),
-          ...(eu ? { fichas: num(a.fichas) } : {}),
+          ...(eu || verTudo ? { fichas: num(a.fichas) } : {}),
         }));
       const minhas = multiplas
         .filter((m) => m.user_id === e.user_id)
@@ -290,7 +298,7 @@ export async function palpiteirosDoDia(db: Db, user: UserPublico | null, data = 
               odd: p.odd,
               resultado: resultadoDe(p.finalizado || tudo, p.resultado_final),
             })),
-            ...(eu ? { fichas: m.fichas } : {}),
+            ...(eu || verTudo ? { fichas: m.fichas } : {}),
           };
         })
         .filter((m) => m.pernas.length > 0);
@@ -328,5 +336,61 @@ export async function palpiteirosDoDia(db: Db, user: UserPublico | null, data = 
       };
     })
     .sort((a, b) => (a.posicao ?? 1e9) - (b.posicao ?? 1e9)),
+  };
+}
+
+
+/** Rodadas/desafios em que o usuário entrou, com sua posição e pontuação final/atual. */
+export async function historico(db: Db, user: UserPublico) {
+  const rows = await db`
+    select e.liga_id, e.fichas_total, e.pontos_pagos, e.created_at as entrou_em,
+           l.data, l.status, l.titulo, l.owner_id, l.premio_final,
+           u.nome as dono_nome
+    from entradas e
+    join ligas l on l.id = e.liga_id
+    left join users u on u.id = l.owner_id
+    where e.user_id = ${user.id}
+    order by l.data desc, e.created_at desc limit 50`;
+  const out = [];
+  for (const r of rows) {
+    const ranking = await calcularRanking(db, r.liga_id as string);
+    const eu = ranking.find((x) => x.user_id === user.id);
+    out.push({
+      liga_id: r.liga_id as string,
+      data: r.data instanceof Date ? r.data.toISOString().slice(0, 10) : String(r.data),
+      status: r.status as LigaRow['status'],
+      desafio: r.owner_id != null,
+      titulo: (r.titulo as string) ?? null,
+      dono: r.dono_nome ? nomePublico(r.dono_nome as string) : null,
+      fichas_total: num(r.fichas_total),
+      pontos_pagos: num(r.pontos_pagos),
+      pontuacao: eu?.pontuacao ?? 0,
+      posicao: eu?.posicao ?? null,
+      palpiteiros: ranking.length,
+      premio_final: r.premio_final == null ? null : num(r.premio_final),
+      entrou_em: iso(r.entrou_em)!,
+    });
+  }
+  return { historico: out };
+}
+
+/** O bilhete completo do usuário numa rodada/desafio de que ele participou. */
+export async function meuBilhete(db: Db, user: UserPublico, ligaId: string) {
+  const [e] = await db`select 1 from entradas where liga_id = ${ligaId} and user_id = ${user.id}`;
+  if (!e) throw new ForbiddenError('Você não participou dessa rodada.');
+  const liga = await getLiga(db, ligaId);
+  const dono = liga.owner_id ? await db`select nome from users where id = ${liga.owner_id}` : [];
+  const view = await palpiteirosDaLiga(db, user, liga);
+  return {
+    liga: {
+      id: liga.id,
+      data: liga.data,
+      status: liga.status,
+      desafio: liga.owner_id != null,
+      titulo: liga.titulo,
+      dono: dono.length ? nomePublico(dono[0].nome as string) : null,
+      premio_final: liga.premio_final,
+    },
+    minha: view.palpiteiros.find((p) => p.eu) ?? null,
   };
 }

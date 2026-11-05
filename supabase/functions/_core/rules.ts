@@ -1,4 +1,4 @@
-import { exato, incompativeis, oddTotal } from './compat.ts';
+﻿import { exato, incompativeis, oddTotal } from './compat.ts';
 import { gerarCodigoVoucher } from './crypto.ts';
 import { type Db, iso, num, type Tx } from './db.ts';
 import { NotFoundError, RuleError } from './errors.ts';
@@ -25,6 +25,11 @@ export type LigaRow = {
   status: 'aberta' | 'em_andamento' | 'finalizada';
   custo_entrada: number;
   fichas_por_entrada: number;
+  /** null = múltipla oficial; preenchido = desafio criado por usuário. */
+  owner_id: string | null;
+  titulo: string | null;
+  convite: string | null;
+  publico: boolean;
 };
 
 export type RankingRow = {
@@ -52,6 +57,10 @@ const mapLiga = (r: Record<string, unknown>): LigaRow => ({
   status: r.status as LigaRow['status'],
   custo_entrada: num(r.custo_entrada),
   fichas_por_entrada: num(r.fichas_por_entrada),
+  owner_id: (r.owner_id as string) ?? null,
+  titulo: (r.titulo as string) ?? null,
+  convite: (r.convite as string) ?? null,
+  publico: !!r.publico,
 });
 
 export async function getLiga(db: Db, ligaId: string, lock: '' | 'for update' | 'for share' = ''): Promise<LigaRow> {
@@ -67,7 +76,7 @@ export async function getLiga(db: Db, ligaId: string, lock: '' | 'for update' | 
 }
 
 export async function getLigaPorData(db: Db, data: string): Promise<LigaRow | null> {
-  const [row] = await db`select * from ligas where data = ${data}`;
+  const [row] = await db`select * from ligas where data = ${data} and owner_id is null`;
   return row ? mapLiga(row) : null;
 }
 
@@ -75,7 +84,7 @@ export async function getLigaPorData(db: Db, data: string): Promise<LigaRow | nu
 export async function getLigaAtual(db: Db, hoje: string): Promise<LigaRow | null> {
   const [row] = await db`
     select * from ligas
-    where (data >= ${hoje} and status <> 'finalizada') or data = ${hoje}
+    where ((data >= ${hoje} and status <> 'finalizada') or data = ${hoje}) and owner_id is null
     order by (data = ${hoje}) desc, (status <> 'finalizada') desc, data
     limit 1`;
   return row ? mapLiga(row) : null;
@@ -458,7 +467,9 @@ export async function finalizarLiga(sql: Db, ligaId: string, mercadosVencedores:
         and m.decidido_em is null`;
 
     const palpiteiros = await contarPalpiteiros(tx, ligaId);
-    const premioFinal = resolverPremio(await getEscada(tx), palpiteiros, await getPremioInicial(tx));
+    // Desafio não tem prêmio nem voucher: a finalização só congela o ranking.
+    const oficial = liga.owner_id == null;
+    const premioFinal = oficial ? resolverPremio(await getEscada(tx), palpiteiros, await getPremioInicial(tx)) : null;
     await tx`
       update ligas set status = 'finalizada', premio_final = ${premioFinal}, finalizada_em = now()
       where id = ${ligaId}`;
@@ -466,7 +477,7 @@ export async function finalizarLiga(sql: Db, ligaId: string, mercadosVencedores:
     const ranking = await calcularRanking(tx, ligaId);
     const primeiro = ranking[0];
     let voucher: Voucher | null = null;
-    if (primeiro && primeiro.pontuacao > 0) {
+    if (oficial && primeiro && primeiro.pontuacao > 0) {
       const [v] = await tx`
         insert into vouchers (liga_id, user_id, codigo, valor)
         values (${ligaId}, ${primeiro.user_id}, ${gerarCodigoVoucher()}, ${premioFinal})

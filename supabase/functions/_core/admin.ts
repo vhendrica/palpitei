@@ -1,4 +1,4 @@
-import { type Db, iso, num, type Tx } from './db.ts';
+﻿import { type Db, iso, num, type Tx } from './db.ts';
 import { NotFoundError, RuleError } from './errors.ts';
 import { validarEscada } from './premio.ts';
 import { getEscada, getLiga, getLigaPorData } from './rules.ts';
@@ -122,7 +122,7 @@ export async function selecionarJogos(sql: Db, input: { data: unknown; fixture_i
     const pool = await tx`select * from fixtures_dia where data = ${data} and fixture_id in ${tx(ids)}`;
     if (pool.length !== ids.length) throw new RuleError('Jogo fora do pool desse dia.');
 
-    let [liga] = await tx`select * from ligas where data = ${data} for update`;
+    let [liga] = await tx`select * from ligas where data = ${data} and owner_id is null for update`;
     if (liga) {
       if (liga.status !== 'aberta') throw new RuleError('Esse palpite não está aberto para entrada.');
       const [{ n }] = await tx`select count(*)::int as n from entradas where liga_id = ${liga.id}`;
@@ -301,7 +301,7 @@ export async function listarLigas(db: Db) {
       coalesce((select json_agg(j.time_casa || ' x ' || j.time_fora order by j.horario)
         from jogos j where j.liga_id = l.id), '[]'::json) as jogos,
       (select u.nome from vouchers v join users u on u.id = v.user_id where v.liga_id = l.id limit 1) as vencedor
-    from ligas l order by l.data desc limit 60`;
+    from ligas l where l.owner_id is null order by l.data desc limit 60`;
   return {
     ligas: rows.map((l) => ({
       id: l.id as string,

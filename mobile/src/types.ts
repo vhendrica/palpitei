@@ -226,3 +226,73 @@ export type LigaAdmin = {
   }[];
   jogos: Jogo[];
 };
+
+// ---- Desafios (rodadas criadas por usuários; entrada grátis, sem prêmio)
+export type DesafioResumo = {
+  id: string;
+  titulo: string | null;
+  dono: string;
+  dono_id: string;
+  e_dono: boolean;
+  publico: boolean;
+  convite: string;
+  data: string;
+  status: LigaStatus;
+  fichas_por_entrada: number;
+  palpiteiros: number;
+  jogos: number;
+};
+
+export type CriarDesafioInput = {
+  titulo?: string;
+  publico: boolean;
+  jogos: { fixture_id: number; mercados: { grupo?: string; descricao: string; multiplicador: number }[] }[];
+};
+
+export type DesafioDetalhe = {
+  liga: {
+    id: string;
+    titulo: string | null;
+    dono: string;
+    e_dono: boolean;
+    publico: boolean;
+    convite: string;
+    data: string;
+    status: LigaStatus;
+    fichas_por_entrada: number;
+  };
+  jogos: Jogo[];
+  eu: MinhaSituacao | { entrou: false } | null;
+  palpiteiros: number;
+  ranking: RankingRow[];
+};
+
+// ---- Histórico de palpites (rodadas/desafios em que o usuário entrou)
+export type HistoricoItem = {
+  liga_id: string;
+  data: string;
+  status: LigaStatus;
+  desafio: boolean;
+  titulo: string | null;
+  dono: string | null;
+  fichas_total: number;
+  pontos_pagos: number;
+  pontuacao: number;
+  posicao: number | null;
+  palpiteiros: number;
+  premio_final: number | null;
+  entrou_em: string;
+};
+
+export type MeuBilhete = {
+  liga: {
+    id: string;
+    data: string;
+    status: LigaStatus;
+    desafio: boolean;
+    titulo: string | null;
+    dono: string | null;
+    premio_final: number | null;
+  };
+  minha: PalpiteiroView | null;
+};

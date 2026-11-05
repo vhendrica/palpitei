@@ -1,4 +1,4 @@
-import { decidido, predicado } from './compat.ts';
+﻿import { decidido, predicado } from './compat.ts';
 import { type Db, num, type Tx } from './db.ts';
 import { NotFoundError, RuleError } from './errors.ts';
 import { ESPORTES_PADRAO, type OddsConfig } from './odds.ts';
@@ -119,6 +119,12 @@ export async function atualizarResultados(sql: Db, cfg: OddsConfig | undefined) 
       else decididos += await aplicarParcial(sql, jogo.id as string, casa, fora);
     }
   }
+  // Desafios fecham sozinhos quando todos os jogos já têm placar final.
+  await sql`
+    update ligas l set status = 'finalizada', finalizada_em = coalesce(finalizada_em, now())
+    where l.owner_id is not null and l.status <> 'finalizada'
+      and exists (select 1 from jogos j where j.liga_id = l.id)
+      and not exists (select 1 from jogos j where j.liga_id = l.id and j.finalizado_em is null)`;
   return { consultados: pendentes.length, finalizados, mercados_decididos: decididos, creditos_restantes: restantes };
 }
 

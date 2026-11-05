@@ -42,6 +42,13 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="desafio"
+        options={{
+          title: "Desafio",
+          tabBarIcon: icon("medal", "medal-outline"),
+        }}
+      />
+      <Tabs.Screen
         name="ranking"
         options={{
           title: "Ranking",

@@ -1,11 +1,12 @@
 import * as admin from './admin.ts';
 import * as auth from './auth.ts';
+import * as desafios from './desafios.ts';
 import type { Db } from './db.ts';
 import { ForbiddenError, NotFoundError, RuleError } from './errors.ts';
 import { importarOdds, mercadosDaApi, type OddsConfig } from './odds.ts';
 import { aplicarPlacar, atualizarResultados } from './resultados.ts';
-import { apostar, type MultiplaInput, entrarNaLiga, finalizarLiga, reativarLiga, getLigaAtual } from './rules.ts';
-import { home, jogosComMercados, palpiteirosDoDia, perfil, rankingDoDia } from './services.ts';
+import { apostar, type MultiplaInput, entrarNaLiga, finalizarLiga, getLiga, getLigaAtual, reativarLiga } from './rules.ts';
+import { home, historico, jogosComMercados, meuBilhete, palpiteirosDaLiga, palpiteirosDoDia, perfil, rankingDoDia } from './services.ts';
 import { hojeISO } from './validation.ts';
 import type { WhatsappSender } from './whatsapp.ts';
 
@@ -85,6 +86,37 @@ export function createApi(deps: ApiDeps) {
           : ((b.distribuicao ?? {}) as Record<string, number>);
       return apostar(sql, u.id, (await ligaDeHoje()).id, bilhete);
     }],
+    // ---- desafios (rodadas criadas por usuários; entrada grátis)
+    ['GET', /^\/desafios$/, async (c) => desafios.meusDesafios(sql, (await c.requireUser()).id)],
+    ['GET', /^\/desafios\/fixtures$/, async (c) => {
+      await c.requireUser();
+      return { fixtures: await admin.listarFixtures(sql, c.query.get('data') ?? hoje()) };
+    }],
+    ['POST', /^\/desafios$/, async (c) => desafios.criarDesafio(sql, await c.requireUser(), await c.body())],
+    ['GET', /^\/desafios\/convite\/([^/]+)$/, async (c) => desafios.conviteView(sql, c.params[0])],
+    ['GET', /^\/desafios\/([^/]+)$/, async (c) => desafios.detalhe(sql, await c.user(), c.params[0])],
+    ['POST', /^\/desafios\/([^/]+)\/entrar$/, async (c) => {
+      const u = await c.requireUser();
+      return entrarNaLiga(sql, u.id, (await desafios.porId(sql, c.params[0])).id);
+    }],
+    ['PUT', /^\/desafios\/([^/]+)\/apostas$/, async (c) => {
+      const u = await c.requireUser();
+      const b = await c.body();
+      const bilhete = { simples: (b.simples ?? {}) as Record<string, number>, multiplas: (b.multiplas ?? []) as MultiplaInput[] };
+      return apostar(sql, u.id, (await desafios.porId(sql, c.params[0])).id, bilhete, { editar: true });
+    }],
+    ['POST', /^\/desafios\/([^/]+)\/apostas$/, async (c) => {
+      const u = await c.requireUser();
+      const b = await c.body();
+      const bilhete =
+        b.simples !== undefined || b.multiplas !== undefined
+          ? { simples: b.simples as Record<string, number>, multiplas: b.multiplas as MultiplaInput[] }
+          : ((b.distribuicao ?? {}) as Record<string, number>);
+      return apostar(sql, u.id, (await desafios.porId(sql, c.params[0])).id, bilhete);
+    }],
+    ['GET', /^\/desafios\/([^/]+)\/palpiteiros$/, async (c) => desafios.palpiteiros(sql, await c.user(), c.params[0])],
+    ['POST', /^\/desafios\/([^/]+)\/finalizar$/, async (c) => desafios.finalizar(sql, await c.requireUser(), c.params[0])],
+
     ['POST', /^\/cron\/resultados$/, async (c) => {
       const segredo = c.req.headers.get('x-cron-secret');
       if (!deps.cronSecret || segredo !== deps.cronSecret) await c.requireAdmin();
@@ -97,7 +129,15 @@ export function createApi(deps: ApiDeps) {
     }],
     ['GET', /^\/me$/, async (c) => perfil(sql, await c.requireUser())],
 
+    // ---- histórico de palpites (o usuário só vê as rodadas que entrou)
+    ['GET', /^\/historico$/, async (c) => historico(sql, await c.requireUser())],
+    ['GET', /^\/historico\/([^/]+)$/, async (c) => meuBilhete(sql, await c.requireUser(), c.params[0])],
+
     // ---- admin (is_admin)
+    ['GET', /^\/admin\/liga\/([^/]+)\/palpiteiros$/, async (c) => {
+      const u = await c.requireAdmin();
+      return palpiteirosDaLiga(sql, u, await getLiga(sql, c.params[0]), true);
+    }],
     ['GET', /^\/admin\/config$/, async (c) => (await c.requireAdmin(), admin.configAdmin(sql))],
     ['PUT', /^\/admin\/config$/, async (c) => (await c.requireAdmin(), admin.atualizarConfig(sql, await c.body()))],
     ['PUT', /^\/admin\/premio-escada$/, async (c) => {

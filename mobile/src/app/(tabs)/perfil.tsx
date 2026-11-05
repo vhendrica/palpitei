@@ -1,7 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
-import { ScrollView, Switch, View } from "react-native";
+import { Pressable, ScrollView, Switch, View } from "react-native";
 
 import { AppHeader } from "../../components/AppHeader";
 import { fmtReais } from "../../components/PremioBar";
@@ -118,18 +118,28 @@ export default function Perfil() {
         <SectionTitle>Meus palpites</SectionTitle>
         {perfil?.historico.length ? (
           perfil.historico.map((h) => (
-            <Card
+            <Pressable
               key={h.liga_id}
-              className="mb-2 flex-row items-center justify-between"
+              onPress={() => router.push(`/historico/${h.liga_id}`)}
             >
-              <View>
-                <T className="font-mont-b text-sm">
-                  Rodada de {fmtDia(h.data)}
-                </T>
-                <T className="text-xs text-muted">{h.fichas_total} fichas</T>
-              </View>
-              <StatusBadge status={h.status} />
-            </Card>
+              <Card className="mb-2 flex-row items-center justify-between">
+                <View>
+                  <T className="font-mont-b text-sm">
+                    Rodada de {fmtDia(h.data)}
+                  </T>
+                  <T className="text-xs text-muted">{h.fichas_total} fichas</T>
+                </View>
+                <View className="flex-row items-center">
+                  <StatusBadge status={h.status} />
+                  <Ionicons
+                    name="chevron-forward"
+                    size={16}
+                    color="#888"
+                    style={{ marginLeft: 6 }}
+                  />
+                </View>
+              </Card>
+            </Pressable>
           ))
         ) : (
           <T className="text-sm text-muted">Você ainda não palpitou.</T>

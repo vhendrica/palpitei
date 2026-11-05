@@ -1,4 +1,9 @@
 import type {
+  CriarDesafioInput,
+  HistoricoItem,
+  DesafioDetalhe,
+  DesafioResumo,
+  MeuBilhete,
   CodigoEnviado,
   Config,
   Faixa,
@@ -87,6 +92,27 @@ export const api = {
     req<{ fichas_distribuidas: number; fichas_livres: number }>('PUT', '/liga/hoje/apostas', bilhete),
   me: () => req<Perfil>('GET', '/me'),
 
+  desafios: {
+    listar: () => req<{ meus: DesafioResumo[]; publicos: DesafioResumo[] }>('GET', '/desafios'),
+    fixtures: (data: string) => req<{ fixtures: Fixture[] }>('GET', `/desafios/fixtures?data=${data}`),
+    criar: (input: CriarDesafioInput) => req<{ id: string; convite: string }>('POST', '/desafios', input),
+    convite: (token: string) => req<{ desafio: DesafioResumo }>('GET', `/desafios/convite/${encodeURIComponent(token)}`),
+    detalhe: (id: string) => req<DesafioDetalhe>('GET', `/desafios/${id}`),
+    entrar: (id: string) => req<{ entrada_id: string; fichas_total: number; saldo_pontos: number }>(
+      'POST',
+      `/desafios/${id}/entrar`,
+    ),
+    apostar: (id: string, bilhete: BilheteInput) =>
+      req<{ fichas_distribuidas: number; fichas_livres: number }>('PUT', `/desafios/${id}/apostas`, bilhete),
+    palpiteiros: (id: string) =>
+      req<{ data: string; liga: { id: string; status: string }; palpiteiros: PalpiteiroView[] }>(
+        'GET',
+        `/desafios/${id}/palpiteiros`,
+      ),
+    finalizar: (id: string) => req<{ ranking: RankingRow[] }>('POST', `/desafios/${id}/finalizar`),
+  },
+  historico: () => req<{ historico: HistoricoItem[] }>('GET', '/historico'),
+  meuBilhete: (ligaId: string) => req<MeuBilhete>('GET', `/historico/${ligaId}`),
   admin: {
     config: () => req<{ config: Config; premio_escada: Faixa[] }>('GET', '/admin/config'),
     salvarConfig: (c: Partial<Config>) => req<{ config: Config; premio_escada: Faixa[] }>('PUT', '/admin/config', c),
@@ -111,6 +137,11 @@ export const api = {
     mercados: (jogoId: string, mercados: { id?: string; grupo: string; descricao: string; multiplicador: number }[]) =>
       req<LigaAdmin>('PUT', `/admin/jogos/${jogoId}/mercados`, { mercados }),
     ligas: () => req<{ ligas: LigaHistorico[] }>('GET', '/admin/ligas'),
+    palpiteiros: (ligaId: string) =>
+      req<{ data: string; liga: { id: string; status: string } | null; palpiteiros: PalpiteiroView[] }>(
+        'GET',
+        `/admin/liga/${ligaId}/palpiteiros`,
+      ),
     removerPalpiteiro: (ligaId: string, userId: string) =>
       req<LigaAdmin>('DELETE', `/admin/liga/${ligaId}/palpiteiros/${userId}`),
     reativar: (ligaId: string) => req<{ ok: true }>('POST', `/admin/liga/${ligaId}/reativar`),

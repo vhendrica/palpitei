@@ -1,5 +1,5 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { Redirect } from "expo-router";
+import { Redirect, router } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { Pressable, ScrollView, TextInput, View } from "react-native";
 
@@ -982,6 +982,12 @@ function AbaHistorico({
                 variant="outline"
                 className="mr-2 flex-1"
                 onPress={() => onAbrir(l.data)}
+              />
+              <Button
+                title="Palpiteiros"
+                variant="outline"
+                className="mr-2 flex-1"
+                onPress={() => router.push(`/admin-palpiteiros/${l.id}`)}
               />
               {fechada ? (
                 <Button
