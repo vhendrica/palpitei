@@ -281,6 +281,19 @@ function AbaLiga({ data, run }: { data: string; run: Run }) {
             gravado pela escada (limitado à meta) e o voucher vai pro 1º lugar.
           </T>
           <Button
+            title="Remover rodada"
+            variant="ghost"
+            icon="trash-outline"
+            className="mt-3"
+            onPress={() =>
+              run(async () => {
+                await api.admin.removerLiga(liga.id);
+                setLa(await api.admin.liga(data));
+                return "Rodada removida.";
+              })
+            }
+          />
+          <Button
             title="Finalizar múltipla"
             variant="danger"
             className="mt-3"

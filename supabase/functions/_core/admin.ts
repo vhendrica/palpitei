@@ -302,6 +302,20 @@ export async function renovarMercadosJogo(sql: Db, cfg: OddsConfig | undefined, 
     return { jogo_id: jogoId, mercados: mercados.length };
   });
 }
+/** Remove uma liga inteira (jogos + mercados). Só antes de alguém entrar — palpiteiro não perde histórico. */
+export async function removerLiga(sql: Db, ligaId: string) {
+  if (!isUuid(ligaId)) throw new NotFoundError('Palpite não encontrado.');
+  const [l] = await sql`select id, status from ligas where id = ${ligaId}`;
+  if (!l) throw new NotFoundError('Palpite não encontrado.');
+  const [{ n }] = await sql`select count(*)::int as n from entradas where liga_id = ${ligaId}`;
+  if (n > 0) throw new RuleError('Já tem palpiteiro nessa rodada; não dá pra remover (finalizar mantém o histórico).');
+  return sql.begin(async (tx: Tx) => {
+    await tx`delete from mercados where jogo_id in (select id from jogos where liga_id = ${ligaId})`;
+    await tx`delete from jogos where liga_id = ${ligaId}`;
+    await tx`delete from ligas where id = ${ligaId}`;
+    return { removida: ligaId };
+  });
+}
 export async function atualizarLiga(db: Db, ligaId: string, input: { status?: unknown; premio_desc?: unknown }) {
   const liga = await getLiga(db, ligaId);
   if (liga.status === 'finalizada') throw new RuleError('Palpite já finalizado.');

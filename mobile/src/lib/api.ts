@@ -147,6 +147,7 @@ export const api = {
     removerPalpiteiro: (ligaId: string, userId: string) =>
       req<LigaAdmin>('DELETE', `/admin/liga/${ligaId}/palpiteiros/${userId}`),
     reativar: (ligaId: string) => req<{ ok: true }>('POST', `/admin/liga/${ligaId}/reativar`),
+    removerLiga: (ligaId: string) => req<{ removida: string }>('DELETE', `/admin/liga/${ligaId}`),
     finalizar: (ligaId: string, mercados_vencedores: string[]) =>
       req<{ premio_final: number; palpiteiros: number; voucher: { codigo: string; valor: number } | null }>(
         'POST',
