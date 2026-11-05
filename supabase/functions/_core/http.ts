@@ -46,6 +46,25 @@ export function createApi(deps: ApiDeps) {
     return liga;
   };
 
+  // Lazy: preenche mercados_sugeridos pela Football API (1 req/fixture, cacheado). Cap pra não estourar o FREE.
+  const atualizarSugeridosLazy = async (fixtures: Awaited<ReturnType<typeof admin.listarFixtures>>) => {
+    let buscados = 0;
+    for (const f of fixtures) {
+      if (buscados >= 8) break;
+      // fixture_id numérico = id da Football API; fontes antigas/manuais já devolvem [].
+      const sugeridos = (f.mercados_sugeridos ?? []) as { grupo?: string }[];
+      const legado = sugeridos.some((m) => /^(ESCANTEIOS|CARTÕES|ESCANTEIOS 1º TEMPO)$/.test(m.grupo ?? ''));
+      if ((!sugeridos.length || legado) && f.fonte === 'api_football') {
+        try {
+          f.mercados_sugeridos = (await mercadosDaFixture(sql, deps.odds, String(f.fixture_id))) as never;
+          buscados++;
+        } catch {
+          /* sem odds pra esse jogo */
+        }
+      }
+    }
+  };
+
   const routes: Route[] = [
     // ---- público / usuário
     ['GET', /^\/health$/, async () => ({ ok: true })],
