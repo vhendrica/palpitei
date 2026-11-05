@@ -301,7 +301,7 @@ export default function HomeMultipla() {
             const novaSecao = gi === 0 || secaoDo(g.grupo) !== secaoDo(arr[gi - 1].grupo);
             return (
               <View key={g.grupo} className="mb-3">
-                {novaSecao ? (
+                {novaSecao && secaoDo(g.grupo) !== "PRINCIPAL" ? (
                   <T className="mb-1 mt-1 font-mont-xb text-sm text-primary">{secaoDo(g.grupo)}</T>
                 ) : null}
                 {g.grupo ? <GrupoTitulo grupo={g.grupo} /> : null}

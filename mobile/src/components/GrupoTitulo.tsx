@@ -15,7 +15,7 @@ export function GrupoTitulo({ grupo }: { grupo: string }) {
     <View className="mb-1 flex-row items-center">
       <T className="font-mont-xb text-[11px] uppercase text-muted">{grupo}</T>
       {dica ? (
-        <View style={{ position: "relative" }}>
+        <View style={{ position: "relative", zIndex: aberto ? 9999 : 0 }}>
           <Pressable
             onPress={() => setAberto((a) => !a)}
             hitSlop={8}
@@ -29,7 +29,7 @@ export function GrupoTitulo({ grupo }: { grupo: string }) {
             />
           </Pressable>
           {aberto ? (
-            <View style={{ position: "absolute", top: 22, left: -2, zIndex: 50, width: 240 }}>
+            <View style={{ position: "absolute", top: 22, left: -2, zIndex: 9999, width: 240, shadowColor: "#000", shadowOpacity: 0.3, shadowRadius: 8, elevation: 24 }}>
               <View
                 style={{
                   position: "absolute",

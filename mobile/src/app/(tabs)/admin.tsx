@@ -438,13 +438,18 @@ function JogoAdmin({
   };
 
   // Reordena grupos publicados: a lista enviada define a ordem no banco.
-  const moverGrupo = (gi: number, dir: number) => {
-    const grupos = agruparMercados(jogo.mercados);
+  // Ordem otimista: muda na hora; quando a API confirma, volta ao estado real.
+  const [ordOverride, setOrdOverride] = useState<typeof jogo.mercados | null>(null);
+  const mercadosVis = ordOverride ?? jogo.mercados;
+
+  const moverGrupo = async (gi: number, dir: number) => {
+    const grupos = agruparMercados(mercadosVis);
     const alvo = gi + dir;
     if (alvo < 0 || alvo >= grupos.length) return;
     const ord = [...grupos];
     [ord[gi], ord[alvo]] = [ord[alvo], ord[gi]];
-    onSalvarMercados(
+    setOrdOverride(ord.flatMap((g) => g.opcoes));
+    await onSalvarMercados(
       ord.flatMap((g) =>
         g.opcoes.map((m) => ({
           id: m.id,
@@ -454,6 +459,7 @@ function JogoAdmin({
         })),
       ),
     );
+    setOrdOverride(null);
   };
 
   const abrirEditor = () => {
@@ -496,7 +502,7 @@ function JogoAdmin({
 
       {!editando ? (
         <View className="mt-2">
-          {agruparMercados(jogo.mercados).map((g, gi, arr) => (
+          {agruparMercados(mercadosVis).map((g, gi, arr) => (
             <View key={g.grupo} className="mt-1">
               {gi === 0 || secaoDo(g.grupo) !== secaoDo(arr[gi - 1].grupo) ? (
                 <T className="mt-1 font-mont-xb text-sm text-primary">{secaoDo(g.grupo)}</T>
