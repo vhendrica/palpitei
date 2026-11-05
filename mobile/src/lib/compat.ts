@@ -47,8 +47,12 @@ export function predicado(o: OpcaoCompat): Pred | null {
     if (lados.some((l) => !l)) return null;
     return (h, a) => lados.some((l) => RESULTADO[l!](h, a));
   }
+  if (g.startsWith('HANDICAP')) {
+    const hc = handicap(d, o);
+    if (hc) return hc;
+  }
   const l = lado(d, o);
-  if (l && (g === 'RESULTADO' || g === '' || g.startsWith('EMPATE ANULA'))) return RESULTADO[l];
+  if (l && (g === 'RESULTADO' || g === '' || g.startsWith('EMPATE ANULA') || g === 'DUPLA CHANCE')) return RESULTADO[l];
   return null;
 }
 
@@ -102,3 +106,73 @@ export function oddTotal(odds: number[]): number {
 
 /** fichas × odd sem arredondar (limpa só o ruído de ponto flutuante). */
 export const exato = (n: number) => Number(n.toFixed(8));
+
+
+/** Placares extras vindos do feed (escanteios, cartões, 1º tempo) — usados na apuração final. */
+export type ExDados = {
+  /** [casa, fora] */
+  gols1t?: [number, number];
+  escanteios?: [number, number];
+  escanteios1t?: [number, number];
+  cartoes?: [number, number];
+};
+
+const linha = (d: string) => {
+  const m = d.match(/^(MAIS|MENOS) DE (\d+(?:[.,]\d+)?)/);
+  if (!m) return null;
+  return { tipo: m[1] as 'MAIS' | 'MENOS', x: parseFloat(m[2].replace(',', '.')) };
+};
+
+const over = (tipo: 'MAIS' | 'MENOS', x: number): Pred =>
+  tipo === 'MAIS' ? (h, a) => h + a > x : (h, a) => h + a < x;
+
+/** Handicap: "CASA -1", "FORA +1.5", ou o nome do time com a linha (soma no placar). */
+const handicap = (d: string, o: OpcaoCompat): Pred | null => {
+  const m = d.match(/^(.*?)\s*([+-]\d+(?:[.,]\d+)?)$/);
+  if (!m) return null;
+  const l = lado(m[1].trim() || 'CASA', o);
+  if (!l) return null;
+  const x = parseFloat(m[2].replace(',', '.'));
+  return l === 'C' ? (h, a) => h + x > a : (h, a) => a + x > h;
+};
+
+/**
+ * Predicado para mercados decididos com placar + estatísticas extras.
+ * Escanteios/cartões/1º tempo só fecham no placar final (não entram no decidido parcial).
+ */
+export function predicadoEx(o: OpcaoCompat): ((d: ExDados) => boolean) | null {
+  const g = norm(o.grupo);
+  const d = norm(o.descricao);
+  const t1 = g.includes('1 TEMPO') || g.includes('PRIMEIRO TEMPO') || g.endsWith(' 1T');
+  const l = linha(d);
+  const hc = handicap(d, o);
+  if (g.startsWith('ESCANTEIO')) {
+    if (l) {
+      const p = over(l.tipo, l.x);
+      return (x) => {
+        const v = t1 ? x.escanteios1t : x.escanteios;
+        return v != null && p(v[0], v[1]);
+      };
+    }
+    if (hc) return (x) => x.escanteios != null && hc(x.escanteios[0], x.escanteios[1]);
+    return null;
+  }
+  if (g.startsWith('CART')) {
+    if (l) {
+      const p = over(l.tipo, l.x);
+      return (x) => x.cartoes != null && p(x.cartoes[0], x.cartoes[1]);
+    }
+    if (hc) return (x) => x.cartoes != null && hc(x.cartoes[0], x.cartoes[1]);
+    return null;
+  }
+  if (t1) {
+    if (l) {
+      const p = over(l.tipo, l.x);
+      return (x) => x.gols1t != null && p(x.gols1t[0], x.gols1t[1]);
+    }
+    if (hc) return (x) => x.gols1t != null && hc(x.gols1t[0], x.gols1t[1]);
+    const s = lado(d, o);
+    if (s) return (x) => x.gols1t != null && RESULTADO[s](x.gols1t[0], x.gols1t[1]);
+  }
+  return null;
+}

@@ -5,6 +5,7 @@ import { Alert, Platform, Pressable, RefreshControl, ScrollView, Share, View } f
 
 import { AppHeader } from "../../components/AppHeader";
 import { Ficha } from "../../components/Ficha";
+import { GrupoTitulo } from "../../components/GrupoTitulo";
 import { ErrorBox, Stepper } from "../../components/Form";
 import { Button, Card, StatusBadge, T } from "../../components/ui";
 import { api } from "../../lib/api";
@@ -206,9 +207,7 @@ export default function Detalhe() {
             <View className="mt-2">
               {agruparMercados(j.mercados).map((g) => (
                 <View key={g.grupo || "_"} className="mt-2">
-                  {g.grupo ? (
-                    <T className="font-mont-xb text-[11px] uppercase text-muted">{g.grupo}</T>
-                  ) : null}
+                  {g.grupo ? <GrupoTitulo grupo={g.grupo} /> : null}
                   {g.opcoes.map((m) => {
                     const val = draft[m.id] ?? 0;
                     const pode = !!(aberta && !j.comecou && eu);

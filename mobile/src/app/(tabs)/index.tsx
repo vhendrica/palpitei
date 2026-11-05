@@ -35,6 +35,7 @@ import { fmtData, fmtPontos, fmtPts } from "../../lib/format";
 import { errorMessage, useApp } from "../../store/AppStore";
 import { useTheme } from "../../store/Theme";
 import { agruparMercados } from "../../types";
+import { GrupoTitulo } from "../../components/GrupoTitulo";
 import type { Jogo } from "../../types";
 
 const MERCADOS_VISIVEIS = 2;
@@ -290,11 +291,7 @@ export default function HomeMultipla() {
             .map((g) => {
             return (
               <View key={g.grupo} className="mb-3">
-                {g.grupo ? (
-                  <T className="mb-1.5 font-mont-xb text-xs uppercase tracking-widest text-muted">
-                    {g.grupo}
-                  </T>
-                ) : null}
+                {g.grupo ? <GrupoTitulo grupo={g.grupo} /> : null}
                 <View className="flex-row flex-wrap" style={{ gap: 6 }}>
                   {g.opcoes.map((m) => {
                     const minhas =

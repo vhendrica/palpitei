@@ -2,184 +2,219 @@ import type { Db } from './db.ts';
 import { RuleError } from './errors.ts';
 import { validarDataISO } from './validation.ts';
 
-/** Integração com a The Odds API (https://the-odds-api.com/liveapi/guides/v4/). Cada import custa markets×regions créditos por campeonato. */
-export type OddsConfig = { apiKey: string; esportes?: string[]; fetch?: typeof fetch };
+/**
+ * Integração com a 5DollarFootballAPI (api.5dollarfootballapi.com/v1).
+ * Plano FREE: 60 req/hora — então:
+ * - fixtures do dia = 1 request total (janela de 24h, ligas filtradas no servidor);
+ * - placares = 1 request por data pendente (só quando tem jogo rolando — ver resultados.ts);
+ * - odds = 1 request por jogo, sob demanda (cache em fixtures_dia.mercados_sugeridos).
+ */
+export type OddsConfig = { apiKey: string; ligas?: string[]; fetch?: typeof fetch };
 
-export const ESPORTES_PADRAO = ['soccer_brazil_campeonato', 'soccer_brazil_serie_b', 'soccer_spain_la_liga', 'soccer_epl'];
-const NOMES: Record<string, string> = {
-  soccer_brazil_campeonato: 'Brasileirão Série A',
-  soccer_brazil_serie_b: 'Brasileirão Série B',
-  soccer_conmebol_copa_libertadores: 'Libertadores',
-  soccer_conmebol_copa_sudamericana: 'Sul-Americana',
-  soccer_spain_la_liga: 'La Liga',
-  soccer_epl: 'Premier League',
-};
+/** Ligas do MVP no plano FREE — migrando pro Pro basta trocar esta lista (ou FOOTBALL_LIGAS). */
+export const LIGAS_MVP = [
+  'England Premier League',
+  'Spain La Liga',
+  'Italy Serie A',
+  'Germany Bundesliga I',
+  'France Ligue 1',
+];
+export const ESPORTES_PADRAO = LIGAS_MVP;
+
+const BASE = 'https://api.5dollarfootballapi.com/v1';
 const TZ = 'America/Fortaleza';
-const LINHA_GOLS = 2.5;
 
-type Outcome = { name: string; price: number; point?: number };
-type Evento = {
-  id: string;
-  sport_key: string;
-  sport_title: string;
-  commence_time: string;
-  home_team: string;
-  away_team: string;
-  bookmakers: { key?: string; markets: { key: string; outcomes: Outcome[] }[] }[];
-};
 export type MercadoSugerido = { grupo: string; descricao: string; multiplicador: number };
-
-const mediana = (xs: number[]) => {
-  const s = [...xs].sort((a, b) => a - b);
-  const m = Math.floor(s.length / 2);
-  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
-};
-
-/** Mediana das casas para vitória/empate/vitória e mais/menos de 2.5 gols. */
-export function mercadosDoEvento(e: Evento): MercadoSugerido[] {
-  const precos = new Map<string, number[]>();
-  const add = (k: string, p: number) => precos.set(k, [...(precos.get(k) ?? []), p]);
-  for (const b of e.bookmakers) {
-    for (const m of b.markets) {
-      for (const o of m.outcomes) {
-        if (m.key === 'h2h') add(o.name === 'Draw' ? 'EMPATE' : o.name === e.home_team ? 'CASA' : 'FORA', o.price);
-        if (m.key === 'totals' && o.point === LINHA_GOLS) add(o.name === 'Over' ? 'OVER' : 'UNDER', o.price);
-      }
-    }
-  }
-  const op: Record<string, [string, string]> = {
-    CASA: ['RESULTADO', e.home_team.toUpperCase()],
-    EMPATE: ['RESULTADO', 'EMPATE'],
-    FORA: ['RESULTADO', e.away_team.toUpperCase()],
-    OVER: [`GOLS ${LINHA_GOLS}`, `MAIS DE ${LINHA_GOLS}`],
-    UNDER: [`GOLS ${LINHA_GOLS}`, `MENOS DE ${LINHA_GOLS}`],
-  };
-  return Object.keys(op)
-    .filter((k) => precos.get(k)?.length)
-    .map((k) => ({
-      grupo: op[k][0],
-      descricao: op[k][1],
-      multiplicador: Math.max(1.01, Math.round(mediana(precos.get(k)!) * 100) / 100),
-    }));
-}
-
-/** fixture_id numérico estável a partir do id hex do evento (cabe em bigint/Number). */
-export const fixtureIdDoEvento = (id: string) => parseInt(id.replace(/[^0-9a-f]/gi, '').slice(0, 13), 16);
-
-/** Busca jogos+odds do dia na The Odds API e faz upsert no pool (fixtures_dia). */
-export async function importarOdds(db: Db, cfg: OddsConfig | undefined, dataInput: unknown) {
-  if (!cfg?.apiKey) throw new RuleError('Integração de odds não configurada (THE_ODDS_API_KEY).');
-  const data = validarDataISO(dataInput);
-  const f = cfg.fetch ?? fetch;
-  let restantes: number | null = null;
-  const importados = [];
-  for (const esporte of cfg.esportes?.length ? cfg.esportes : ESPORTES_PADRAO) {
-    const url =
-      `https://api.the-odds-api.com/v4/sports/${encodeURIComponent(esporte)}/odds?apiKey=${encodeURIComponent(cfg.apiKey)}` +
-      '&regions=eu&markets=h2h,totals&oddsFormat=decimal&dateFormat=iso';
-    const res = await f(url);
-    if (!res.ok) {
-      const body = await res.text().catch(() => '');
-      console.error('[odds] falha', esporte, res.status, body.slice(0, 200));
-      throw new RuleError(res.status === 401 ? 'Chave da The Odds API inválida ou sem créditos.' : 'Falha ao buscar odds. Tente de novo.');
-    }
-    const r = res.headers.get('x-requests-remaining');
-    if (r != null) restantes = Number(r);
-    const eventos = (await res.json()) as Evento[];
-    for (const e of eventos) {
-      if (new Date(e.commence_time).toLocaleDateString('en-CA', { timeZone: TZ }) !== data) continue;
-      const mercados = mercadosDoEvento(e);
-      const [row] = await db`
-        insert into fixtures_dia (fixture_id, data, time_casa, time_fora, horario, campeonato, fonte, externo_id,
-                                  externo_esporte, mercados_sugeridos, odds_atualizadas_em)
-        values (${fixtureIdDoEvento(e.id)}, ${data}, ${e.home_team}, ${e.away_team}, ${e.commence_time},
-                ${NOMES[e.sport_key] ?? e.sport_title}, 'the_odds_api', ${e.id}, ${e.sport_key}, ${db.json(mercados)}, now())
-        on conflict (externo_id) do update set
-          data = excluded.data, time_casa = excluded.time_casa, time_fora = excluded.time_fora,
-          horario = excluded.horario, campeonato = excluded.campeonato,
-          externo_esporte = excluded.externo_esporte,
-          mercados_sugeridos = excluded.mercados_sugeridos, odds_atualizadas_em = now()
-        returning fixture_id`;
-      importados.push({ fixture_id: Number(row.fixture_id), time_casa: e.home_team, time_fora: e.away_team, mercados: mercados.length });
-    }
-  }
-  return { importados, creditos_restantes: restantes };
-}
-
 export type MercadoApi = MercadoSugerido & { casas: number };
-const MERCADOS_EXTRAS = ['btts', 'double_chance', 'draw_no_bet', 'alternate_totals'];
-const GRUPOS: Record<string, string> = {
-  btts: 'AMBOS MARCAM',
-  double_chance: 'DUPLA CHANCE',
-  draw_no_bet: 'EMPATE ANULA',
-  alternate_totals: 'GOLS',
+
+export type FixtureApi = {
+  id: number;
+  league: { id: number; name: string };
+  teams: { home: { id: number; name: string }; away: { id: number; name: string } };
+  kickoff_utc: string;
+  kickoff_ts: number;
+  status: 'scheduled' | 'live' | 'finished' | 'unknown';
+  goals?: { home: number; away: number; half_home?: number; half_away?: number };
+  corners?: { home: number; away: number; half_home?: number; half_away?: number };
+  cards?: { home: { yellow: number; red: number }; away: { yellow: number; red: number } };
 };
 
-/** Odds dos mercados extras de um evento: Pinnacle como referência; sem ela, mediana das casas. */
-export function mercadosExtrasDoEvento(e: Evento): MercadoApi[] {
-  const nome = (n: string) => (n === 'Draw' ? 'EMPATE' : n.toUpperCase());
-  const acc = new Map<string, { grupo: string; descricao: string; ordem: number; precos: number[]; pinnacle?: number }>();
-  for (const b of e.bookmakers) {
-    for (const m of b.markets) {
-      if (!GRUPOS[m.key]) continue;
-      for (const o of m.outcomes) {
-        let descricao: string;
-        let grupo = GRUPOS[m.key];
-        let ordem = MERCADOS_EXTRAS.indexOf(m.key) * 1000;
-        if (m.key === 'btts') {
-          descricao = o.name === 'Yes' ? 'SIM' : 'NÃO';
-          ordem += o.name === 'Yes' ? 0 : 1;
-        } else if (m.key === 'double_chance') {
-          descricao = o.name.split(' or ').map(nome).join(' OU ');
-          ordem += descricao.includes('EMPATE') ? (descricao.includes(e.home_team.toUpperCase()) ? 0 : 1) : 2;
-        } else if (m.key === 'draw_no_bet') {
-          descricao = nome(o.name);
-          ordem += o.name === e.home_team ? 0 : 1;
-        } else {
-          // Só linhas .5: no PALPIT não existe devolução (push) de linha inteira/asiática.
-          if (o.point == null || Math.abs((o.point % 1) - 0.5) > 1e-9) continue;
-          grupo = `GOLS ${o.point}`;
-          descricao = `${o.name === 'Over' ? 'MAIS' : 'MENOS'} DE ${o.point}`;
-          ordem += o.point * 10 + (o.name === 'Over' ? 0 : 1);
-        }
-        const k = `${grupo}|${descricao}`;
-        const item = acc.get(k) ?? { grupo, descricao, ordem, precos: [] };
-        item.precos.push(o.price);
-        if (b.key === 'pinnacle') item.pinnacle = o.price;
-        acc.set(k, item);
-      }
-    }
+type OddsLinha = { line?: number; home?: number; draw?: number; away?: number; over?: number; under?: number; yes?: number; no?: number };
+type OddsBloco = { opening?: OddsLinha | null; closing?: OddsLinha | null; inplay?: OddsLinha | null };
+type OddsResp = { fixture_id: number; bookmakers: { slug: string; odds: Record<string, OddsBloco | OddsBloco[] | undefined> }[] };
+
+const req = async (cfg: OddsConfig, path: string) => {
+  const res = await (cfg.fetch ?? fetch)(`${BASE}${path}`, {
+    headers: { Authorization: `Bearer ${cfg.apiKey}` },
+  });
+  if (!res.ok) {
+    console.error('[odds] falha', path, res.status, (await res.text().catch(() => '')).slice(0, 200));
+    throw new RuleError(
+      res.status === 401
+        ? 'Chave da Football API inválida.'
+        : res.status === 429
+          ? 'Limite de requisições da API de futebol atingido. Tente mais tarde.'
+          : 'Falha ao buscar dados. Tente de novo.',
+    );
   }
-  return [...acc.values()]
-    .sort((a, b) => a.ordem - b.ordem)
-    .map((i) => ({
-      grupo: i.grupo,
-      descricao: i.descricao,
-      multiplicador: Math.max(1.01, Math.round((i.pinnacle ?? mediana(i.precos)) * 100) / 100),
-      casas: i.precos.length,
-    }));
+  return (await res.json()).data;
+};
+
+/** Meia-noite em Fortaleza = 03:00 UTC. */
+const janelaDia = (data: string) => {
+  const inicio = Date.parse(`${data}T03:00:00Z`) / 1000;
+  return { inicio, fim: inicio + 86400 };
+};
+
+/** Todos os jogos do dia nas ligas do MVP — 1 request só. */
+export async function fixturesDoDia(cfg: OddsConfig, data: string): Promise<FixtureApi[]> {
+  const { inicio, fim } = janelaDia(data);
+  const d = await req(cfg, `/fixtures?start_time=${inicio}&end_time=${fim}&per_page=100`);
+  const ligas = (cfg.ligas?.length ? cfg.ligas : LIGAS_MVP).map((s) => s.toUpperCase());
+  return ((d ?? []) as FixtureApi[]).filter((j) => ligas.includes(j.league?.name?.toUpperCase() ?? ''));
 }
 
-/** Busca na The Odds API os mercados extras de um jogo da múltipla (custa 4 créditos por chamada). */
+/** Importa os jogos do dia pro pool (fixtures_dia). Odds ficam sob demanda (mercadosDaApi). */
+export async function importarOdds(db: Db, cfg: OddsConfig | undefined, dataInput: unknown) {
+  if (!cfg?.apiKey) throw new RuleError('Integração de futebol não configurada (FOOTBALL_API_KEY).');
+  const data = validarDataISO(dataInput);
+  const jogos = await fixturesDoDia(cfg, data);
+  const importados = [];
+  for (const j of jogos) {
+    const [row] = await db`
+      insert into fixtures_dia (fixture_id, data, time_casa, time_fora, horario, campeonato, fonte, externo_id,
+                                externo_esporte, mercados_sugeridos)
+      values (${j.id}, ${data}, ${j.teams.home.name}, ${j.teams.away.name}, ${j.kickoff_utc},
+              ${j.league.name}, 'api_football', ${String(j.id)}, ${j.league.name}, '[]'::jsonb)
+      on conflict (externo_id) do update set
+        data = excluded.data, time_casa = excluded.time_casa, time_fora = excluded.time_fora,
+        horario = excluded.horario, campeonato = excluded.campeonato,
+        externo_esporte = excluded.externo_esporte
+      returning fixture_id`;
+    importados.push({ fixture_id: Number(row.fixture_id), time_casa: j.teams.home.name, time_fora: j.teams.away.name });
+  }
+  return { importados, total: importados.length };
+}
+
+const fechamento = (b: OddsBloco | OddsBloco[] | undefined) =>
+  !b || Array.isArray(b) ? null : (b.closing ?? b.opening ?? null);
+const linhaMeio = (x: unknown): x is number => typeof x === 'number' && Math.abs((x % 1) - 0.5) < 1e-9;
+
+/** Bet365: abertura/fechamento das 12 famílias de mercado -> nosso cardápio seccionado. */
+export function mercadosDasOdds(resp: OddsResp, casa: string, fora: string): MercadoApi[] {
+  const bet = resp.bookmakers?.find((b) => b.slug === 'bet365') ?? resp.bookmakers?.[0];
+  if (!bet?.odds) return [];
+  const m = bet.odds;
+  const out: MercadoApi[] = [];
+  const push = (grupo: string, descricao: string, mult: unknown) => {
+    const v = Number(mult);
+    if (Number.isFinite(v) && v > 1) out.push({ grupo, descricao, multiplicador: Math.round(v * 100) / 100, casas: 1 });
+  };
+  const CASA = casa.toUpperCase();
+  const FORA = fora.toUpperCase();
+
+  // PRINCIPAL: 1X2 + derivados (dupla chance, empate anula)
+  const x2 = fechamento(m['1x2']);
+  if (x2?.home && x2.draw && x2.away) {
+    const dc = (a: number, b: number) => 1 / (1 / a + 1 / b);
+    push('RESULTADO', CASA, x2.home);
+    push('RESULTADO', 'EMPATE', x2.draw);
+    push('RESULTADO', FORA, x2.away);
+    push('DUPLA CHANCE', `${CASA} OU EMPATE`, dc(x2.home, x2.draw));
+    push('DUPLA CHANCE', `${FORA} OU EMPATE`, dc(x2.away, x2.draw));
+    push('DUPLA CHANCE', `${CASA} OU ${FORA}`, dc(x2.home, x2.away));
+    push('EMPATE ANULA', CASA, 1 + x2.home / x2.away);
+    push('EMPATE ANULA', FORA, 1 + x2.away / x2.home);
+  }
+
+  // GOLS: escada fixa de linhas (.5) + ambas marcam
+  const fixed = Array.isArray(m['goal_line_fixed']) ? m['goal_line_fixed'] : [];
+  for (const l of fixed) {
+    const f = fechamento(l);
+    if (!f || !linhaMeio(l.line) || (l.line! > 5.5)) continue;
+    const g = `GOLS ${l.line}`;
+    push(g, `MAIS DE ${l.line}`, f.over);
+    push(g, `MENOS DE ${l.line}`, f.under);
+  }
+  const btts = fechamento(m['btts']);
+  if (btts) {
+    push('AMBOS MARCAM', 'SIM', btts.yes);
+    push('AMBOS MARCAM', 'NÃO', btts.no);
+  }
+
+  // HANDICAP: linha principal (.5 ou inteira); linha 0 já é coberta pelo EMPATE ANULA
+  // Linhas quarto (.25/.75 = split de aposta) não cabem no modelo PALPIT: só .5 ou inteira.
+  const hc = fechamento(m['asian_handicap']);
+  if (hc?.line != null && hc.line !== 0 && (linhaMeio(hc.line) || Number.isInteger(hc.line))) {
+    const f = (l: number) => (l > 0 ? `+${l}` : `${l}`);
+    push('HANDICAP', `CASA ${f(hc.line)}`, hc.home);
+    push('HANDICAP', `FORA ${f(-hc.line)}`, hc.away);
+  }
+
+  // ESCANTEIOS / CARTÕES: totais e handicap
+  const corner = fechamento(m['corner_line']);
+  if (corner?.line != null && linhaMeio(corner.line)) {
+    push('ESCANTEIOS', `MAIS DE ${corner.line}`, corner.over);
+    push('ESCANTEIOS', `MENOS DE ${corner.line}`, corner.under);
+  }
+  const cornerHc = fechamento(m['corner_asian']);
+  if (cornerHc?.line != null && cornerHc.line !== 0 && (linhaMeio(cornerHc.line) || Number.isInteger(cornerHc.line))) {
+    const f = (l: number) => (l > 0 ? `+${l}` : `${l}`);
+    push('ESCANTEIOS', `CASA ${f(cornerHc.line)}`, cornerHc.home);
+    push('ESCANTEIOS', `FORA ${f(-cornerHc.line)}`, cornerHc.away);
+  }
+  const cards = fechamento(m['card_line']);
+  if (cards?.line != null && linhaMeio(cards.line)) {
+    push('CARTÕES', `MAIS DE ${cards.line}`, cards.over);
+    push('CARTÕES', `MENOS DE ${cards.line}`, cards.under);
+  }
+
+  // 1º TEMPO: gols, handicap e escanteios do primeiro tempo
+  const g1 = fechamento(m['goal_line_half']);
+  if (g1?.line != null && linhaMeio(g1.line)) {
+    push('GOLS 1º TEMPO', `MAIS DE ${g1.line}`, g1.over);
+    push('GOLS 1º TEMPO', `MENOS DE ${g1.line}`, g1.under);
+  }
+  const h1 = fechamento(m['asian_handicap_half']);
+  if (h1?.line != null && h1.line !== 0 && (linhaMeio(h1.line) || Number.isInteger(h1.line))) {
+    const f = (l: number) => (l > 0 ? `+${l}` : `${l}`);
+    push('HANDICAP 1º TEMPO', `CASA ${f(h1.line)}`, h1.home);
+    push('HANDICAP 1º TEMPO', `FORA ${f(-h1.line)}`, h1.away);
+  }
+  const c1 = fechamento(m['corner_line_half']);
+  if (c1?.line != null && linhaMeio(c1.line)) {
+    push('ESCANTEIOS 1º TEMPO', `MAIS DE ${c1.line}`, c1.over);
+    push('ESCANTEIOS 1º TEMPO', `MENOS DE ${c1.line}`, c1.under);
+  }
+  return out;
+}
+
+/** Odds Bet365 de um jogo do pool/múltipla — 1 request por jogo, cacheado em mercados_sugeridos. */
 export async function mercadosDaApi(db: Db, cfg: OddsConfig | undefined, jogoId: string) {
-  if (!cfg?.apiKey) throw new RuleError('Integração de odds não configurada (THE_ODDS_API_KEY).');
-  if (!/^[0-9a-f-]{36}$/i.test(jogoId)) throw new RuleError('Jogo não encontrado.');
+  if (!cfg?.apiKey) throw new RuleError('Integração de futebol não configurada (FOOTBALL_API_KEY).');
   const [j] = await db`
-    select f.externo_id, f.externo_esporte from jogos j
+    select f.externo_id, j.time_casa, j.time_fora from jogos j
     left join fixtures_dia f on f.fixture_id = j.fixture_id
     where j.id = ${jogoId}`;
   if (!j) throw new RuleError('Jogo não encontrado.');
   if (!j.externo_id) throw new RuleError('Esse jogo foi cadastrado na mão; não há odds da API para ele.');
-  const esporte = (j.externo_esporte as string | null) ?? ESPORTES_PADRAO[0];
-  const url =
-    `https://api.the-odds-api.com/v4/sports/${encodeURIComponent(esporte)}/events/${encodeURIComponent(j.externo_id)}/odds` +
-    `?apiKey=${encodeURIComponent(cfg.apiKey)}&regions=eu&markets=${MERCADOS_EXTRAS.join(',')}&oddsFormat=decimal`;
-  const res = await (cfg.fetch ?? fetch)(url);
-  if (!res.ok) {
-    console.error('[odds] falha extras', res.status, (await res.text().catch(() => '')).slice(0, 200));
-    if (res.status === 404) throw new RuleError('A API não tem mais esse jogo (já começou ou foi removido).');
-    throw new RuleError(res.status === 401 ? 'Chave da The Odds API inválida ou sem créditos.' : 'Falha ao buscar odds. Tente de novo.');
-  }
-  const r = res.headers.get('x-requests-remaining');
-  return { mercados: mercadosExtrasDoEvento((await res.json()) as Evento), creditos_restantes: r == null ? null : Number(r) };
+  const resp = (await req(cfg, `/fixtures/${j.externo_id}/odds`)) as OddsResp;
+  const mercados = mercadosDasOdds(resp, j.time_casa as string, j.time_fora as string);
+  await db`update fixtures_dia set mercados_sugeridos = ${db.json(mercados)}, odds_atualizadas_em = now()
+           where externo_id = ${j.externo_id}`;
+  return { mercados };
+}
+
+/** Versão por fixture do pool (para o criador de desafio ver os sugeridos). */
+export async function mercadosDaFixture(db: Db, cfg: OddsConfig | undefined, externoId: string) {
+  if (!cfg?.apiKey) return [];
+  const [f] = await db`select time_casa, time_fora, mercados_sugeridos from fixtures_dia where externo_id = ${externoId}`;
+  if (!f) return [];
+  const cache = f.mercados_sugeridos as MercadoApi[] | null;
+  if (cache?.length) return cache;
+  const resp = (await req(cfg, `/fixtures/${externoId}/odds`)) as OddsResp;
+  const mercados = mercadosDasOdds(resp, f.time_casa as string, f.time_fora as string);
+  await db`update fixtures_dia set mercados_sugeridos = ${db.json(mercados)}, odds_atualizadas_em = now()
+           where externo_id = ${externoId}`;
+  return mercados;
 }

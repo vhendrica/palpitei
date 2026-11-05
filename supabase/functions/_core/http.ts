@@ -3,7 +3,7 @@ import * as auth from './auth.ts';
 import * as desafios from './desafios.ts';
 import type { Db } from './db.ts';
 import { ForbiddenError, NotFoundError, RuleError } from './errors.ts';
-import { importarOdds, mercadosDaApi, type OddsConfig } from './odds.ts';
+import { importarOdds, mercadosDaApi, mercadosDaFixture, type OddsConfig } from './odds.ts';
 import { aplicarPlacar, atualizarResultados } from './resultados.ts';
 import { apostar, type MultiplaInput, entrarNaLiga, finalizarLiga, getLiga, getLigaAtual, reativarLiga } from './rules.ts';
 import { home, historico, jogosComMercados, meuBilhete, palpiteirosDaLiga, palpiteirosDoDia, perfil, rankingDoDia } from './services.ts';
@@ -90,7 +90,22 @@ export function createApi(deps: ApiDeps) {
     ['GET', /^\/desafios$/, async (c) => desafios.meusDesafios(sql, (await c.requireUser()).id)],
     ['GET', /^\/desafios\/fixtures$/, async (c) => {
       await c.requireUser();
-      return { fixtures: await admin.listarFixtures(sql, c.query.get('data') ?? hoje()) };
+      const fixtures = await admin.listarFixtures(sql, c.query.get('data') ?? hoje());
+      // Lazy: preenche mercados_sugeridos pela API (1 req/fixture, cacheado). Limite pra não estourar o FREE.
+      let buscados = 0;
+      for (const f of fixtures) {
+        if (buscados >= 8) break;
+        // fixture_id numérico = id da Football API; para fontes antigas/manuais a query interna já devolve [].
+        if (!(f.mercados_sugeridos as unknown[] | null)?.length && f.fonte === 'api_football') {
+          try {
+            f.mercados_sugeridos = (await mercadosDaFixture(sql, deps.odds, String(f.fixture_id))) as never;
+            buscados++;
+          } catch {
+            /* sem odds pra esse jogo */
+          }
+        }
+      }
+      return { fixtures };
     }],
     ['POST', /^\/desafios$/, async (c) => desafios.criarDesafio(sql, await c.requireUser(), await c.body())],
     ['GET', /^\/desafios\/convite\/([^/]+)$/, async (c) => desafios.conviteView(sql, c.params[0])],
