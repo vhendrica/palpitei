@@ -506,14 +506,14 @@ function JogoAdmin({
                   <T className="flex-1 font-mont-xb text-xs uppercase">{g.grupo}</T>
                   {!fechada ? (
                     <View className="flex-row">
-                      <Pressable onPress={() => moverGrupo(gi, -1)}>
-                        <Ionicons name="arrow-up" size={14} color={gi === 0 ? C.muted : C.primary} />
+                      <Pressable hitSlop={10} style={{ padding: 4 }} onPress={() => moverGrupo(gi, -1)}>
+                        <Ionicons name="arrow-up" size={18} color={gi === 0 ? C.muted : C.primary} />
                       </Pressable>
-                      <Pressable className="ml-2" onPress={() => moverGrupo(gi, 1)}>
+                      <Pressable hitSlop={10} style={{ padding: 4, marginLeft: 8 }} onPress={() => moverGrupo(gi, 1)}>
                         <Ionicons
                           name="arrow-down"
-                          size={14}
-                          color={gi === agruparMercados(jogo.mercados).length - 1 ? C.muted : C.primary}
+                          size={18}
+                          color={gi === arr.length - 1 ? C.muted : C.primary}
                         />
                       </Pressable>
                     </View>
