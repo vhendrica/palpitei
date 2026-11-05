@@ -387,38 +387,53 @@ function JogoAdmin({
         ((x.grupo ?? '').trim().toUpperCase() === grupo || (x.grupo ?? '').trim() === '') &&
         normDescricao(x.descricao) === normDescricao(descricao),
     );
-  // Check = publica: na lista normal já salva; no editor, entra no rascunho.
-  const adicionarGrupo = (g: { grupo: string; opcoes: { descricao: string; multiplicador: number }[] }) => {
-    const novos = g.opcoes.filter((o) => !temMercado(g.grupo, o.descricao));
-    if (!novos.length) return;
-    if (editando) {
-      setMs((s) => [
-        ...s,
-        ...novos.map((o) => ({ grupo: g.grupo, descricao: o.descricao, multiplicador: String(o.multiplicador) })),
-      ]);
-    } else {
-      onSalvarMercados([
-        ...jogo.mercados.map((m) => ({ id: m.id, grupo: m.grupo, descricao: m.descricao, multiplicador: m.multiplicador })),
-        ...novos.map((o) => ({ grupo: g.grupo, descricao: o.descricao, multiplicador: o.multiplicador })),
-      ]);
-    }
-  };
+  // Seleção em rascunho: toque marca/desmarca; "Salvar mercados" publica só o marcado.
+  const [marcados, setMarcados] = useState<Record<string, boolean>>({});
+  const estaMarcado = (g: { grupo: string; opcoes: { descricao: string }[] }) =>
+    marcados[g.grupo] ?? g.opcoes.every((o) => temMercado(g.grupo, o.descricao));
+  const toggleGrupo = (g: { grupo: string; opcoes: { descricao: string }[] }) =>
+    setMarcados((s) => ({ ...s, [g.grupo]: !estaMarcado(g) }));
 
-  // Check = toggle: tirar o grupo inteiro dos publicados (salva direto ou no rascunho).
-  const removerGrupo = (g: { grupo: string; opcoes: { descricao: string }[] }) => {
-    const descs = new Set(g.opcoes.map((o) => normDescricao(o.descricao)));
-    const tirar = (m: { grupo?: string; descricao: string }) =>
-      ((m.grupo ?? '').trim().toUpperCase() === g.grupo || (m.grupo ?? '').trim() === '') &&
-      descs.has(normDescricao(m.descricao));
-    if (editando) {
-      setMs((s) => s.filter((m) => !tirar(m)));
-    } else {
-      onSalvarMercados(
-        jogo.mercados
-          .filter((m) => !tirar(m))
-          .map((m) => ({ id: m.id, grupo: m.grupo, descricao: m.descricao, multiplicador: m.multiplicador })),
-      );
-    }
+
+
+  // Mercados existentes que não batem com nenhum grupo da API ficam visíveis em OUTROS.
+  const chavesApi = new Set(
+    (daApi?.mercados ?? []).map((m) => `${m.grupo.toUpperCase()}|${normDescricao(m.descricao)}`),
+  );
+  const outros =
+    daApi == null
+      ? []
+      : jogo.mercados.some(
+            (m) => !chavesApi.has(`${(m.grupo ?? '').trim().toUpperCase()}|${normDescricao(m.descricao)}`),
+          )
+        ? [
+            {
+              grupo: 'OUTROS',
+              opcoes: jogo.mercados
+                .filter(
+                  (m) =>
+                    !chavesApi.has(`${(m.grupo ?? '').trim().toUpperCase()}|${normDescricao(m.descricao)}`),
+                )
+                .map((m) => ({ descricao: m.descricao, multiplicador: m.multiplicador })),
+            },
+          ]
+        : [];
+
+  // Publica exatamente os grupos marcados (o resto é apagado no backend).
+  const salvarSelecionados = () => {
+    const grupos = [...agruparMercados(daApi?.mercados ?? []), ...outros].filter(estaMarcado);
+    const itens = grupos.flatMap((g) =>
+      g.opcoes.map((o) => {
+        const existente = jogo.mercados.find(
+          (m) =>
+            ((m.grupo ?? '').trim().toUpperCase() === g.grupo || (m.grupo ?? '').trim() === '') &&
+            normDescricao(m.descricao) === normDescricao(o.descricao),
+        );
+        return { id: existente?.id, grupo: g.grupo === 'OUTROS' ? '' : g.grupo, descricao: o.descricao, multiplicador: o.multiplicador };
+      }),
+    );
+    onSalvarMercados(itens);
+    setMarcados({});
   };
 
   const abrirEditor = () => {
@@ -612,7 +627,7 @@ function JogoAdmin({
           ) : (
             <View className="mt-2 rounded-lg border border-line p-2">
               <T className="mb-1 text-[11px] uppercase tracking-widest text-muted">
-                Mercados da API — toque para publicar/remover
+                Mercados da API — marque os que vão pro ar e salve
                 {daApi.creditos_restantes != null
                   ? ` • ${daApi.creditos_restantes} créditos`
                   : ""}
@@ -622,26 +637,18 @@ function JogoAdmin({
                   A API não tem mercados extras para esse jogo.
                 </T>
               ) : null}
-              {agruparMercados(daApi.mercados).map((g) => {
-                const tem = (o: { descricao: string }) => temMercado(g.grupo, o.descricao);
-                const ja = g.opcoes.every(tem);
-                const casas = Math.min(...g.opcoes.map((o) => o.casas));
+              {[...agruparMercados(daApi.mercados), ...outros].map((g) => {
+                const ja = estaMarcado(g);
                 return (
                   <Pressable
                     key={g.grupo}
-                    onPress={() => (ja ? removerGrupo(g) : adicionarGrupo(g))}
-                    className={`border-b border-line py-2 ${ja ? "opacity-40" : ""}`}
+                    onPress={() => toggleGrupo(g)}
+                    className="border-b border-line py-2"
                   >
                     <View className="flex-row items-center">
-                      <T className="flex-1 font-mont-xb text-xs">
-                        {g.grupo}
-                        <T className="text-[11px] text-muted">
-                          {" "}
-                          ({casas} {casas === 1 ? "casa" : "casas"})
-                        </T>
-                      </T>
+                      <T className="flex-1 font-mont-xb text-xs">{g.grupo}</T>
                       <Ionicons
-                        name={ja ? "checkmark-circle" : "add-circle-outline"}
+                        name={ja ? "checkmark-circle" : "ellipse-outline"}
                         size={18}
                         color={ja ? C.primary : C.muted}
                       />
@@ -654,6 +661,11 @@ function JogoAdmin({
                   </Pressable>
                 );
               })}
+              <Button
+                title="Salvar mercados (só os marcados)"
+                className="mt-2"
+                onPress={salvarSelecionados}
+              />
             </View>
           )}
           <ErrorBox erro={erroApi} />        </View>
