@@ -368,6 +368,36 @@ function JogoAdmin({
     }
   };
 
+  const normDescricao = (d: string) => {
+    const n = (d ?? '').trim().toUpperCase();
+    if (n === jogo.time_casa.trim().toUpperCase()) return 'CASA';
+    if (n === jogo.time_fora.trim().toUpperCase()) return 'FORA';
+    return n;
+  };
+  const baseItens = editando ? ms : jogo.mercados;
+  const temMercado = (grupo: string, descricao: string) =>
+    baseItens.some(
+      (x) =>
+        (x.grupo ?? '').trim().toUpperCase() === grupo &&
+        normDescricao(x.descricao) === normDescricao(descricao),
+    );
+  // Check = publica: na lista normal já salva; no editor, entra no rascunho.
+  const adicionarGrupo = (g: { grupo: string; opcoes: { descricao: string; multiplicador: number }[] }) => {
+    const novos = g.opcoes.filter((o) => !temMercado(g.grupo, o.descricao));
+    if (!novos.length) return;
+    if (editando) {
+      setMs((s) => [
+        ...s,
+        ...novos.map((o) => ({ grupo: g.grupo, descricao: o.descricao, multiplicador: String(o.multiplicador) })),
+      ]);
+    } else {
+      onSalvarMercados([
+        ...jogo.mercados.map((m) => ({ id: m.id, grupo: m.grupo, descricao: m.descricao, multiplicador: m.multiplicador })),
+        ...novos.map((o) => ({ grupo: g.grupo, descricao: o.descricao, multiplicador: o.multiplicador })),
+      ]);
+    }
+  };
+
   const abrirEditor = () => {
     setMs(
       jogo.mercados.map((m) => ({
@@ -520,7 +550,33 @@ function JogoAdmin({
               ])
             }
           />
-          {!daApi ? (
+          <View className="mt-2 flex-row">
+            <Button
+              title="Cancelar"
+              variant="outline"
+              className="mr-2 flex-1"
+              onPress={() => setEditando(false)}
+            />
+            <Button
+              title="Salvar"
+              className="flex-1"
+              onPress={() => {
+                onSalvarMercados(
+                  ms.map((m) => ({
+                    id: m.id,
+                    grupo: m.grupo,
+                    descricao: m.descricao,
+                    multiplicador: Number(m.multiplicador.replace(",", ".")),
+                  })),
+                );
+                setEditando(false);
+              }}
+            />
+          </View>
+        </View>
+      )}
+      {!fechada ? (
+        <View>          {!daApi ? (
             <Button
               title={
                 buscando ? "Buscando…" : "Ver mais mercados da API (4 créditos)"
@@ -544,30 +600,14 @@ function JogoAdmin({
                 </T>
               ) : null}
               {agruparMercados(daApi.mercados).map((g) => {
-                const tem = (o: { descricao: string }) =>
-                  ms.some(
-                    (x) =>
-                      x.grupo.trim().toUpperCase() === g.grupo &&
-                      x.descricao.trim().toUpperCase() === o.descricao,
-                  );
+                const tem = (o: { descricao: string }) => temMercado(g.grupo, o.descricao);
                 const ja = g.opcoes.every(tem);
                 const casas = Math.min(...g.opcoes.map((o) => o.casas));
                 return (
                   <Pressable
                     key={g.grupo}
                     disabled={ja}
-                    onPress={() =>
-                      setMs((s) => [
-                        ...s,
-                        ...g.opcoes
-                          .filter((o) => !tem(o))
-                          .map((o) => ({
-                            grupo: g.grupo,
-                            descricao: o.descricao,
-                            multiplicador: String(o.multiplicador),
-                          })),
-                      ])
-                    }
+                    onPress={() => adicionarGrupo(g)}
                     className={`border-b border-line py-2 ${ja ? "opacity-40" : ""}`}
                   >
                     <View className="flex-row items-center">
@@ -594,32 +634,8 @@ function JogoAdmin({
               })}
             </View>
           )}
-          <ErrorBox erro={erroApi} />
-          <View className="mt-2 flex-row">
-            <Button
-              title="Cancelar"
-              variant="outline"
-              className="mr-2 flex-1"
-              onPress={() => setEditando(false)}
-            />
-            <Button
-              title="Salvar"
-              className="flex-1"
-              onPress={() => {
-                onSalvarMercados(
-                  ms.map((m) => ({
-                    id: m.id,
-                    grupo: m.grupo,
-                    descricao: m.descricao,
-                    multiplicador: Number(m.multiplicador.replace(",", ".")),
-                  })),
-                );
-                setEditando(false);
-              }}
-            />
-          </View>
-        </View>
-      )}
+          <ErrorBox erro={erroApi} />        </View>
+      ) : null}
     </Card>
   );
 }
