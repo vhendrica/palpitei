@@ -96,7 +96,10 @@ export function createApi(deps: ApiDeps) {
       for (const f of fixtures) {
         if (buscados >= 8) break;
         // fixture_id numérico = id da Football API; para fontes antigas/manuais a query interna já devolve [].
-        if (!(f.mercados_sugeridos as unknown[] | null)?.length && f.fonte === 'api_football') {
+        const sugeridos = (f.mercados_sugeridos ?? []) as { grupo?: string }[];
+        // Refaz quando vazio OU quando o cache está no formato antigo (grupo sem linha, ex.: "ESCANTEIOS").
+        const legado = sugeridos.some((m) => /^(ESCANTEIOS|CARTÕES|ESCANTEIOS 1º TEMPO)$/.test(m.grupo ?? ''));
+        if ((!sugeridos.length || legado) && f.fonte === 'api_football') {
           try {
             f.mercados_sugeridos = (await mercadosDaFixture(sql, deps.odds, String(f.fixture_id))) as never;
             buscados++;
