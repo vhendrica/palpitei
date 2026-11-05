@@ -106,10 +106,15 @@ export async function criarDesafio(sql: Db, user: UserPublico, input: Record<str
     if (pool.length !== fixtureIds.length) throw new RuleError('Jogo fora do pool disponível.');
     const config = await getConfig(tx);
     const data = pool.map((f) => (f.data instanceof Date ? f.data.toISOString() : String(f.data)).slice(0, 10)).sort()[0];
+    const fichasIn = Number(input.fichas);
+    const fichas =
+      Number.isInteger(fichasIn) && fichasIn >= 10 && fichasIn <= 5000
+        ? fichasIn
+        : config.fichas_por_entrada;
 
     const [liga] = await tx`
       insert into ligas (data, owner_id, titulo, convite, publico, custo_entrada, fichas_por_entrada)
-      values (${data}, ${user.id}, ${titulo}, ${gerarToken().slice(0, 12)}, ${publico}, 0, ${config.fichas_por_entrada})
+      values (${data}, ${user.id}, ${titulo}, ${gerarToken().slice(0, 12)}, ${publico}, 0, ${fichas})
       returning id`;
     const ligaId = liga.id as string;
 
@@ -130,7 +135,7 @@ export async function criarDesafio(sql: Db, user: UserPublico, input: Record<str
     // O dono já entra no próprio desafio (grátis).
     await tx`
       insert into entradas (user_id, liga_id, pontos_pagos, fichas_total)
-      values (${user.id}, ${ligaId}, 0, ${config.fichas_por_entrada})`;
+      values (${user.id}, ${ligaId}, 0, ${fichas})`;
 
     const [criada] = await tx`select convite from ligas where id = ${ligaId}`;
     return { id: ligaId, convite: criada.convite as string };

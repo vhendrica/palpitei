@@ -24,6 +24,7 @@ const di = (dias: number) => {
 export default function CriarDesafio() {
   const { palette: C } = useTheme();
   const [titulo, setTitulo] = useState("");
+  const [fichas, setFichas] = useState("100");
   const [publico, setPublico] = useState(false);
   const [dia, setDia] = useState(0);
   const [fixtures, setFixtures] = useState<Fixture[] | null>(null);
@@ -107,6 +108,7 @@ export default function CriarDesafio() {
       const r = await api.desafios.criar({
         titulo: titulo.trim() || undefined,
         publico,
+        fichas: Number(fichas) || undefined,
         jogos,
       });
       router.replace(`/desafio/${r.id}`);
@@ -121,6 +123,13 @@ export default function CriarDesafio() {
       <AppHeader title="Criar desafio" back />
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 60 }}>
         <Field label="Nome (opcional)" value={titulo} onChangeText={setTitulo} placeholder="Desafio da galera" />
+        <Field
+          label="Fichas por participante (dentro do desafio)"
+          value={fichas}
+          onChangeText={setFichas}
+          placeholder="100"
+          keyboardType="number-pad"
+        />
         <Checkbox
           checked={publico}
           onChange={setPublico}

@@ -247,6 +247,8 @@ export type DesafioResumo = {
 export type CriarDesafioInput = {
   titulo?: string;
   publico: boolean;
+  /** Fichas que cada participante recebe dentro do desafio (padrão: config). */
+  fichas?: number;
   jogos: { fixture_id: number; mercados: { grupo?: string; descricao: string; multiplicador: number }[] }[];
 };
 
