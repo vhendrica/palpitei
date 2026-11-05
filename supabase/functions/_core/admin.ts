@@ -1,8 +1,9 @@
-﻿import { type Db, iso, num, type Tx } from './db.ts';
+import { type Db, iso, num, type Tx } from './db.ts';
 import { NotFoundError, RuleError } from './errors.ts';
 import { validarEscada } from './premio.ts';
 import { getEscada, getLiga, getLigaPorData } from './rules.ts';
 import { getConfig, jogosComMercados } from './services.ts';
+import { mercadosDaApi, type OddsConfig } from './odds.ts';
 import { isUuid, validarDataISO } from './validation.ts';
 
 const inteiroPositivo = (v: unknown, campo: string) => {
@@ -283,6 +284,24 @@ export async function definirMercados(sql: Db, jogoId: string, mercadosInput: un
 }
 
 /** Abre/fecha a múltipla para entradas e apostas ('aberta' ↔ 'em_andamento'). Finalizar é outro endpoint. */
+/** Refaz os mercados de um jogo com as odds atuais da Football API. Só antes de alguém entrar na rodada. */
+export async function renovarMercadosJogo(sql: Db, cfg: OddsConfig | undefined, jogoId: string) {
+  if (!isUuid(jogoId)) throw new NotFoundError('Jogo não encontrado.');
+  const [j] = await sql`select j.id, j.liga_id from jogos j where j.id = ${jogoId}`;
+  if (!j) throw new NotFoundError('Jogo não encontrado.');
+  const [{ n }] = await sql`select count(*)::int as n from entradas where liga_id = ${j.liga_id}`;
+  if (n > 0) throw new RuleError('Já tem palpiteiro nessa rodada; os mercados estão travados.');
+  const { mercados } = await mercadosDaApi(sql, cfg, jogoId);
+  if (!mercados.length) throw new RuleError('A API não devolveu mercados para esse jogo.');
+  return sql.begin(async (tx: Tx) => {
+    await tx`delete from mercados where jogo_id = ${jogoId}`;
+    await tx`insert into mercados ${tx(
+      mercados.map((m, ordem) => ({ jogo_id: jogoId, grupo: m.grupo, descricao: m.descricao, multiplicador: m.multiplicador, ordem })),
+      'jogo_id', 'grupo', 'descricao', 'multiplicador', 'ordem',
+    )}`;
+    return { jogo_id: jogoId, mercados: mercados.length };
+  });
+}
 export async function atualizarLiga(db: Db, ligaId: string, input: { status?: unknown; premio_desc?: unknown }) {
   const liga = await getLiga(db, ligaId);
   if (liga.status === 'finalizada') throw new RuleError('Palpite já finalizado.');

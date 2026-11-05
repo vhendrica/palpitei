@@ -263,6 +263,13 @@ function AbaLiga({ data, run }: { data: string; run: Run }) {
               return "Mercados salvos.";
             })
           }
+          onRenovarMercados={() =>
+            run(async () => {
+              const r = await api.admin.renovarMercados(j.id);
+              setLa(await api.admin.liga(data));
+              return `Mercados refeitos pela API (${r.mercados}).`;
+            })
+          }
         />
       ))}
 
@@ -310,12 +317,14 @@ function JogoAdmin({
   setVencedor,
   onDestaque,
   onSalvarMercados,
+  onRenovarMercados,
 }: {
   jogo: Jogo;
   fechada: boolean;
   vencedores: Record<string, boolean>;
   setVencedor: (id: string, v: boolean) => void;
   onDestaque: () => void;
+  onRenovarMercados: () => void;
   onSalvarMercados: (
     ms: {
       id?: string;
@@ -418,13 +427,20 @@ function JogoAdmin({
             </View>
           ))}
           {!fechada ? (
-            <Button
-              title="Editar mercados"
-              variant="ghost"
-              icon="create-outline"
-              className="mt-2"
-              onPress={abrirEditor}
-            />
+            <View className="mt-2 flex-row" style={{ gap: 8 }}>
+              <Button
+                title="Editar mercados"
+                variant="ghost"
+                icon="create-outline"
+                onPress={abrirEditor}
+              />
+              <Button
+                title="Renovar odds"
+                variant="ghost"
+                icon="refresh-outline"
+                onPress={onRenovarMercados}
+              />
+            </View>
           ) : null}
         </View>
       ) : (

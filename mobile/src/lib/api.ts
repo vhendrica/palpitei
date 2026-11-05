@@ -136,6 +136,8 @@ export const api = {
       }>('GET', `/admin/jogos/${jogoId}/mercados-api`),
     mercados: (jogoId: string, mercados: { id?: string; grupo: string; descricao: string; multiplicador: number }[]) =>
       req<LigaAdmin>('PUT', `/admin/jogos/${jogoId}/mercados`, { mercados }),
+    renovarMercados: (jogoId: string) =>
+      req<{ jogo_id: string; mercados: number }>('POST', `/admin/jogos/${jogoId}/mercados-renovar`),
     ligas: () => req<{ ligas: LigaHistorico[] }>('GET', '/admin/ligas'),
     palpiteiros: (ligaId: string) =>
       req<{ data: string; liga: { id: string; status: string } | null; palpiteiros: PalpiteiroView[] }>(
