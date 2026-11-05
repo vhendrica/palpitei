@@ -36,6 +36,7 @@ import { errorMessage, useApp } from "../../store/AppStore";
 import { useTheme } from "../../store/Theme";
 import { agruparMercados } from "../../types";
 import { GrupoTitulo } from "../../components/GrupoTitulo";
+import { secaoDo } from "../../lib/secoes";
 import type { Jogo } from "../../types";
 
 const MERCADOS_VISIVEIS = 2;
@@ -296,9 +297,13 @@ export default function HomeMultipla() {
         <View className="mt-3">
           {agruparMercados(j.mercados)
             .filter((_, gi) => gi < MERCADOS_VISIVEIS || abertos.includes(j.id))
-            .map((g) => {
+            .map((g, gi, arr) => {
+            const novaSecao = gi === 0 || secaoDo(g.grupo) !== secaoDo(arr[gi - 1].grupo);
             return (
               <View key={g.grupo} className="mb-3">
+                {novaSecao ? (
+                  <T className="mb-1 mt-1 font-mont-xb text-sm text-primary">{secaoDo(g.grupo)}</T>
+                ) : null}
                 {g.grupo ? <GrupoTitulo grupo={g.grupo} /> : null}
                 <View className="flex-row flex-wrap" style={{ gap: 6 }}>
                   {g.opcoes.map((m) => {

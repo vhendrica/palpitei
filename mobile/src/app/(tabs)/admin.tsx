@@ -18,6 +18,7 @@ import { fmtData, fmtOdd } from "../../lib/format";
 import { errorMessage, useApp } from "../../store/AppStore";
 import { useTheme } from "../../store/Theme";
 import { agruparMercados } from "../../types";
+import { secaoDo } from "../../lib/secoes";
 import type {
   Config,
   Fixture,
@@ -495,8 +496,11 @@ function JogoAdmin({
 
       {!editando ? (
         <View className="mt-2">
-          {agruparMercados(jogo.mercados).map((g, gi) => (
+          {agruparMercados(jogo.mercados).map((g, gi, arr) => (
             <View key={g.grupo} className="mt-1">
+              {gi === 0 || secaoDo(g.grupo) !== secaoDo(arr[gi - 1].grupo) ? (
+                <T className="mt-1 font-mont-xb text-sm text-primary">{secaoDo(g.grupo)}</T>
+              ) : null}
               {g.grupo ? (
                 <View className="mt-1 flex-row items-center">
                   <T className="flex-1 font-mont-xb text-xs uppercase">{g.grupo}</T>
