@@ -186,6 +186,32 @@ export function mercadosDasOdds(resp: OddsResp, casa: string, fora: string): Mer
     push('ESCANTEIOS 1º TEMPO', `MAIS DE ${c1.line}`, c1.over);
     push('ESCANTEIOS 1º TEMPO', `MENOS DE ${c1.line}`, c1.under);
   }
+  return filtrarJogaveis(out);
+}
+
+/**
+ * Só sugestões "jogáveis": probabilidade implícita (1/odd) entre ~30% e ~70%.
+ * Grupos com >4 opções ficam com as 4 mais equilibradas; com <=4 ficam todas.
+ */
+function filtrarJogaveis(ms: MercadoApi[]): MercadoApi[] {
+  const porGrupo = new Map<string, MercadoApi[]>();
+  for (const m of ms) porGrupo.set(m.grupo, [...(porGrupo.get(m.grupo) ?? []), m]);
+  const out: MercadoApi[] = [];
+  for (const g of porGrupo.values()) {
+    if (g.length <= 4) {
+      out.push(...g);
+      continue;
+    }
+    const centro = (m: MercadoApi) => Math.abs(1 / m.multiplicador - 0.5);
+    const naFaixa = g.filter((m) => {
+      const p = 1 / m.multiplicador;
+      return p >= 0.3 && p <= 0.7;
+    });
+    const ordenados = [...g].sort((a, b) => centro(a) - centro(b));
+    const sel =
+      naFaixa.length >= 4 ? naFaixa.slice(0, 4) : [...naFaixa, ...ordenados.filter((m) => !naFaixa.includes(m))].slice(0, 4);
+    out.push(...sel);
+  }
   return out;
 }
 
