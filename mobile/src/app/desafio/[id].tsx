@@ -75,8 +75,8 @@ export default function Detalhe() {
     // Web: o app roda em <domínio>/app/... — o link precisa do prefixo. Nativo: scheme palpitei://.
     const url =
       Platform.OS === "web" && typeof window !== "undefined"
-        ? `${window.location.origin}${window.location.pathname.split("/desafio")[0]}/desafio/convite/${liga.convite}`
-        : `palpitei://desafio/convite/${liga.convite}`;
+        ? `${window.location.origin}${window.location.pathname.split("/desafio")[0]}/desafio/convite?token=${liga.convite}`
+        : `palpitei://desafio/convite?token=${liga.convite}`;
     Share.share({
       message: `Entra no "${nome}" no PALPIT! ${liga.fichas_por_entrada} fichas grátis pra palpitar: ${url}`,
     }).catch(() => {});
