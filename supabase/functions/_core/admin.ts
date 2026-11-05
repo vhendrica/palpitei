@@ -67,6 +67,13 @@ export async function salvarPremioEscada(sql: Db, faixasInput: unknown, premioIn
   return getEscada(sql);
 }
 
+/** "EVERTON" ≡ "CASA", "COVENTRY" ≡ "FORA" — de-dupe de mercados por sentido, não por texto. */
+const normDesc = (d: string, casa: string, fora: string) => {
+  const n = (d ?? '').trim().toUpperCase();
+  if (n === casa.trim().toUpperCase()) return 'CASA';
+  if (n === fora.trim().toUpperCase()) return 'FORA';
+  return n;
+};
 const mapFixture = (f: Record<string, unknown>) => ({
   id: f.id as string,
   fixture_id: num(f.fixture_id),
@@ -148,7 +155,14 @@ export async function selecionarJogos(sql: Db, input: { data: unknown; fixture_i
           time_casa = excluded.time_casa, time_fora = excluded.time_fora, horario = excluded.horario,
           campeonato = excluded.campeonato`;
       // Jogo sem mercados ganha os sugeridos pelas odds importadas (o admin ainda pode editar).
-      const sugeridos = (f.mercados_sugeridos ?? []) as { grupo?: string; descricao: string; multiplicador: number }[];
+      const sugeridos0 = (f.mercados_sugeridos ?? []) as { grupo?: string; descricao: string; multiplicador: number }[];
+      const vistosS = new Set<string>();
+      const sugeridos = sugeridos0.filter((m) => {
+        const k = `${(m.grupo ?? '').toUpperCase()}|${normDesc(m.descricao, f.time_casa as string, f.time_fora as string)}`;
+        if (vistosS.has(k)) return false;
+        vistosS.add(k);
+        return true;
+      });
       if (sugeridos.length) {
         const [j] = await tx`
           select j.id from jogos j where j.liga_id = ${liga.id} and j.fixture_id = ${f.fixture_id}
@@ -244,7 +258,7 @@ export async function definirMercados(sql: Db, jogoId: string, mercadosInput: un
 
   const ligaId = await sql.begin(async (tx: Tx) => {
     const [j] = await tx`
-      select j.liga_id, l.status from jogos j join ligas l on l.id = j.liga_id where j.id = ${jogoId} for update of j`;
+      select j.liga_id, j.time_casa, j.time_fora, l.status from jogos j join ligas l on l.id = j.liga_id where j.id = ${jogoId} for update of j`;
     if (!j) throw new NotFoundError('Jogo não encontrado.');
     if (j.status === 'finalizada') throw new RuleError('Palpite já finalizado.');
 
@@ -255,17 +269,36 @@ export async function definirMercados(sql: Db, jogoId: string, mercadosInput: un
     const porId = new Map(atuais.map((m) => [m.id as string, m]));
     for (const it of itens) if (it.id && !porId.has(it.id)) throw new RuleError('Mercado inválido para esse palpite.');
 
-    const manter = new Set(itens.filter((i) => i.id).map((i) => i.id as string));
+    // De-dupe por sentido (CASA ≡ nome do time): itens repetidos na lista colapsam,
+    // e item novo sem id casa com o mercado existente equivalente (atualiza em vez de duplicar).
+    const casaNome = j.time_casa as string;
+    const foraNome = j.time_fora as string;
+    const chave = (grupo: string, descricao: string) => `${grupo}|${normDesc(descricao, casaNome, foraNome)}`;
+    const porChave = new Map(atuais.map((m) => [chave(((m.grupo as string) ?? '').toUpperCase(), m.descricao as string), m]));
+    const vistos = new Set<string>();
+    const itensFinais = [];
+    for (const it of itens) {
+      const k = chave(it.grupo, it.descricao);
+      if (vistos.has(k)) continue;
+      vistos.add(k);
+      const existente = it.id ? null : porChave.get(k);
+      itensFinais.push(existente ? { ...it, id: existente.id as string } : it);
+    }
+
+    const manter = new Set(itensFinais.filter((i) => i.id).map((i) => i.id as string));
     for (const m of atuais) {
       if (!manter.has(m.id as string)) {
         if (m.tem_apostas) throw new RuleError(`O mercado "${m.descricao}" já recebeu fichas e não pode ser removido.`);
         await tx`delete from mercados where id = ${m.id}`;
       }
     }
-    for (const it of itens) {
+    for (const it of itensFinais) {
       const atual = it.id ? porId.get(it.id) : null;
       if (atual) {
-        const mudou = atual.grupo !== it.grupo || atual.descricao !== it.descricao || num(atual.multiplicador) !== it.multiplicador;
+        const mudou =
+          atual.grupo !== it.grupo ||
+          normDesc(atual.descricao as string, casaNome, foraNome) !== normDesc(it.descricao, casaNome, foraNome) ||
+          num(atual.multiplicador) !== it.multiplicador;
         if (mudou && atual.tem_apostas) {
           throw new RuleError(`O mercado "${atual.descricao}" já recebeu fichas e não pode ser alterado.`);
         }
@@ -287,19 +320,26 @@ export async function definirMercados(sql: Db, jogoId: string, mercadosInput: un
 /** Refaz os mercados de um jogo com as odds atuais da Football API. Só antes de alguém entrar na rodada. */
 export async function renovarMercadosJogo(sql: Db, cfg: OddsConfig | undefined, jogoId: string) {
   if (!isUuid(jogoId)) throw new NotFoundError('Jogo não encontrado.');
-  const [j] = await sql`select j.id, j.liga_id from jogos j where j.id = ${jogoId}`;
+  const [j] = await sql`select j.id, j.liga_id, j.time_casa, j.time_fora from jogos j where j.id = ${jogoId}`;
   if (!j) throw new NotFoundError('Jogo não encontrado.');
   const [{ n }] = await sql`select count(*)::int as n from entradas where liga_id = ${j.liga_id}`;
   if (n > 0) throw new RuleError('Já tem palpiteiro nessa rodada; os mercados estão travados.');
   const { mercados } = await mercadosDaApi(sql, cfg, jogoId);
   if (!mercados.length) throw new RuleError('A API não devolveu mercados para esse jogo.');
+  const vistos = new Set<string>();
+  const dedup = mercados.filter((m) => {
+    const k = `${(m.grupo ?? '').toUpperCase()}|${normDesc(m.descricao, j.time_casa as string, j.time_fora as string)}`;
+    if (vistos.has(k)) return false;
+    vistos.add(k);
+    return true;
+  });
   return sql.begin(async (tx: Tx) => {
     await tx`delete from mercados where jogo_id = ${jogoId}`;
     await tx`insert into mercados ${tx(
-      mercados.map((m, ordem) => ({ jogo_id: jogoId, grupo: m.grupo, descricao: m.descricao, multiplicador: m.multiplicador, ordem })),
+      dedup.map((m, ordem) => ({ jogo_id: jogoId, grupo: m.grupo, descricao: m.descricao, multiplicador: m.multiplicador, ordem })),
       'jogo_id', 'grupo', 'descricao', 'multiplicador', 'ordem',
     )}`;
-    return { jogo_id: jogoId, mercados: mercados.length };
+    return { jogo_id: jogoId, mercados: dedup.length };
   });
 }
 /** Remove uma liga inteira (jogos + mercados). Só antes de alguém entrar — palpiteiro não perde histórico. */
