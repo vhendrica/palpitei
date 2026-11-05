@@ -261,7 +261,7 @@ export async function definirMercados(sql: Db, jogoId: string, mercadosInput: un
       const k = chave(it.grupo, it.descricao);
       if (vistos.has(k)) continue;
       vistos.add(k);
-      const existente = it.id ? null : porChave.get(k);
+      const existente = it.id ? null : (porChave.get(k) ?? porChave.get(`|${normDesc(it.descricao, casaNome, foraNome)}`));
       itensFinais.push(existente ? { ...it, id: existente.id as string } : it);
     }
 

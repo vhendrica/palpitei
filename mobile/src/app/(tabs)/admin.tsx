@@ -380,10 +380,11 @@ function JogoAdmin({
     return n;
   };
   const baseItens = editando ? ms : jogo.mercados;
+  // Item sem grupo (mercado antigo/manual) casa pela descrição em qualquer grupo.
   const temMercado = (grupo: string, descricao: string) =>
     baseItens.some(
       (x) =>
-        (x.grupo ?? '').trim().toUpperCase() === grupo &&
+        ((x.grupo ?? '').trim().toUpperCase() === grupo || (x.grupo ?? '').trim() === '') &&
         normDescricao(x.descricao) === normDescricao(descricao),
     );
   // Check = publica: na lista normal já salva; no editor, entra no rascunho.
@@ -407,7 +408,8 @@ function JogoAdmin({
   const removerGrupo = (g: { grupo: string; opcoes: { descricao: string }[] }) => {
     const descs = new Set(g.opcoes.map((o) => normDescricao(o.descricao)));
     const tirar = (m: { grupo?: string; descricao: string }) =>
-      (m.grupo ?? '').trim().toUpperCase() === g.grupo && descs.has(normDescricao(m.descricao));
+      ((m.grupo ?? '').trim().toUpperCase() === g.grupo || (m.grupo ?? '').trim() === '') &&
+      descs.has(normDescricao(m.descricao));
     if (editando) {
       setMs((s) => s.filter((m) => !tirar(m)));
     } else {
