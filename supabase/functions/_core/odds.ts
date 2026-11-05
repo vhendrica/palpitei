@@ -25,7 +25,7 @@ const BASE = 'https://api.5dollarfootballapi.com/v1';
 const TZ = 'America/Fortaleza';
 
 export type MercadoSugerido = { grupo: string; descricao: string; multiplicador: number };
-export type MercadoApi = MercadoSugerido & { casas: number };
+export type MercadoApi = MercadoSugerido & { casas: number; real?: boolean };
 
 export type FixtureApi = {
   id: number;
@@ -128,9 +128,9 @@ export function mercadosDasOdds(resp: OddsResp, casa: string, fora: string): Mer
   if (!bet?.odds) return [];
   const m = bet.odds;
   const out: MercadoApi[] = [];
-  const push = (grupo: string, descricao: string, mult: unknown) => {
+  const push = (grupo: string, descricao: string, mult: unknown, real = false) => {
     const v = Number(mult);
-    if (Number.isFinite(v) && v > 1) out.push({ grupo, descricao, multiplicador: Math.round(v * 100) / 100, casas: 1 });
+    if (Number.isFinite(v) && v > 1) out.push({ grupo, descricao, multiplicador: Math.round(v * 100) / 100, casas: 1, real });
   };
   const CASA = casa.toUpperCase();
   const FORA = fora.toUpperCase();
@@ -139,9 +139,9 @@ export function mercadosDasOdds(resp: OddsResp, casa: string, fora: string): Mer
   const x2 = fechamento(m['1x2']);
   if (x2?.home && x2.draw && x2.away) {
     const dc = (a: number, b: number) => 1 / (1 / a + 1 / b);
-    push('RESULTADO', CASA, x2.home);
-    push('RESULTADO', 'EMPATE', x2.draw);
-    push('RESULTADO', FORA, x2.away);
+    push('RESULTADO', CASA, x2.home, true);
+    push('RESULTADO', 'EMPATE', x2.draw, true);
+    push('RESULTADO', FORA, x2.away, true);
     push('DUPLA CHANCE', `${CASA} OU EMPATE`, dc(x2.home, x2.draw));
     push('DUPLA CHANCE', `${FORA} OU EMPATE`, dc(x2.away, x2.draw));
     push('DUPLA CHANCE', `${CASA} OU ${FORA}`, dc(x2.home, x2.away));
@@ -160,8 +160,8 @@ export function mercadosDasOdds(resp: OddsResp, casa: string, fora: string): Mer
   }
   const btts = fechamento(m['btts']);
   if (btts) {
-    push('AMBOS MARCAM', 'SIM', btts.yes);
-    push('AMBOS MARCAM', 'NÃO', btts.no);
+    push('AMBOS MARCAM', 'SIM', btts.yes, true);
+    push('AMBOS MARCAM', 'NÃO', btts.no, true);
   }
 
   // HANDICAP: linha principal (.5 ou inteira); linha 0 já é coberta pelo EMPATE ANULA
@@ -186,8 +186,8 @@ export function mercadosDasOdds(resp: OddsResp, casa: string, fora: string): Mer
       const pO = poissonTail(Math.floor(l) + 1, mu);
       const pU = 1 - pO;
       if (l === real.line) {
-        push(g, `MAIS DE ${l}`, real.over);
-        push(g, `MENOS DE ${l}`, real.under);
+        push(g, `MAIS DE ${l}`, real.over, true);
+        push(g, `MENOS DE ${l}`, real.under, true);
       } else {
         push(g, `MAIS DE ${l}`, 1 / Math.max(0.001, pO * margem));
         push(g, `MENOS DE ${l}`, 1 / Math.max(0.001, pU * margem));

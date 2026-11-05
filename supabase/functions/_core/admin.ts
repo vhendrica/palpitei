@@ -154,26 +154,6 @@ export async function selecionarJogos(sql: Db, input: { data: unknown; fixture_i
         on conflict (liga_id, fixture_id) do update set
           time_casa = excluded.time_casa, time_fora = excluded.time_fora, horario = excluded.horario,
           campeonato = excluded.campeonato`;
-      // Jogo sem mercados ganha os sugeridos pelas odds importadas (o admin ainda pode editar).
-      const sugeridos0 = (f.mercados_sugeridos ?? []) as { grupo?: string; descricao: string; multiplicador: number }[];
-      const vistosS = new Set<string>();
-      const sugeridos = sugeridos0.filter((m) => {
-        const k = `${(m.grupo ?? '').toUpperCase()}|${normDesc(m.descricao, f.time_casa as string, f.time_fora as string)}`;
-        if (vistosS.has(k)) return false;
-        vistosS.add(k);
-        return true;
-      });
-      if (sugeridos.length) {
-        const [j] = await tx`
-          select j.id from jogos j where j.liga_id = ${liga.id} and j.fixture_id = ${f.fixture_id}
-            and not exists (select 1 from mercados m where m.jogo_id = j.id)`;
-        if (j) {
-          await tx`insert into mercados ${tx(
-            sugeridos.map((m, ordem) => ({ jogo_id: j.id, grupo: m.grupo ?? '', descricao: m.descricao, multiplicador: m.multiplicador, ordem })),
-            'jogo_id', 'grupo', 'descricao', 'multiplicador', 'ordem',
-          )}`;
-        }
-      }
     }
     await tx`update fixtures_dia set selecionado = (fixture_id = any(${ids}::bigint[])) where data = ${data}`;
     return liga.id as string;
