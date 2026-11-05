@@ -1,6 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Tabs } from "expo-router/js-tabs";
 import type { ColorValue } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useApp } from "../../store/AppStore";
 import { useTheme } from "../../store/Theme";
@@ -19,6 +20,8 @@ const icon = (active: IconName, inactive: IconName) =>
 export default function TabsLayout() {
   const { palette: C } = useTheme();
   const { user } = useApp();
+  // Altura + padding da área segura pra barra de gestos/home não comer a tab bar.
+  const insets = useSafeAreaInsets();
   return (
     <Tabs
       screenOptions={{
@@ -29,6 +32,8 @@ export default function TabsLayout() {
           backgroundColor: C.card,
           borderTopColor: C.line,
           borderTopWidth: 1,
+          paddingBottom: Math.max(insets.bottom, 4),
+          height: 56 + insets.bottom,
         },
         tabBarLabelStyle: { fontFamily: "Montserrat_700Bold", fontSize: 11 },
         sceneStyle: { backgroundColor: C.bg },
