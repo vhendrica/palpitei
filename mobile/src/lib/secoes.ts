@@ -15,6 +15,19 @@ export function secaoDo(grupo: string): (typeof SECOES)[number] {
   return 'PRINCIPAL';
 }
 
+const numeroDo = (grupo: string): { n: number; s: string } | null => {
+  const m = grupo.match(/(\d+(?:[.,]\d+)?)/);
+  if (!m) return null;
+  const s = m[1].replace(',', '.');
+  return { n: parseFloat(s), s };
+};
+
+const linhaAjuda = (grupo: string, unidade: string) => {
+  const num = numeroDo(grupo);
+  if (!num) return '';
+  return `\n\n"Mais de ${num.s}" — precisa de ${Math.floor(num.n) + 1} ou mais ${unidade} pra acertar.\n"Menos de ${num.s}" — ${Math.floor(num.n)} ou menos.`;
+};
+
 /** Texto de ajuda do (?) por grupo/mercado — null nos comuns (1X2, gols simples). */
 export function explicacaoDo(grupo: string): string | null {
   const g = grupo.toUpperCase();
@@ -27,14 +40,14 @@ export function explicacaoDo(grupo: string): string | null {
   if (g.startsWith('AMBOS'))
     return 'Os dois times precisam fazer pelo menos 1 gol cada.\n\nEx.: jogo termina 2x1 → "Sim" acerta. Termina 2x0 → "Não" acerta, porque o outro time zerou.';
   if (g.startsWith('ESCANTEIO'))
-    return 'É o total de escanteios cobrados no jogo (ou só no 1º tempo, se estiver no nome).\n\nEx.: "Mais de 9.5" — precisa de 10 ou mais escanteios pra acertar. "Menos de 9.5" — 9 ou menos.';
+    return `É o total de escanteios cobrados no jogo (ou só no 1º tempo, se estiver no nome).${linhaAjuda(grupo, 'escanteios')}`;
   if (g.startsWith('CART'))
-    return 'É o total de cartões (amarelos + vermelhos) do jogo.\n\nEx.: "Mais de 4.5" — precisa de 5 ou mais cartões. "Menos de 4.5" — 4 ou menos.';
+    return `É o total de cartões (amarelos + vermelhos) do jogo.${linhaAjuda(grupo, 'cartões')}`;
   if (g.includes('1 TEMPO') || g.includes('PRIMEIRO TEMPO'))
-    return 'Só conta o que acontece até o intervalo.\n\nEx.: "Gols 1º Tempo Mais de 0.5" — se sair pelo menos 1 gol no primeiro tempo, você acertou. O que acontece no 2º tempo não muda nada.';
+    return `Só conta o que acontece até o intervalo.${linhaAjuda(grupo, 'no primeiro tempo')}`;
   if (g.startsWith('ESPECIAL') || g.includes('EXATO'))
     return 'Mercados mais difíceis, por isso pagam mais.\n\nEx.: "Resultado Exato 2x1" — só acerta se o placar final for exatamente 2x1. 2x2 ou 3x1 já perde.';
   if (g.startsWith('GOLS'))
-    return 'É o total de gols do jogo.\n\nEx.: "Mais de 2.5" — precisa de 3 ou mais gols pra acertar. "Menos de 2.5" — 2 ou menos.';
+    return `É o total de gols do jogo.${linhaAjuda(grupo, 'gols')}`;
   return null;
 }
