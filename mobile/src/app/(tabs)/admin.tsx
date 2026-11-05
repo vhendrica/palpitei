@@ -481,6 +481,7 @@ function JogoAdmin({
       ),
     );
     setOrdOverride(null);
+    marcarSalvou();
   };
 
   const abrirEditor = () => {
@@ -495,33 +496,81 @@ function JogoAdmin({
     setEditando(true);
   };
 
+  const [recolhido, setRecolhido] = useState(false);
+  const [movendoGrupo, setMovendoGrupo] = useState<string | null>(null);
+  const [salvou, setSalvou] = useState(false);
+  const marcarSalvou = () => {
+    setSalvou(true);
+    setTimeout(() => setSalvou(false), 2500);
+  };
+  const secoesDoJogo = [...new Set(agruparMercados(mercadosVis).map(secaoAtual))];
+
+  // Move um grupo inteiro pra uma seção existente (o "arrastar" da versão click).
+  const moverPraSecao = async (
+    g: { grupo: string; opcoes: { descricao: string }[] },
+    nome: string,
+  ) => {
+    const descs = new Set(g.opcoes.map((o) => normDescricao(o.descricao)));
+    await onSalvarMercados(
+      jogo.mercados.map((m) => ({
+        id: m.id,
+        grupo: m.grupo,
+        descricao: m.descricao,
+        multiplicador: m.multiplicador,
+        secao:
+          (m.grupo ?? '').trim().toUpperCase() === g.grupo && descs.has(normDescricao(m.descricao))
+            ? nome
+            : (m.secao ?? null),
+      })),
+    );
+    setMovendoGrupo(null);
+    marcarSalvou();
+  };
+
   return (
     <Card className={`mb-3 ${jogo.destaque ? "border-2 border-primary" : ""}`}>
-      <View className="flex-row items-start justify-between">
+      <Pressable
+        onPress={() => setRecolhido((r) => !r)}
+        className="flex-row items-start justify-between"
+      >
         <View className="flex-1">
           <T className="text-[11px] uppercase tracking-widest text-muted">
             #{jogo.fixture_id} • {jogo.campeonato} • {fmtData(jogo.horario)}
           </T>
-          <T className="mt-1 font-mont-xb text-base">
-            {jogo.time_casa} x {jogo.time_fora}
-          </T>
+          <View className="mt-1 flex-row items-center">
+            <T className="font-mont-xb text-base">
+              {jogo.time_casa} x {jogo.time_fora}
+            </T>
+            {salvou ? (
+              <Ionicons name="checkmark-circle" size={16} color={C.primary} style={{ marginLeft: 6 }} />
+            ) : null}
+          </View>
         </View>
-        {!fechada ? (
-          <Pressable
-            onPress={onDestaque}
-            className="p-1"
-            accessibilityLabel="Marcar jogo do dia"
-          >
-            <Ionicons
-              name={jogo.destaque ? "star" : "star-outline"}
-              size={22}
-              color={C.primary}
-            />
-          </Pressable>
-        ) : null}
-      </View>
+        <View className="flex-row items-center">
+          {!fechada ? (
+            <Pressable
+              onPress={onDestaque}
+              className="p-1"
+              accessibilityLabel="Marcar jogo do dia"
+            >
+              <Ionicons
+                name={jogo.destaque ? "star" : "star-outline"}
+                size={22}
+                color={C.primary}
+              />
+            </Pressable>
+          ) : null}
+          <Ionicons
+            name={recolhido ? "chevron-down" : "chevron-up"}
+            size={18}
+            color={C.muted}
+            style={{ marginLeft: 4 }}
+          />
+        </View>
+      </Pressable>
 
       {!editando ? (
+        recolhido ? null : (
         <View className="mt-2">
           {agruparMercados(mercadosVis).map((g, gi, arr) => (
             <View key={g.grupo} className="mt-1">
@@ -553,8 +602,32 @@ function JogoAdmin({
                           color={gi === arr.length - 1 ? C.muted : C.primary}
                         />
                       </Pressable>
+                      <Pressable
+                        hitSlop={10}
+                        style={{ padding: 4, marginLeft: 8 }}
+                        onPress={() => setMovendoGrupo((x) => (x === g.grupo ? null : g.grupo))}
+                      >
+                        <Ionicons name="swap-horizontal-outline" size={18} color={movendoGrupo === g.grupo ? C.primary : C.muted} />
+                      </Pressable>
                     </View>
                   ) : null}
+                </View>
+              ) : null}
+              {movendoGrupo === g.grupo ? (
+                <View className="mb-1 flex-row flex-wrap" style={{ gap: 6 }}>
+                  {secoesDoJogo.map((s) => (
+                    <Pressable
+                      key={s}
+                      onPress={() => moverPraSecao(g, s)}
+                      className={`rounded-full border px-2 py-0.5 ${
+                        s === secaoAtual(g) ? "border-primary bg-primary" : "border-line"
+                      }`}
+                    >
+                      <T className={`text-xs ${s === secaoAtual(g) ? "text-onPrimary" : "text-primary"}`}>
+                        {s}
+                      </T>
+                    </Pressable>
+                  ))}
                 </View>
               ) : null}
               {g.opcoes.map((m) => (
@@ -600,6 +673,7 @@ function JogoAdmin({
             </View>
           ) : null}
         </View>
+        )
       ) : (
         <View className="mt-2">
           {ms.map((m, i) => (
@@ -689,7 +763,7 @@ function JogoAdmin({
           </View>
         </View>
       )}
-      {!fechada ? (
+      {!fechada && !recolhido ? (
         <View>          {!daApi ? (
             <Button
               title={
