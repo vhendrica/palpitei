@@ -13,7 +13,7 @@ import type { LigaStatus } from "../types";
 import { useTheme } from "../store/Theme";
 
 const TEXT_COLOR =
-  /(^|\s)text-(white|black|fg|muted|primary|onPrimary|danger|gold|onHeader|headerAccent|bg)(\/|\s|$)/;
+  /(^|\s)text-(white|black|fg|muted|primary|onPrimary|danger|gold|onHeader|headerAccent|logoText|bg)(\/|\s|$)/;
 
 export function T({
   className = "",
@@ -43,6 +43,8 @@ export function Card({
 }
 
 type ButtonProps = {
+  /** Botão mais baixo. */
+  compact?: boolean;
   title: string;
   onPress?: () => void;
   variant?: "primary" | "outline" | "ghost" | "danger";
@@ -60,9 +62,10 @@ export function Button({
   loading,
   icon,
   className = "",
+  compact,
 }: ButtonProps) {
   const { palette: C } = useTheme();
-  const base = "flex-row items-center justify-center rounded-xl px-4 py-3.5";
+  const base = `flex-row items-center justify-center rounded-xl px-4 ${compact ? "py-2" : "py-3.5"}`;
   const styles = {
     primary: "bg-primary",
     outline: "border border-primary bg-transparent",

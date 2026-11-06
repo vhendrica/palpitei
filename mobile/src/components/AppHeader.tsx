@@ -59,14 +59,21 @@ export function AppHeader({ title, back }: { title?: string; back?: boolean }) {
           )}
         </View>
         <View className="flex-row items-center">
-          {user?.is_premium ? (
+          {user?.is_admin ? (
             <View className="mr-2 rounded-full bg-headerAccent/20 px-2 py-1">
-              <T className="font-mont-b text-[10px] text-headerAccent">
-                PREMIUM
-              </T>
+              <T className="font-mont-b text-[10px] text-headerAccent">ADMIN</T>
             </View>
           ) : null}
-          <PontosPill />
+          {user ? (
+            <PontosPill />
+          ) : (
+            <Pressable
+              onPress={() => router.push("/entrar")}
+              className="rounded-full bg-headerAccent px-3 py-1.5"
+            >
+              <T className="font-mont-xb text-xs text-onPrimary">ENTRAR</T>
+            </Pressable>
+          )}
         </View>
       </View>
     </View>
