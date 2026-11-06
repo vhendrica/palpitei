@@ -2,6 +2,8 @@ import type { UserPublico } from './auth.ts';
 import { gerarToken } from './crypto.ts';
 import { type Db, num, type Tx } from './db.ts';
 import { ForbiddenError, NotFoundError, RuleError } from './errors.ts';
+import { atualizarResultados } from './resultados.ts';
+import type { OddsConfig } from './odds.ts';
 import { calcularRanking, getLiga, type LigaRow } from './rules.ts';
 import { getConfig, jogosComMercados, minhaSituacao, palpiteirosDaLiga } from './services.ts';
 import { isUuid, nomePublico } from './validation.ts';
@@ -154,12 +156,34 @@ export async function conviteView(db: Db, token: string) {
 }
 
 /** Detalhe completo: jogos+mercados, minha situação, ranking. Privado: só quem entrou. */
-export async function detalhe(db: Db, user: UserPublico | null, ligaId: string) {
+export async function detalhe(db: Db, user: UserPublico | null, ligaId: string, odds?: OddsConfig) {
   const liga = await porId(db, ligaId);
   const entrada = user ? await db`select 1 from entradas where liga_id = ${liga.id} and user_id = ${user.id}` : [];
   const entrou = entrada.length > 0;
   if (!liga.publico && !entrou && liga.owner_id !== user?.id) {
     throw new ForbiddenError('Esse desafio é privado. Entre pelo link de convite.');
+  }
+  // Lazy-sync de resultados: desafio com jogo pendente já iniciado puxa placar da API
+  // no máximo 1x a cada 10 min (não queima crédito a cada acesso).
+  if (odds && liga.status !== 'finalizada') {
+    const [pendente] = await db`
+      select j.id from jogos j
+      join fixtures_dia f on f.fixture_id = j.fixture_id
+      where j.liga_id = ${liga.id} and j.finalizado_em is null and f.externo_id is not null
+        and j.horario <= now() and j.horario > now() - interval '3 days'
+      limit 1`;
+    if (pendente) {
+      const [v] = await db`select resultados_verificados_em as ts from ligas where id = ${liga.id}`;
+      const ts = v?.ts ? new Date(v.ts as string).getTime() : 0;
+      if (Date.now() - ts > 10 * 60 * 1000) {
+        try {
+          await atualizarResultados(db, odds);
+        } catch (e) {
+          console.error('[desafio] sync resultados falhou', e);
+        }
+        await db`update ligas set resultados_verificados_em = now() where id = ${liga.id}`;
+      }
+    }
   }
   const [jogos, eu, dono, palpiteiros] = await Promise.all([
     jogosComMercados(db, liga.id, user?.id),

@@ -131,7 +131,7 @@ export function createApi(deps: ApiDeps) {
     }],
     ['POST', /^\/desafios$/, async (c) => desafios.criarDesafio(sql, await c.requireUser(), await c.body())],
     ['GET', /^\/desafios\/convite\/([^/]+)$/, async (c) => desafios.conviteView(sql, c.params[0])],
-    ['GET', /^\/desafios\/([^/]+)$/, async (c) => desafios.detalhe(sql, await c.user(), c.params[0])],
+    ['GET', /^\/desafios\/([^/]+)$/, async (c) => desafios.detalhe(sql, await c.user(), c.params[0], deps.odds)],
     ['POST', /^\/desafios\/([^/]+)\/entrar$/, async (c) => {
       const u = await c.requireUser();
       return entrarNaLiga(sql, u.id, (await desafios.porId(sql, c.params[0])).id);
