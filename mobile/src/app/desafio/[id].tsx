@@ -1,7 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useMemo, useState } from "react";
-import { Alert, Platform, Pressable, RefreshControl, ScrollView, Share, View } from "react-native";
+import { Alert, Platform, Pressable, RefreshControl, ScrollView, Share, TextInput, View } from "react-native";
 
 import { AppHeader } from "../../components/AppHeader";
 import { BetButton } from "../../components/BetButton";
@@ -36,6 +36,7 @@ export default function Detalhe() {
   const [salvando, setSalvando] = useState(false);
   const [entrando, setEntrando] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [placarInput, setPlacarInput] = useState<Record<string, { casa: string; fora: string }>>({});
 
   const load = useCallback(async () => {
     try {
@@ -157,6 +158,18 @@ export default function Detalhe() {
     setEntrando(false);
   }, [id, load]);
 
+  const lancarPlacar = useCallback(async (jogoId: string) => {
+    const p = placarInput[jogoId];
+    if (!p?.casa || !p?.fora) return;
+    try {
+      await api.desafios.placar(String(id), jogoId, Number(p.casa), Number(p.fora));
+      setPlacarInput((s) => ({ ...s, [jogoId]: { casa: "", fora: "" } }));
+      await load();
+    } catch (e) {
+      setErro(errorMessage(e));
+    }
+  }, [id, placarInput, load]);
+
   const confirmar = useCallback(async () => {
     setSalvando(true);
     try {
@@ -274,6 +287,44 @@ export default function Detalhe() {
                 </T>
               ) : null}
             </View>
+            {liga?.e_dono && !j.finalizado ? (
+              <View className="mt-2 flex-row items-center">
+                <T className="mr-2 text-xs text-muted">Placar final:</T>
+                <TextInput
+                  className="w-11 rounded border border-line px-1.5 py-1 text-center font-odds text-sm"
+                  keyboardType="number-pad"
+                  placeholder="0"
+                  placeholderTextColor={C.muted}
+                  value={placarInput[j.id]?.casa ?? ""}
+                  onChangeText={(t) =>
+                    setPlacarInput((s) => ({
+                      ...s,
+                      [j.id]: { ...s[j.id], casa: t, fora: s[j.id]?.fora ?? "" },
+                    }))
+                  }
+                />
+                <T className="mx-1 text-muted">x</T>
+                <TextInput
+                  className="w-11 rounded border border-line px-1.5 py-1 text-center font-odds text-sm"
+                  keyboardType="number-pad"
+                  placeholder="0"
+                  placeholderTextColor={C.muted}
+                  value={placarInput[j.id]?.fora ?? ""}
+                  onChangeText={(t) =>
+                    setPlacarInput((s) => ({
+                      ...s,
+                      [j.id]: { casa: s[j.id]?.casa ?? "", fora: t },
+                    }))
+                  }
+                />
+                <Pressable
+                  onPress={() => lancarPlacar(j.id)}
+                  className="ml-2 rounded-lg bg-primary px-2.5 py-1"
+                >
+                  <T className="text-xs text-onPrimary">Lançar</T>
+                </Pressable>
+              </View>
+            ) : null}
             <View className="mt-2">
               {agruparMercados(j.mercados).map((g) => (
                 <View key={g.grupo || "_"} className="mt-2">

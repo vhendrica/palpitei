@@ -127,6 +127,12 @@ export const api = {
       'POST',
       `/desafios/${id}/entrar`,
     ),
+        placar: (id: string, jogoId: string, casa: number, fora: number) =>
+      req<{ jogo_id: string; placar: [number, number]; mercados_certos: number }>(
+        'POST',
+        `/desafios/${id}/jogos/${jogoId}/placar`,
+        { casa, fora },
+      ),
     apostar: (id: string, bilhete: BilheteInput) =>
       req<{ fichas_distribuidas: number; fichas_livres: number }>('PUT', `/desafios/${id}/apostas`, bilhete),
     palpiteiros: (id: string) =>

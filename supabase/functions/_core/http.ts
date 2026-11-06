@@ -153,6 +153,10 @@ export function createApi(deps: ApiDeps) {
     }],
     ['GET', /^\/desafios\/([^/]+)\/palpiteiros$/, async (c) => desafios.palpiteiros(sql, await c.user(), c.params[0])],
     ['POST', /^\/desafios\/([^/]+)\/finalizar$/, async (c) => desafios.finalizar(sql, await c.requireUser(), c.params[0])],
+    ['POST', /^\/desafios\/([^/]+)\/jogos\/([^/]+)\/placar$/, async (c) => {
+      const b = await c.body();
+      return desafios.placarDono(sql, await c.requireUser(), c.params[0], c.params[1], Number(b.casa), Number(b.fora));
+    }],
 
     ['POST', /^\/cron\/resultados$/, async (c) => {
       const segredo = c.req.headers.get('x-cron-secret');

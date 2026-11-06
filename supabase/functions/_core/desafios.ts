@@ -2,7 +2,7 @@ import type { UserPublico } from './auth.ts';
 import { gerarToken } from './crypto.ts';
 import { type Db, num, type Tx } from './db.ts';
 import { ForbiddenError, NotFoundError, RuleError } from './errors.ts';
-import { atualizarResultados } from './resultados.ts';
+import { aplicarPlacar, atualizarResultados } from './resultados.ts';
 import type { OddsConfig } from './odds.ts';
 import { calcularRanking, getLiga, type LigaRow } from './rules.ts';
 import { getConfig, jogosComMercados, minhaSituacao, palpiteirosDaLiga } from './services.ts';
@@ -230,4 +230,17 @@ export async function finalizar(sql: Db, user: UserPublico, ligaId: string) {
     await tx`update ligas set status = 'finalizada', finalizada_em = now() where id = ${ligaId}`;
     return { ranking: await calcularRanking(tx, ligaId) };
   });
+}
+/** Dono do desafio lança o placar final de um jogo (pra jogo sem cobertura da API). */
+export async function placarDono(db: Db, user: UserPublico, ligaId: string, jogoId: string, casa: number, fora: number) {
+  const liga = await porId(db, ligaId);
+  if (liga.owner_id !== user.id) throw new ForbiddenError('Só o dono do desafio pode lançar placar.');
+  const [j] = await db`select id from jogos where id = ${jogoId} and liga_id = ${liga.id}`;
+  if (!j) throw new NotFoundError('Jogo não encontrado nesse desafio.');
+  const r = await aplicarPlacar(db, jogoId, casa, fora);
+  await db`
+    update ligas set status = 'finalizada', finalizada_em = coalesce(finalizada_em, now())
+    where id = ${liga.id} and status <> 'finalizada'
+      and not exists (select 1 from jogos where liga_id = ${liga.id} and finalizado_em is null)`;
+  return r;
 }
