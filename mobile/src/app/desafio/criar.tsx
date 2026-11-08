@@ -25,6 +25,7 @@ export default function CriarDesafio() {
   const { palette: C } = useTheme();
   const [titulo, setTitulo] = useState("");
   const [fichas, setFichas] = useState("100");
+  const [modo, setModo] = useState<"grupo" | "duelo">("grupo");
   const [publico, setPublico] = useState(false);
   const [dia, setDia] = useState(0);
   const [fixtures, setFixtures] = useState<Fixture[] | null>(null);
@@ -107,7 +108,8 @@ export default function CriarDesafio() {
       });
       const r = await api.desafios.criar({
         titulo: titulo.trim() || undefined,
-        publico,
+        publico: modo === "duelo" ? false : publico,
+        modo,
         fichas: Number(fichas) || undefined,
         jogos,
       });
@@ -116,12 +118,43 @@ export default function CriarDesafio() {
       setErro(errorMessage(e));
       setSalvando(false);
     }
-  }, [selecionados, marcados, custom, fixtures, titulo, publico]);
+  }, [selecionados, marcados, custom, fixtures, titulo, modo, publico]);
 
   return (
     <View className="flex-1 bg-bg">
       <AppHeader title="Criar desafio" back />
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 60 }}>
+        <View className="mb-3 flex-row" style={{ gap: 8 }}>
+          {(
+            [
+              {
+                key: "duelo" as const,
+                icon: "people-outline" as const,
+                titulo: "Duelo",
+                texto: "Só você e mais 1. Privado automático — o link convida 1 pessoa.",
+              },
+              {
+                key: "grupo" as const,
+                icon: "people-circle-outline" as const,
+                titulo: "Em grupo",
+                texto: "Vários amigos disputam o ranking. Pode ser público ou por link.",
+              },
+            ]
+          ).map((m) => {
+            const on = modo === m.key;
+            return (
+              <Pressable
+                key={m.key}
+                onPress={() => setModo(m.key)}
+                className={`flex-1 rounded-xl border p-3 ${on ? "border-primary bg-cardAlt" : "border-line bg-card"}`}
+              >
+                <Ionicons name={m.icon} size={26} color={on ? C.primary : C.muted} />
+                <T className={`mt-1 font-mont-xb text-sm ${on ? "text-primary" : ""}`}>{m.titulo}</T>
+                <T className="mt-0.5 text-[11px] text-muted">{m.texto}</T>
+              </Pressable>
+            );
+          })}
+        </View>
         <Field label="Nome (opcional)" value={titulo} onChangeText={setTitulo} placeholder="Desafio da galera" />
         <Field
           label="Fichas por participante (dentro do desafio)"
@@ -130,14 +163,22 @@ export default function CriarDesafio() {
           placeholder="100"
           keyboardType="number-pad"
         />
-        <Checkbox
-          checked={publico}
-          onChange={setPublico}
-          label="Público: aparece na aba Desafio pra qualquer um entrar"
-        />
-        {!publico ? (
-          <T className="mb-3 -mt-1 text-xs text-muted">Privado: só entra quem receber o link.</T>
-        ) : null}
+        {modo === "duelo" ? (
+          <T className="mb-3 text-xs text-muted">
+            Duelo é sempre privado: o link entra só 1 pessoa (a primeira que abrir).
+          </T>
+        ) : (
+          <>
+            <Checkbox
+              checked={publico}
+              onChange={setPublico}
+              label="Público: aparece na aba Desafio pra qualquer um entrar"
+            />
+            {!publico ? (
+              <T className="mb-3 -mt-1 text-xs text-muted">Privado: só entra quem receber o link.</T>
+            ) : null}
+          </>
+        )}
 
         <View className="mb-3 flex-row">
           {["Hoje", "Amanhã", "+2 dias"].map((lbl, i) => (

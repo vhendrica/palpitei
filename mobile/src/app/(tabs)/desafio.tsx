@@ -58,7 +58,16 @@ export default function Desafios() {
     <Pressable key={d.id} onPress={() => router.push(`/desafio/${d.id}`)}>
       <Card className="mb-2 flex-row items-center">
         <View className="flex-1">
-          <T className="font-mont-b text-sm">{d.titulo ?? `Desafio de ${d.dono}`}</T>
+          <View className="flex-row items-center">
+            <T className="font-mont-b text-sm" style={{ flexShrink: 1 }} numberOfLines={1}>
+              {d.titulo ?? `Desafio de ${d.dono}`}
+            </T>
+            {d.modo === "duelo" ? (
+              <View className="ml-2 rounded-full bg-cardAlt px-2 py-0.5">
+                <T className="text-[10px] text-muted">DUELO</T>
+              </View>
+            ) : null}
+          </View>
           <T className="text-xs text-muted">
             {d.e_dono ? "você criou" : `de ${d.dono}`} · {d.jogos}{" "}
             {d.jogos === 1 ? "jogo" : "jogos"} · {d.palpiteiros}{" "}

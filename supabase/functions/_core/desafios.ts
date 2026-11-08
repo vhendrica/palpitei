@@ -34,6 +34,7 @@ const mapResumo = (r: Record<string, unknown>, userId: string) => ({
   dono_id: r.owner_id as string,
   e_dono: r.owner_id === userId,
   publico: !!r.publico,
+  modo: (r.modo as string) ?? 'grupo',
   convite: r.convite as string,
   data: r.data instanceof Date ? r.data.toISOString().slice(0, 10) : String(r.data),
   status: r.status as LigaRow['status'],
@@ -94,7 +95,8 @@ function validarMercados(raw: unknown, jogo: string): MercadoInput[] {
 export async function criarDesafio(sql: Db, user: UserPublico, input: Record<string, unknown>) {
   const titulo = input.titulo == null ? null : String(input.titulo).trim();
   if (titulo !== null && (titulo.length < 1 || titulo.length > 60)) throw new RuleError('Título de até 60 caracteres.');
-  const publico = !!input.publico;
+  const modo = input.modo === 'duelo' ? 'duelo' : 'grupo';
+  const publico = modo === 'duelo' ? false : !!input.publico;
   if (!Array.isArray(input.jogos)) throw new RuleError('Escolha os jogos do desafio.');
   const jogosIn = input.jogos as { fixture_id?: unknown; mercados?: unknown }[];
   if (jogosIn.length === 0 || jogosIn.length > MAX_JOGOS) throw new RuleError(`Escolha de 1 a ${MAX_JOGOS} jogos.`);
@@ -115,8 +117,8 @@ export async function criarDesafio(sql: Db, user: UserPublico, input: Record<str
         : config.fichas_por_entrada;
 
     const [liga] = await tx`
-      insert into ligas (data, owner_id, titulo, convite, publico, custo_entrada, fichas_por_entrada)
-      values (${data}, ${user.id}, ${titulo}, ${gerarToken().slice(0, 12)}, ${publico}, 0, ${fichas})
+      insert into ligas (data, owner_id, titulo, convite, publico, custo_entrada, fichas_por_entrada, modo)
+      values (${data}, ${user.id}, ${titulo}, ${gerarToken().slice(0, 12)}, ${publico}, 0, ${fichas}, ${modo})
       returning id`;
     const ligaId = liga.id as string;
 
@@ -198,6 +200,7 @@ export async function detalhe(db: Db, user: UserPublico | null, ligaId: string, 
       dono: dono.length ? nomePublico(dono[0].nome as string) : '',
       e_dono: liga.owner_id === user?.id,
       publico: liga.publico,
+      modo: (liga.modo as string) ?? 'grupo',
       convite: liga.convite,
       data: liga.data,
       status: liga.status,

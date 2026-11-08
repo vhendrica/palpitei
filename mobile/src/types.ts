@@ -236,6 +236,7 @@ export type DesafioResumo = {
   dono_id: string;
   e_dono: boolean;
   publico: boolean;
+  modo: "grupo" | "duelo";
   convite: string;
   data: string;
   status: LigaStatus;
@@ -247,6 +248,8 @@ export type DesafioResumo = {
 export type CriarDesafioInput = {
   titulo?: string;
   publico: boolean;
+  /** 'duelo' = só criador + 1 convidado (sempre privado). */
+  modo?: "grupo" | "duelo";
   /** Fichas que cada participante recebe dentro do desafio (padrão: config). */
   fichas?: number;
   jogos: { fixture_id: number; mercados: { grupo?: string; descricao: string; multiplicador: number }[] }[];
@@ -259,6 +262,7 @@ export type DesafioDetalhe = {
     dono: string;
     e_dono: boolean;
     publico: boolean;
+    modo: "grupo" | "duelo";
     convite: string;
     data: string;
     status: LigaStatus;

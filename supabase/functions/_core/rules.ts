@@ -145,6 +145,10 @@ export async function entrarNaLiga(sql: Db, userId: string, ligaId: string) {
     const [futuro] = await tx`select 1 from jogos where liga_id = ${ligaId} and horario > now() limit 1`;
     if (!futuro) throw new RuleError('Todos os jogos dessa rodada já começaram.');
     if (await getEntrada(tx, userId, ligaId)) throw new RuleError('Você já está nesse palpite.');
+    if ((liga as Record<string, unknown>).modo === 'duelo') {
+      const [n] = await tx`select count(*)::int as n from entradas where liga_id = ${ligaId}`;
+      if (num(n.n) >= 2) throw new RuleError('Esse duelo já está cheio.');
+    }
     if (num(user.saldo_pontos) < custo) throw new RuleError(`Saldo insuficiente. Você precisa de ${custo} PONTOS.`);
 
     await tx`update users set saldo_pontos = saldo_pontos - ${custo} where id = ${userId}`;
