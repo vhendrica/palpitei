@@ -138,10 +138,18 @@ export function mercadosDasOdds(resp: OddsResp, casa: string, fora: string): Mer
   // PRINCIPAL: 1X2 + derivados (dupla chance, empate anula)
   const x2 = fechamento(m['1x2']);
   if (x2?.home && x2.draw && x2.away) {
-    const dc = (a: number, b: number) => 1 / (1 / a + 1 / b);
     push('RESULTADO', CASA, x2.home, true);
     push('RESULTADO', 'EMPATE', x2.draw, true);
     push('RESULTADO', FORA, x2.away, true);
+  }
+  // AMBOS MARCAM vem logo depois do RESULTADO (2º grupo sempre), independente do 1x2.
+  const btts = fechamento(m['btts']);
+  if (btts) {
+    push('AMBOS MARCAM', 'SIM', btts.yes, true);
+    push('AMBOS MARCAM', 'NÃO', btts.no, true);
+  }
+  if (x2?.home && x2.draw && x2.away) {
+    const dc = (a: number, b: number) => 1 / (1 / a + 1 / b);
     push('DUPLA CHANCE', `${CASA} OU EMPATE`, dc(x2.home, x2.draw));
     push('DUPLA CHANCE', `${FORA} OU EMPATE`, dc(x2.away, x2.draw));
     push('DUPLA CHANCE', `${CASA} OU ${FORA}`, dc(x2.home, x2.away));
@@ -158,12 +166,6 @@ export function mercadosDasOdds(resp: OddsResp, casa: string, fora: string): Mer
     push(g, `MAIS DE ${l.line}`, f.over);
     push(g, `MENOS DE ${l.line}`, f.under);
   }
-  const btts = fechamento(m['btts']);
-  if (btts) {
-    push('AMBOS MARCAM', 'SIM', btts.yes, true);
-    push('AMBOS MARCAM', 'NÃO', btts.no, true);
-  }
-
   // HANDICAP: linha principal (.5 ou inteira); linha 0 já é coberta pelo EMPATE ANULA
   // Linhas quarto (.25/.75 = split de aposta) não cabem no modelo PALPIT: só .5 ou inteira.
   const hc = fechamento(m['asian_handicap']);
