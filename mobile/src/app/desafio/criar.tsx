@@ -1,5 +1,5 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 
@@ -25,7 +25,8 @@ export default function CriarDesafio() {
   const { palette: C } = useTheme();
   const [titulo, setTitulo] = useState("");
   const [fichas, setFichas] = useState("100");
-  const [modo, setModo] = useState<"grupo" | "duelo">("grupo");
+  const { modo: modoParam } = useLocalSearchParams<{ modo?: string }>();
+  const [modo] = useState<"grupo" | "duelo">(modoParam === "duelo" ? "duelo" : "grupo");
   const [publico, setPublico] = useState(false);
   const [dia, setDia] = useState(0);
   const [fixtures, setFixtures] = useState<Fixture[] | null>(null);
@@ -124,37 +125,12 @@ export default function CriarDesafio() {
     <View className="flex-1 bg-bg">
       <AppHeader title="Criar desafio" back />
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 60 }}>
-        <View className="mb-3 flex-row" style={{ gap: 8 }}>
-          {(
-            [
-              {
-                key: "duelo" as const,
-                icon: "people-outline" as const,
-                titulo: "Duelo",
-                texto: "Só você e mais 1. Privado automático — o link convida 1 pessoa.",
-              },
-              {
-                key: "grupo" as const,
-                icon: "people-circle-outline" as const,
-                titulo: "Em grupo",
-                texto: "Vários amigos disputam o ranking. Pode ser público ou por link.",
-              },
-            ]
-          ).map((m) => {
-            const on = modo === m.key;
-            return (
-              <Pressable
-                key={m.key}
-                onPress={() => setModo(m.key)}
-                className={`flex-1 rounded-xl border p-3 ${on ? "border-primary bg-cardAlt" : "border-line bg-card"}`}
-              >
-                <Ionicons name={m.icon} size={26} color={on ? C.primary : C.muted} />
-                <T className={`mt-1 font-mont-xb text-sm ${on ? "text-primary" : ""}`}>{m.titulo}</T>
-                <T className="mt-0.5 text-[11px] text-muted">{m.texto}</T>
-              </Pressable>
-            );
-          })}
-        </View>
+        <T className="mb-3 text-xs text-muted">
+          {modo === "duelo" ? "Duelo: você + 1 adversário" : "Desafio em grupo"} —{" "}
+          <T className="text-primary" onPress={() => router.back()}>
+            trocar modo
+          </T>
+        </T>
         <Field label="Nome (opcional)" value={titulo} onChangeText={setTitulo} placeholder="Desafio da galera" />
         <Field
           label="Fichas por participante (dentro do desafio)"

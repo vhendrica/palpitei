@@ -1,7 +1,7 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useFocusEffect, router } from "expo-router";
 import { useCallback, useState } from "react";
-import { Pressable, RefreshControl, ScrollView, View } from "react-native";
+import { Modal, Pressable, RefreshControl, ScrollView, View } from "react-native";
 
 import { AppHeader } from "../../components/AppHeader";
 import { ErrorBox } from "../../components/Form";
@@ -9,15 +9,18 @@ import { Button, Card, EmptyState, StatusBadge, T } from "../../components/ui";
 import { api } from "../../lib/api";
 import { fmtData } from "../../lib/format";
 import { errorMessage, useApp } from "../../store/AppStore";
+import { useTheme } from "../../store/Theme";
 import type { DesafioResumo } from "../../types";
 
 /** Aba Desafio: os que eu criei/entrei + os públicos abertos. */
 export default function Desafios() {
   const { user } = useApp();
+  const { palette: C } = useTheme();
   const [meus, setMeus] = useState<DesafioResumo[] | null>(null);
   const [publicos, setPublicos] = useState<DesafioResumo[]>([]);
   const [erro, setErro] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [modalCriar, setModalCriar] = useState(false);
 
   const load = useCallback(async () => {
     if (!user) {
@@ -100,7 +103,7 @@ export default function Desafios() {
         <Button
           title="Criar desafio"
           icon="add"
-          onPress={() => router.push("/desafio/criar")}
+          onPress={() => setModalCriar(true)}
           className="mb-4"
         />
         {meus && meus.length === 0 && publicos.length === 0 ? (
@@ -125,6 +128,48 @@ export default function Desafios() {
           </>
         ) : null}
       </ScrollView>
+      <Modal transparent visible={modalCriar} animationType="fade" onRequestClose={() => setModalCriar(false)}>
+        <Pressable
+          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", padding: 24 }}
+          onPress={() => setModalCriar(false)}
+        >
+          <View className="rounded-2xl bg-card p-4">
+            <T className="mb-3 text-center font-mont-xb text-base">Criar desafio</T>
+            {(
+              [
+                {
+                  key: "grupo",
+                  icon: "people-circle-outline" as const,
+                  titulo: "Em grupo",
+                  texto: "Vários amigos disputam o ranking. Pode ser público pra qualquer um ou só por link.",
+                },
+                {
+                  key: "duelo",
+                  icon: "people-outline" as const,
+                  titulo: "Duelo",
+                  texto: "Só você e mais 1. Sempre privado — o link entra só a primeira pessoa que abrir.",
+                },
+              ]
+            ).map((m) => (
+              <Pressable
+                key={m.key}
+                className="mb-2 flex-row items-center rounded-xl border border-line bg-cardAlt p-3"
+                onPress={() => {
+                  setModalCriar(false);
+                  router.push(`/desafio/criar?modo=${m.key}`);
+                }}
+              >
+                <Ionicons name={m.icon} size={30} color={C.muted} />
+                <View className="ml-3 flex-1">
+                  <T className="font-mont-xb text-sm">{m.titulo}</T>
+                  <T className="mt-0.5 text-[11px] text-muted">{m.texto}</T>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={C.muted} />
+              </Pressable>
+            ))}
+          </View>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
