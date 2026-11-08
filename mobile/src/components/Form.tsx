@@ -1,5 +1,5 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import type { ComponentProps } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import { Pressable, TextInput, View } from "react-native";
 
 import { Ficha } from "./Ficha";
@@ -9,10 +9,12 @@ import { T } from "./ui";
 export function Field({
   label,
   icon,
+  iconNode,
   ...props
 }: {
   label: string;
   icon?: keyof typeof Ionicons.glyphMap;
+  iconNode?: ReactNode;
 } & ComponentProps<typeof TextInput>) {
   const { palette: C } = useTheme();
   return (
@@ -21,7 +23,7 @@ export function Field({
         {label}
       </T>
       <View className="flex-row items-center rounded-xl border border-line bg-card px-3">
-        {icon ? <Ionicons name={icon} size={18} color={C.muted} /> : null}
+        {iconNode ?? (icon ? <Ionicons name={icon} size={18} color={C.muted} /> : null)}
         <TextInput
           placeholderTextColor={C.muted}
           className="ml-2 flex-1 py-3.5 font-mont-sb text-base text-fg"
