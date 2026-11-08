@@ -4,10 +4,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 
 import { AppHeader } from "../../components/AppHeader";
-import { Checkbox, ErrorBox, Field } from "../../components/Form";
+import { ErrorBox, Field } from "../../components/Form";
+import { Ficha } from "../../components/Ficha";
 import { Button, Card, EmptyState, T } from "../../components/ui";
 import { api } from "../../lib/api";
 import { fmtData, fmtOdd } from "../../lib/format";
+import { ModalModo, type ModoDesafio } from "../../components/ModalModo";
 import { secaoDo } from "../../lib/secoes";
 import { errorMessage } from "../../store/AppStore";
 import { useTheme } from "../../store/Theme";
@@ -26,7 +28,8 @@ export default function CriarDesafio() {
   const [titulo, setTitulo] = useState("");
   const [fichas, setFichas] = useState("100");
   const { modo: modoParam } = useLocalSearchParams<{ modo?: string }>();
-  const [modo] = useState<"grupo" | "duelo">(modoParam === "duelo" ? "duelo" : "grupo");
+  const [modo, setModo] = useState<ModoDesafio>(modoParam === "duelo" ? "duelo" : "grupo");
+  const [modalModo, setModalModo] = useState(false);
   const [publico, setPublico] = useState(false);
   const [dia, setDia] = useState(0);
   const [fixtures, setFixtures] = useState<Fixture[] | null>(null);
@@ -127,33 +130,62 @@ export default function CriarDesafio() {
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 60 }}>
         <T className="mb-3 text-xs text-muted">
           {modo === "duelo" ? "Duelo: você + 1 adversário" : "Desafio em grupo"} —{" "}
-          <T className="text-primary" onPress={() => router.back()}>
+          <T className="text-primary" onPress={() => setModalModo(true)}>
             trocar modo
           </T>
         </T>
         <Field label="Nome (opcional)" value={titulo} onChangeText={setTitulo} placeholder="Desafio da galera" />
-        <Field
-          label="Fichas por participante (dentro do desafio)"
-          value={fichas}
-          onChangeText={setFichas}
-          placeholder="100"
-          keyboardType="number-pad"
-        />
-        {modo === "duelo" ? (
-          <T className="mb-3 text-xs text-muted">
-            Duelo é sempre privado: o link entra só 1 pessoa (a primeira que abrir).
+        <View className="mb-3">
+          <View className="mb-1.5 flex-row items-center">
+            <Ficha size={16} />
+            <T className="ml-1.5 font-mont-sb text-xs uppercase tracking-wide text-muted">
+              Fichas por participante
+            </T>
+          </View>
+          <Field label="" value={fichas} onChangeText={setFichas} placeholder="100" keyboardType="number-pad" />
+          <T className="-mt-1 text-[11px] text-muted">
+            É o saldo que cada um recebe pra palpitar dentro desse desafio.
           </T>
+        </View>
+        {modo === "duelo" ? (
+          <View className="mb-3 flex-row items-center rounded-xl border border-line p-3">
+            <Ionicons name="lock-closed-outline" size={18} color={C.muted} />
+            <T className="ml-2 flex-1 text-xs text-muted">
+              <T className="font-mont-b text-xs">Privado (duelo)</T>
+              {"\n"}O link entra só a primeira pessoa que abrir.
+            </T>
+          </View>
         ) : (
-          <>
-            <Checkbox
-              checked={publico}
-              onChange={setPublico}
-              label="Público: aparece na aba Desafio pra qualquer um entrar"
-            />
-            {!publico ? (
-              <T className="mb-3 -mt-1 text-xs text-muted">Privado: só entra quem receber o link.</T>
-            ) : null}
-          </>
+          <View className="mb-3">
+            <View className="mb-1.5 flex-row items-center">
+              <T className="flex-1 font-mont-sb text-xs uppercase tracking-wide text-muted">
+                Quem pode entrar?
+              </T>
+            </View>
+            <View className="flex-row" style={{ gap: 8 }}>
+              {(
+                [
+                  { v: false, icon: "lock-closed-outline" as const, titulo: "Privado", texto: "Só quem receber o link" },
+                  { v: true, icon: "earth-outline" as const, titulo: "Público", texto: "Aparece na aba Desafio" },
+                ]
+              ).map((o) => {
+                const on = publico === o.v;
+                return (
+                  <Pressable
+                    key={o.titulo}
+                    onPress={() => setPublico(o.v)}
+                    className={`flex-1 flex-row items-center rounded-xl border p-2.5 ${on ? "border-primary" : "border-line"}`}
+                  >
+                    <Ionicons name={o.icon} size={17} color={on ? C.primary : C.muted} />
+                    <View className="ml-2">
+                      <T className={`text-xs font-mont-b ${on ? "text-primary" : ""}`}>{o.titulo}</T>
+                      <T className="text-[10px] text-muted">{o.texto}</T>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
         )}
 
         <View className="mb-3 flex-row">
@@ -273,6 +305,7 @@ export default function CriarDesafio() {
           />
         ) : null}
       </ScrollView>
+      <ModalModo visivel={modalModo} onFechar={() => setModalModo(false)} onEscolher={(m) => { setModalModo(false); setModo(m); }} />
     </View>
   );
 }
