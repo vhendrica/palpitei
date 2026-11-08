@@ -7,6 +7,7 @@ import { AppHeader } from "../../components/AppHeader";
 import { BetButton } from "../../components/BetButton";
 import { Bilhete, type OpcaoBilhete } from "../../components/Bilhete";
 import { GrupoTitulo } from "../../components/GrupoTitulo";
+import { PalpiteiroBilhete } from "../../components/PalpiteiroBilhete";
 import { ErrorBox } from "../../components/Form";
 import { Button, Card, StatusBadge, T } from "../../components/ui";
 import { api } from "../../lib/api";
@@ -20,7 +21,7 @@ import {
 import { fmtData, fmtPontos } from "../../lib/format";
 import { errorMessage, useApp } from "../../store/AppStore";
 import { useTheme } from "../../store/Theme";
-import { agruparMercados, type DesafioDetalhe } from "../../types";
+import { agruparMercados, type DesafioDetalhe, type PalpiteiroView } from "../../types";
 
 const horaFmt = (iso: string) =>
   new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
@@ -37,6 +38,27 @@ export default function Detalhe() {
   const [entrando, setEntrando] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [placarInput, setPlacarInput] = useState<Record<string, { casa: string; fora: string }>>({});
+  const [bilhetes, setBilhetes] = useState<PalpiteiroView[] | null>(null);
+  const [bilheteAberto, setBilheteAberto] = useState<number | null>(null);
+
+  const toggleBilhete = useCallback(
+    async (posicao: number) => {
+      if (bilheteAberto === posicao) {
+        setBilheteAberto(null);
+        return;
+      }
+      setBilheteAberto(posicao);
+      if (!bilhetes) {
+        try {
+          const r = await api.desafios.palpiteiros(String(id));
+          setBilhetes(r.palpiteiros);
+        } catch {
+          /* toast global já avisa */
+        }
+      }
+    },
+    [id, bilheteAberto, bilhetes],
+  );
 
   const load = useCallback(async () => {
     try {
@@ -368,15 +390,40 @@ export default function Detalhe() {
         {d && d.ranking.length > 0 ? (
           <>
             <T className="mb-2 mt-4 font-mont-xb text-xs uppercase text-muted">Ranking</T>
-            {d.ranking.map((r) => (
-              <Card key={r.posicao} className="mb-2 flex-row items-center py-2">
-                <View className="h-8 w-8 items-center justify-center rounded-full bg-cardAlt">
-                  <T className="font-mont-xb text-xs">{r.posicao}º</T>
-                </View>
-                <T className="ml-3 flex-1 font-mont-b text-sm">{r.nome}</T>
-                <T className="font-odds text-sm text-primary">{fmtPontos(r.pontuacao)} pts</T>
-              </Card>
-            ))}
+            {d.ranking.map((r) => {
+              const aberto = bilheteAberto === r.posicao;
+              const bilhete = aberto ? bilhetes?.find((b) => b.posicao === r.posicao) : null;
+              return (
+                <Pressable key={r.posicao} onPress={() => toggleBilhete(r.posicao)}>
+                  <Card className="mb-2 py-2">
+                    <View className="flex-row items-center">
+                      <View className="h-8 w-8 items-center justify-center rounded-full bg-cardAlt">
+                        <T className="font-mont-xb text-xs">{r.posicao}º</T>
+                      </View>
+                      <T className="ml-3 flex-1 font-mont-b text-sm">{r.nome}</T>
+                      <T className="font-odds text-sm text-primary">{fmtPontos(r.pontuacao)} pts</T>
+                      <Ionicons
+                        name={aberto ? "chevron-up" : "chevron-down"}
+                        size={15}
+                        color={C.muted}
+                        style={{ marginLeft: 8 }}
+                      />
+                    </View>
+                    {aberto ? (
+                      <View className="mt-2 border-t border-line pt-2">
+                        {bilhetes == null ? (
+                          <T className="text-xs text-muted">Carregando…</T>
+                        ) : bilhete && (bilhete.palpites.length > 0 || bilhete.multiplas.length > 0) ? (
+                          <PalpiteiroBilhete p={bilhete} />
+                        ) : (
+                          <T className="text-xs text-muted">Nenhum palpite ainda.</T>
+                        )}
+                      </View>
+                    ) : null}
+                  </Card>
+                </Pressable>
+              );
+            })}
           </>
         ) : null}
 
