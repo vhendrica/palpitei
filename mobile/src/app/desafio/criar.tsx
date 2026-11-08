@@ -30,6 +30,7 @@ export default function CriarDesafio() {
   const { modo: modoParam } = useLocalSearchParams<{ modo?: string }>();
   const [modo, setModo] = useState<ModoDesafio>(modoParam === "duelo" ? "duelo" : "grupo");
   const [modalModo, setModalModo] = useState(false);
+  const [helpFichas, setHelpFichas] = useState(false);
   const [publico, setPublico] = useState(false);
   const [dia, setDia] = useState(0);
   const [fixtures, setFixtures] = useState<Fixture[] | null>(null);
@@ -134,25 +135,34 @@ export default function CriarDesafio() {
             trocar modo
           </T>
         </T>
-        <Field label="Nome (opcional)" value={titulo} onChangeText={setTitulo} placeholder="Desafio da galera" />
-        <View className="mb-3">
-          <View className="mb-1.5 flex-row items-center">
-            <Ficha size={16} />
-            <T className="ml-1.5 font-mont-sb text-xs uppercase tracking-wide text-muted">
-              Fichas por participante
+        <View className="flex-row" style={{ gap: 8 }}>
+          <View className="flex-1">
+            <Field label="Nome (opcional)" value={titulo} onChangeText={setTitulo} placeholder="Desafio da galera" />
+          </View>
+          <View className="w-28">
+            <View className="mb-1.5 flex-row items-center">
+              <Ficha size={14} />
+              <T className="ml-1 font-mont-sb text-[11px] uppercase tracking-wide text-muted">Fichas</T>
+              <Pressable onPress={() => setHelpFichas((h) => !h)} hitSlop={8} accessibilityLabel="O que são fichas?">
+                <Ionicons name={helpFichas ? "help-circle" : "help-circle-outline"} size={14} color={C.muted} style={{ marginLeft: 3 }} />
+              </Pressable>
+            </View>
+            <Field label="" value={fichas} onChangeText={setFichas} placeholder="100" keyboardType="number-pad" />
+          </View>
+        </View>
+        {helpFichas ? (
+          <View className="mb-3 -mt-1 rounded-lg border border-line bg-cardAlt p-2.5">
+            <T className="text-xs text-muted">
+              É o saldo que cada participante recebe pra palpitar dentro desse desafio — não gasta PONTOS, é só dentro do jogo. Todos começam com o mesmo valor pra disputar o ranking em pé de igualdade.
             </T>
           </View>
-          <Field label="" value={fichas} onChangeText={setFichas} placeholder="100" keyboardType="number-pad" />
-          <T className="-mt-1 text-[11px] text-muted">
-            É o saldo que cada um recebe pra palpitar dentro desse desafio.
-          </T>
-        </View>
+        ) : null}
         {modo === "duelo" ? (
           <View className="mb-3 flex-row items-center rounded-xl border border-line p-3">
             <Ionicons name="lock-closed-outline" size={18} color={C.muted} />
             <T className="ml-2 flex-1 text-xs text-muted">
-              <T className="font-mont-b text-xs">Privado (duelo)</T>
-              {"\n"}O link entra só a primeira pessoa que abrir.
+              <T className="font-mont-b text-xs">Duelo é sempre privado</T>
+              {"\n"}O link serve de convite pra 1 adversário — quem abrir primeiro já fica dentro.
             </T>
           </View>
         ) : (
@@ -165,8 +175,8 @@ export default function CriarDesafio() {
             <View className="flex-row" style={{ gap: 8 }}>
               {(
                 [
-                  { v: false, icon: "lock-closed-outline" as const, titulo: "Privado", texto: "Só quem receber o link" },
-                  { v: true, icon: "earth-outline" as const, titulo: "Público", texto: "Aparece na aba Desafio" },
+                  { v: false, icon: "lock-closed-outline" as const, titulo: "Privado", texto: "Só entra quem tiver o link que você compartilhar" },
+                  { v: true, icon: "earth-outline" as const, titulo: "Público", texto: "Qualquer um encontra e entra pela aba Desafio" },
                 ]
               ).map((o) => {
                 const on = publico === o.v;
