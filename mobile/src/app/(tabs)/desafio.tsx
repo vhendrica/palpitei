@@ -158,7 +158,7 @@ export default function Desafios() {
                 }}
               >
                 {m.key === "duelo" ? (
-                  <View className="w-10 flex-row items-center justify-center">
+                  <View className="w-14 flex-row items-center justify-center">
                     <Ionicons name="person-outline" size={15} color={C.muted} />
                     <T className="mx-0.5 text-[11px] font-mont-xb text-muted">x</T>
                     <Ionicons name="person-outline" size={15} color={C.muted} />
