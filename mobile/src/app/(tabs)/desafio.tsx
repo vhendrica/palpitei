@@ -164,7 +164,7 @@ export default function Desafios() {
                     <Ionicons name="person-outline" size={15} color={C.muted} />
                   </View>
                 ) : (
-                  <View className="w-16 flex-row flex-wrap items-center justify-center">
+                  <View className="w-14 flex-row flex-wrap items-center justify-center">
                     {[0, 1, 2, 3, 4, 5].map((i) => (
                       <Ionicons key={i} name="person-outline" size={15} color={C.muted} />
                     ))}
