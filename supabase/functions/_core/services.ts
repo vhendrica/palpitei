@@ -272,6 +272,8 @@ export async function palpiteirosDaLiga(db: Db, user: UserPublico | null, liga: 
       const eu = user?.id === e.user_id;
       // Jogo que não começou continua oculto mesmo se a rodada for finalizada antes.
       const ver = (comecou: boolean) => eu || comecou || verTudo;
+      // Desafio é entre amigos: fichas de todos são públicas pra conferência.
+      const mostraFichas = eu || verTudo || liga.owner_id != null;
       const palpites = apostas
         .filter((a) => a.user_id === e.user_id && ver(!!a.comecou))
         .map((a) => ({
@@ -280,7 +282,7 @@ export async function palpiteirosDaLiga(db: Db, user: UserPublico | null, liga: 
           descricao: a.descricao as string,
           multiplicador: num(a.multiplicador),
           resultado: resultadoDe(!!a.finalizado || tudo, !!a.resultado_final),
-          ...(eu || verTudo ? { fichas: num(a.fichas) } : {}),
+          ...(mostraFichas ? { fichas: num(a.fichas) } : {}),
         }));
       const minhas = multiplas
         .filter((m) => m.user_id === e.user_id)
@@ -298,7 +300,7 @@ export async function palpiteirosDaLiga(db: Db, user: UserPublico | null, liga: 
               odd: p.odd,
               resultado: resultadoDe(p.finalizado || tudo, p.resultado_final),
             })),
-            ...(eu || verTudo ? { fichas: m.fichas } : {}),
+            ...(mostraFichas ? { fichas: m.fichas } : {}),
           };
         })
         .filter((m) => m.pernas.length > 0);
