@@ -1,9 +1,10 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, View } from "react-native";
+import { Pressable, ScrollView, TextInput, View } from "react-native";
 
 import { AppHeader } from "../../components/AppHeader";
+import { HelpIcon } from "../../components/HelpIcon";
 import { ErrorBox, Field } from "../../components/Form";
 import { Ficha } from "../../components/Ficha";
 import { Button, Card, EmptyState, T } from "../../components/ui";
@@ -30,7 +31,6 @@ export default function CriarDesafio() {
   const { modo: modoParam } = useLocalSearchParams<{ modo?: string }>();
   const [modo, setModo] = useState<ModoDesafio>(modoParam === "duelo" ? "duelo" : "grupo");
   const [modalModo, setModalModo] = useState(false);
-  const [helpFichas, setHelpFichas] = useState(false);
   const [publico, setPublico] = useState(false);
   const [dia, setDia] = useState(0);
   const [fixtures, setFixtures] = useState<Fixture[] | null>(null);
@@ -135,34 +135,39 @@ export default function CriarDesafio() {
             trocar modo
           </T>
         </T>
-        <View className="flex-row" style={{ gap: 8 }}>
+        <View className="flex-row items-end" style={{ gap: 8 }}>
           <View className="flex-1">
             <Field label="Nome (opcional)" value={titulo} onChangeText={setTitulo} placeholder="Desafio da galera" />
           </View>
           <View className="w-28">
             <View className="mb-1.5 flex-row items-center">
-              <Ficha size={14} />
-              <T className="ml-1 font-mont-sb text-[11px] uppercase tracking-wide text-muted">Fichas</T>
-              <Pressable onPress={() => setHelpFichas((h) => !h)} hitSlop={8} accessibilityLabel="O que são fichas?">
-                <Ionicons name={helpFichas ? "help-circle" : "help-circle-outline"} size={14} color={C.muted} style={{ marginLeft: 3 }} />
-              </Pressable>
+              <T className="font-mont-sb text-[11px] uppercase tracking-wide text-muted">Fichas</T>
+              <View className="ml-0.5">
+                <HelpIcon
+                  size={14}
+                  texto={"Saldo inicial deste Desafio.\nNão gasta seus Pontos. Todo mundo começa com a mesma quantidade de fichas."}
+                />
+              </View>
             </View>
-            <Field label="" value={fichas} onChangeText={setFichas} placeholder="100" keyboardType="number-pad" />
+            <View className="flex-row items-center rounded-lg border border-line bg-cardAlt px-2.5">
+              <Ficha size={14} />
+              <TextInput
+                className="flex-1 py-2 pl-1.5 font-odds text-sm text-fg"
+                value={fichas}
+                onChangeText={setFichas}
+                placeholder="100"
+                placeholderTextColor={C.muted}
+                keyboardType="number-pad"
+              />
+            </View>
           </View>
         </View>
-        {helpFichas ? (
-          <View className="mb-3 -mt-1 rounded-lg border border-line bg-cardAlt p-2.5">
-            <T className="text-xs text-muted">
-              É o saldo que cada participante recebe pra palpitar dentro desse desafio — não gasta PONTOS, é só dentro do jogo. Todos começam com o mesmo valor pra disputar o ranking em pé de igualdade.
-            </T>
-          </View>
-        ) : null}
         {modo === "duelo" ? (
           <View className="mb-3 flex-row items-center rounded-xl border border-line p-3">
             <Ionicons name="lock-closed-outline" size={18} color={C.muted} />
             <T className="ml-2 flex-1 text-xs text-muted">
               <T className="font-mont-b text-xs">Duelo é sempre privado</T>
-              {"\n"}O link serve de convite pra 1 adversário — quem abrir primeiro já fica dentro.
+              {"\n"}O link serve de convite pra 1 adversário. Quem entrar primeiro te enfrenta.
             </T>
           </View>
         ) : (
@@ -187,9 +192,11 @@ export default function CriarDesafio() {
                     className={`flex-1 flex-row items-center rounded-xl border p-2.5 ${on ? "border-primary" : "border-line"}`}
                   >
                     <Ionicons name={o.icon} size={17} color={on ? C.primary : C.muted} />
-                    <View className="ml-2">
+                    <View className="ml-2 flex-1" style={{ minWidth: 0 }}>
                       <T className={`text-xs font-mont-b ${on ? "text-primary" : ""}`}>{o.titulo}</T>
-                      <T className="text-[10px] text-muted">{o.texto}</T>
+                      <T className="text-[10px] text-muted" style={{ flexWrap: "wrap" }}>
+                        {o.texto}
+                      </T>
                     </View>
                   </Pressable>
                 );
