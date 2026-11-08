@@ -129,8 +129,9 @@ export function mercadosDasOdds(resp: OddsResp, casa: string, fora: string): Mer
   const m = bet.odds;
   const out: MercadoApi[] = [];
   const push = (grupo: string, descricao: string, mult: unknown, real = false) => {
-    const v = Number(mult);
-    if (Number.isFinite(v) && v > 1) out.push({ grupo, descricao, multiplicador: Math.round(v * 100) / 100, casas: 1, real });
+    const v = Math.round(Number(mult) * 100) / 100;
+    // Arredondado aqui pra nunca salvar odd 1.00 (v=1.004 entrava e depois reprovava na validação).
+    if (Number.isFinite(v) && v >= 1.01) out.push({ grupo, descricao, multiplicador: v, casas: 1, real });
   };
   const CASA = casa.toUpperCase();
   const FORA = fora.toUpperCase();

@@ -229,7 +229,9 @@ export async function definirMercados(sql: Db, jogoId: string, mercadosInput: un
   if (!Array.isArray(mercadosInput)) throw new RuleError('Envie a lista de mercados.');
   const itens = mercadosInput.map((m, i) => {
     const multiplicador = Math.round(Number(m?.multiplicador) * 100) / 100;
-    if (!(multiplicador >= 1.01 && multiplicador <= 1000)) throw new RuleError('Multiplicador inválido.');
+    if (!(multiplicador >= 1.01 && multiplicador <= 1000)) {
+      throw new RuleError(`Multiplicador inválido em "${m?.descricao ?? '?'}": ${m?.multiplicador}`);
+    }
     if (m?.id != null && !isUuid(m.id)) throw new RuleError('Mercado inválido para esse palpite.');
     const grupo = m?.grupo == null ? '' : String(m.grupo).trim().toUpperCase();
     if (grupo.length > 40) throw new RuleError('Nome do mercado muito longo.');
