@@ -135,28 +135,27 @@ export default function CriarDesafio() {
             trocar modo
           </T>
         </T>
-        <View className="flex-row items-end" style={{ gap: 8 }}>
+        <View className="flex-row" style={{ gap: 8 }}>
           <View className="flex-1">
             <Field label="Nome (opcional)" value={titulo} onChangeText={setTitulo} placeholder="Desafio da galera" />
           </View>
           <View className="w-28">
             <Field
-              label=""
+              label="Fichas"
+              labelExtra={
+                <View className="ml-1">
+                  <HelpIcon
+                    size={14}
+                    texto={"Saldo inicial deste Desafio.\nNão gasta seus Pontos. Todo mundo começa com a mesma quantidade de fichas."}
+                  />
+                </View>
+              }
               iconNode={<Ficha size={16} />}
               value={fichas}
               onChangeText={setFichas}
               placeholder="100"
               keyboardType="number-pad"
             />
-          </View>
-          <View className="absolute left-0 top-0 flex-row items-center">
-            <T className="font-mont-b text-xs uppercase tracking-widest text-muted">Fichas</T>
-            <View className="ml-0.5">
-              <HelpIcon
-                size={14}
-                texto={"Saldo inicial deste Desafio.\nNão gasta seus Pontos. Todo mundo começa com a mesma quantidade de fichas."}
-              />
-            </View>
           </View>
         </View>
         {modo === "duelo" ? (

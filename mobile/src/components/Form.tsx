@@ -10,20 +10,29 @@ export function Field({
   label,
   icon,
   iconNode,
+  labelExtra,
   ...props
 }: {
   label: string;
   icon?: keyof typeof Ionicons.glyphMap;
   iconNode?: ReactNode;
+  labelExtra?: ReactNode;
 } & ComponentProps<typeof TextInput>) {
   const { palette: C } = useTheme();
   return (
     <View className="mb-4">
-      <T className="mb-1.5 font-mont-b text-xs uppercase tracking-widest text-muted">
-        {label}
-      </T>
+      <View className="mb-1.5 flex-row items-center">
+        <T className="font-mont-b text-xs uppercase tracking-widest text-muted">
+          {label}
+        </T>
+        {labelExtra}
+      </View>
       <View className="flex-row items-center rounded-xl border border-line bg-card px-3">
-        {iconNode ?? (icon ? <Ionicons name={icon} size={18} color={C.muted} /> : null)}
+        {iconNode ? (
+          <View style={{ flexShrink: 0, marginRight: 2 }}>{iconNode}</View>
+        ) : icon ? (
+          <Ionicons name={icon} size={18} color={C.muted} />
+        ) : null}
         <TextInput
           placeholderTextColor={C.muted}
           className="ml-2 flex-1 py-3.5 font-mont-sb text-base text-fg"
