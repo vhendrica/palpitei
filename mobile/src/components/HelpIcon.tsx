@@ -1,6 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRef, useState } from "react";
-import { Modal, Pressable, View } from "react-native";
+import { Dimensions, Modal, Pressable, View } from "react-native";
 
 import { useTheme } from "../store/Theme";
 import { T } from "./ui";
@@ -11,6 +11,7 @@ export function HelpIcon({ texto, size = 15 }: { texto: string; size?: number })
   const [aberto, setAberto] = useState(false);
   const [pos, setPos] = useState({ x: 0, y: 0 });
   const iconRef = useRef<any>(null);
+  const largura = 260;
 
   const abrir = () => {
     iconRef.current?.measureInWindow?.((x: number, y: number, w: number, h: number) => {
@@ -18,6 +19,8 @@ export function HelpIcon({ texto, size = 15 }: { texto: string; size?: number })
     });
     setAberto(true);
   };
+
+  const esq = Math.max(8, Math.min(pos.x, Dimensions.get("window").width - largura - 8));
 
   return (
     <>
@@ -32,15 +35,15 @@ export function HelpIcon({ texto, size = 15 }: { texto: string; size?: number })
           style={{
             position: "absolute",
             top: pos.y,
-            left: Math.max(8, Math.min(pos.x, 300)),
-            width: 260,
+            left: esq,
+            width: largura,
           }}
         >
           <View
             style={{
               position: "absolute",
               top: -5,
-              left: 10,
+              left: Math.max(6, pos.x - esq + 4),
               width: 10,
               height: 10,
               transform: [{ rotate: "45deg" }],
