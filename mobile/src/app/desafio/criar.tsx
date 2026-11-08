@@ -139,9 +139,9 @@ export default function CriarDesafio() {
           <View className="flex-1">
             <Field label="Nome (opcional)" value={titulo} onChangeText={setTitulo} placeholder="Desafio da galera" />
           </View>
-          <View className="w-28">
+          <View className="mb-4 w-28">
             <View className="mb-1.5 flex-row items-center">
-              <T className="font-mont-sb text-[11px] uppercase tracking-wide text-muted">Fichas</T>
+              <T className="font-mont-b text-xs uppercase tracking-widest text-muted">Fichas</T>
               <View className="ml-0.5">
                 <HelpIcon
                   size={14}
@@ -149,10 +149,10 @@ export default function CriarDesafio() {
                 />
               </View>
             </View>
-            <View className="flex-row items-center rounded-lg border border-line bg-cardAlt px-2.5">
-              <Ficha size={14} />
+            <View className="flex-row items-center rounded-xl border border-line bg-card px-3">
+              <Ficha size={16} />
               <TextInput
-                className="flex-1 py-2 pl-1.5 font-odds text-sm text-fg"
+                className="ml-2 flex-1 py-3.5 font-mont-sb text-base text-fg"
                 value={fichas}
                 onChangeText={setFichas}
                 placeholder="100"
