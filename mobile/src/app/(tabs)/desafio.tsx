@@ -164,10 +164,10 @@ export default function Desafios() {
                     <Ionicons name="person-outline" size={15} color={C.muted} />
                   </View>
                 ) : (
-                  <View className="w-10 flex-row items-center justify-center">
-                    <Ionicons name="person-outline" size={15} color={C.muted} />
-                    <Ionicons name="person-outline" size={15} color={C.muted} />
-                    <Ionicons name="person-outline" size={15} color={C.muted} />
+                  <View className="w-16 flex-row flex-wrap items-center justify-center">
+                    {[0, 1, 2, 3, 4, 5].map((i) => (
+                      <Ionicons key={i} name="person-outline" size={15} color={C.muted} />
+                    ))}
                   </View>
                 )}
                 <View className="ml-2 flex-1">
