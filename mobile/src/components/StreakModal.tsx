@@ -72,12 +72,10 @@ export function StreakModal({
             })}
           </View>
           {quebrou ? (
-            <T className="text-center text-xs text-muted">
-              Dia {dia}. Você ganhou +{pontos} pontos.{"\n"}Volte amanhã para somar mais.
-            </T>
+            <T className="text-center text-xs text-muted">Dia {dia} · volta amanhã pro dia 2</T>
           ) : (
             <T className="text-center text-xs text-muted">
-              Amanhã: +{amanha} pontos{"\n"}No 7º dia o bônus sobe para +110 pontos 🔥{"\n"}Faltam {7 - dia} {7 - dia === 1 ? "dia" : "dias"}.
+              Amanhã <T className="font-mont-b text-fg">+{amanha}</T> · 7º dia <T className="font-mont-b text-primary">+110</T> 🔥
             </T>
           )}
         </View>
