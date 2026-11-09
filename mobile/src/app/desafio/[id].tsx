@@ -40,7 +40,6 @@ export default function Detalhe() {
   const [placarInput, setPlacarInput] = useState<Record<string, { casa: string; fora: string }>>({});
   const [bilhetes, setBilhetes] = useState<PalpiteiroView[] | null>(null);
   const [bilheteAberto, setBilheteAberto] = useState<number | null>(null);
-  const [jogoAberto, setJogoAberto] = useState<Set<string>>(new Set());
   const [maisJogos, setMaisJogos] = useState(false);
 
   const toggleBilhete = useCallback(
@@ -333,12 +332,28 @@ export default function Detalhe() {
           </View>
         ) : null}
 
-        {d?.jogos.slice(0, encerrada && !maisJogos ? 2 : undefined).map((j) => (
+        {encerrada && d && d.jogos.length > 0 ? (
+          <Card className="mb-2">
+            <Pressable className="flex-row items-center" onPress={() => router.push(`/desafio/${id}/jogos`)}>
+              <T className="flex-1 font-mont-xb text-sm">Jogos</T>
+              <Ionicons name="chevron-forward" size={16} color={C.muted} />
+            </Pressable>
+            {d.jogos.slice(0, maisJogos ? undefined : 2).map((j) => (
+              <View key={j.id} className="mt-2 flex-row items-center border-t border-line pt-2">
+                <T className="flex-1 font-mont-b text-xs">{j.time_casa} x {j.time_fora}</T>
+                {j.placar ? <T className="font-odds text-sm">{j.placar.casa} - {j.placar.fora}</T> : null}
+              </View>
+            ))}
+            {d.jogos.length > 2 ? (
+              <Pressable className="mt-1 items-center pt-1" onPress={() => setMaisJogos((v) => !v)}>
+                <T className="text-xs text-primary">{maisJogos ? "mostrar menos" : `ver todos os ${d.jogos.length} jogos`}</T>
+              </Pressable>
+            ) : null}
+          </Card>
+        ) : null}
+        {encerrada ? null : d?.jogos.map((j) => (
           <Card key={j.id} className="mb-2">
-            <Pressable
-              className="flex-row items-center"
-              onPress={encerrada ? () => setJogoAberto((s) => { const n = new Set(s); n.has(j.id) ? n.delete(j.id) : n.add(j.id); return n; }) : undefined}
-            >
+            <View className="flex-row items-center">
               <View className="flex-1">
                 <T className="font-mont-b text-sm">
                   {j.time_casa} x {j.time_fora}
@@ -354,10 +369,7 @@ export default function Detalhe() {
                   {j.placar.casa} - {j.placar.fora}
                 </T>
               ) : null}
-              {encerrada ? (
-                <Ionicons name={jogoAberto.has(j.id) ? "chevron-up" : "chevron-down"} size={15} color={C.muted} style={{ marginLeft: 8 }} />
-              ) : null}
-            </Pressable>
+            </View>
             {liga?.e_dono && !j.finalizado ? (
               <View className="mt-2 flex-row items-center">
                 <T className="mr-2 text-xs text-muted">Placar final:</T>
@@ -396,7 +408,6 @@ export default function Detalhe() {
                 </Pressable>
               </View>
             ) : null}
-            {!encerrada || jogoAberto.has(j.id) ? (
             <View className="mt-2">
               {agruparMercados(j.mercados).map((g) => (
                 <View key={g.grupo || "_"} className="mt-2">
@@ -432,17 +443,8 @@ export default function Detalhe() {
                 </View>
               ))}
             </View>
-            ) : null}
           </Card>
         ))}
-        {encerrada && d && d.jogos.length > 2 ? (
-          <Pressable className="mb-2 flex-row items-center justify-center py-1" onPress={() => setMaisJogos((v) => !v)}>
-            <T className="text-xs text-primary">
-              {maisJogos ? "mostrar menos" : `ver todos os ${d.jogos.length} jogos`}
-            </T>
-            <Ionicons name={maisJogos ? "chevron-up" : "chevron-down"} size={14} color={C.primary} style={{ marginLeft: 4 }} />
-          </Pressable>
-        ) : null}
 
         
 
