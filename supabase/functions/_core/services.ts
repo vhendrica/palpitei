@@ -59,8 +59,11 @@ export async function getConfig(db: Db) {
 /** Mercados da múltipla agrupados por jogo (destaque primeiro). Com userId, inclui as fichas já apostadas. */
 export async function jogosComMercados(db: Db, ligaId: string, userId?: string | null): Promise<JogoView[]> {
   const jogos = await db`
-    select *, horario <= now() as comecou from jogos where liga_id = ${ligaId}
-    order by destaque desc, horario, ordem, time_casa`;
+    select j.*, f.externo_id, j.horario <= now() as comecou
+    from jogos j
+    left join fixtures_dia f on f.fixture_id = j.fixture_id
+    where j.liga_id = ${ligaId}
+    order by j.destaque desc, j.horario, j.ordem, j.time_casa`;
   if (jogos.length === 0) return [];
   const mercados = await db`
     select m.*, coalesce((select sum(a.fichas_apostadas) from apostas a
@@ -70,6 +73,7 @@ export async function jogosComMercados(db: Db, ligaId: string, userId?: string |
   return jogos.map((j) => ({
     id: j.id as string,
     fixture_id: num(j.fixture_id),
+    externo_id: (j.externo_id as string) ?? null,
     time_casa: j.time_casa as string,
     time_fora: j.time_fora as string,
     horario: iso(j.horario)!,

@@ -371,7 +371,7 @@ export default function Detalhe() {
                 </T>
               ) : null}
             </View>
-            {liga?.e_dono && !j.finalizado ? (
+            {liga?.e_dono && !j.finalizado && !j.externo_id ? (
               <View className="mt-2 flex-row items-center">
                 <T className="mr-2 text-xs text-muted">Placar final:</T>
                 <TextInput

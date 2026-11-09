@@ -35,6 +35,7 @@ export type Mercado = {
 export type Jogo = {
   id: string;
   fixture_id: number;
+  externo_id?: string | null;
   time_casa: string;
   time_fora: string;
   horario: string;
