@@ -41,6 +41,7 @@ export default function Detalhe() {
   const [bilhetes, setBilhetes] = useState<PalpiteiroView[] | null>(null);
   const [bilheteAberto, setBilheteAberto] = useState<number | null>(null);
   const [jogoAberto, setJogoAberto] = useState<Set<string>>(new Set());
+  const [maisJogos, setMaisJogos] = useState(false);
 
   const toggleBilhete = useCallback(
     async (posicao: number) => {
@@ -332,7 +333,7 @@ export default function Detalhe() {
           </View>
         ) : null}
 
-        {d?.jogos.map((j) => (
+        {d?.jogos.slice(0, encerrada && !maisJogos ? 2 : undefined).map((j) => (
           <Card key={j.id} className="mb-2">
             <Pressable
               className="flex-row items-center"
@@ -434,6 +435,14 @@ export default function Detalhe() {
             ) : null}
           </Card>
         ))}
+        {encerrada && d && d.jogos.length > 2 ? (
+          <Pressable className="mb-2 flex-row items-center justify-center py-1" onPress={() => setMaisJogos((v) => !v)}>
+            <T className="text-xs text-primary">
+              {maisJogos ? "mostrar menos" : `ver todos os ${d.jogos.length} jogos`}
+            </T>
+            <Ionicons name={maisJogos ? "chevron-up" : "chevron-down"} size={14} color={C.primary} style={{ marginLeft: 4 }} />
+          </Pressable>
+        ) : null}
 
         
 

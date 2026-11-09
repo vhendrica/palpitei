@@ -299,6 +299,7 @@ export default function HomeMultipla() {
           </T>
         </View>
         </Pressable>
+        {!j.finalizado ? (
         <View className="mt-3">
           {agruparMercados(j.mercados)
             .filter((_, gi) => gi < MERCADOS_VISIVEIS || abertos.includes(j.id))
@@ -380,6 +381,7 @@ export default function HomeMultipla() {
             <T className="text-sm text-muted">Mercados em breve.</T>
           ) : null}
         </View>
+        ) : null}
       </Card>
     );
   };
