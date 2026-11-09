@@ -1,5 +1,6 @@
 import type { Db } from './db.ts';
 import { RuleError } from './errors.ts';
+import { nomeBR } from './times.ts';
 import { validarDataISO } from './validation.ts';
 
 /**
@@ -84,14 +85,14 @@ export async function importarOdds(db: Db, cfg: OddsConfig | undefined, dataInpu
     const [row] = await db`
       insert into fixtures_dia (fixture_id, data, time_casa, time_fora, horario, campeonato, fonte, externo_id,
                                 externo_esporte, mercados_sugeridos)
-      values (${j.id}, ${data}, ${j.teams.home.name}, ${j.teams.away.name}, ${j.kickoff_utc},
+      values (${j.id}, ${data}, ${nomeBR(j.teams.home.name)}, ${nomeBR(j.teams.away.name)}, ${j.kickoff_utc},
               ${j.league.name}, 'api_football', ${String(j.id)}, ${j.league.name}, '[]'::jsonb)
       on conflict (externo_id) do update set
         data = excluded.data, time_casa = excluded.time_casa, time_fora = excluded.time_fora,
         horario = excluded.horario, campeonato = excluded.campeonato,
         externo_esporte = excluded.externo_esporte
       returning fixture_id`;
-    importados.push({ fixture_id: Number(row.fixture_id), time_casa: j.teams.home.name, time_fora: j.teams.away.name });
+    importados.push({ fixture_id: Number(row.fixture_id), time_casa: nomeBR(j.teams.home.name), time_fora: nomeBR(j.teams.away.name) });
   }
   return { importados, total: importados.length };
 }
