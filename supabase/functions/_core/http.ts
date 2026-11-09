@@ -22,6 +22,18 @@ export type ApiDeps = {
   cronSecret?: string;
 };
 
+/** Cron autorizado: segredo do env OU o gravado em cron_config (gerado pela migration do pg_cron). */
+async function cronOk(sql: Db, segredo: string | null, envSecret?: string): Promise<boolean> {
+  if (!segredo) return false;
+  if (envSecret && segredo === envSecret) return true;
+  try {
+    const [r] = await sql`select valor from cron_config where chave = 'cron_secret'`;
+    return !!r && r.valor === segredo;
+  } catch {
+    return false;
+  }
+}
+
 type Ctx = {
   req: Request;
   params: string[];
@@ -160,7 +172,7 @@ export function createApi(deps: ApiDeps) {
 
     ['POST', /^\/cron\/resultados$/, async (c) => {
       const segredo = c.req.headers.get('x-cron-secret');
-      if (!deps.cronSecret || segredo !== deps.cronSecret) await c.requireAdmin();
+      if (!(await cronOk(sql, segredo, deps.cronSecret))) await c.requireAdmin();
       return atualizarResultados(sql, deps.odds);
     }],
     ['POST', /^\/admin\/jogos\/([^/]+)\/placar$/, async (c) => {
@@ -281,10 +293,7 @@ export function createApi(deps: ApiDeps) {
     } catch (e) {
       if (e instanceof RuleError) return json(e.status, { error: e.message });
       console.error('[api] erro inesperado', e);
-      return json(500, {
-        error: 'Algo deu errado. Tente novamente.',
-        detalhe: e instanceof Error ? `${e.name}: ${e.message}` : String(e),
-      });
+      return json(500, { error: 'Algo deu errado. Tente novamente.' });
     }
   };
 }

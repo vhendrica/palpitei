@@ -385,12 +385,42 @@ async function acertosPorUsuario(db: Db, ligaId: string) {
   return out;
 }
 
+/** Potencial máximo: pontos atuais + ganho líquido das apostas ainda vivas (simples e múltiplas). */
+async function potencialPorUsuario(db: Db, ligaId: string) {
+  const [simples, mults] = await Promise.all([
+    db`
+      select a.user_id, coalesce(sum(a.fichas_apostadas * (a.odd - 1)), 0) as pot
+      from apostas a join mercados m on m.id = a.mercado_id join jogos j on j.id = m.jogo_id
+      where j.liga_id = ${ligaId} and m.decidido_em is null
+      group by a.user_id`,
+    db`
+      select user_id, coalesce(sum(fichas_apostadas * (odd_tot - 1)), 0) as pot from (
+        select mu.user_id, mu.fichas_apostadas,
+               exp(sum(ln(p.odd))) as odd_tot,
+               count(*) filter (where m.decidido_em is not null and m.resultado_final = false) as perdidas,
+               count(*) filter (where m.decidido_em is null) as pendentes
+        from multiplas mu
+        join multipla_pernas p on p.multipla_id = mu.id
+        join mercados m on m.id = p.mercado_id
+        where mu.liga_id = ${ligaId}
+        group by mu.id, mu.user_id, mu.fichas_apostadas
+      ) x
+      where perdidas = 0 and pendentes > 0
+      group by user_id`,
+  ]);
+  const out = new Map<string, number>();
+  for (const r of [...simples, ...mults]) {
+    out.set(r.user_id as string, (out.get(r.user_id as string) ?? 0) + num(r.pot));
+  }
+  return out;
+}
+
 /**
  * Pontuação desc; empate → maior multiplicador acertado; depois mais bilhetes certos;
  * persistindo, a ordem entre eles é só técnica (id) e sem critério exibido.
  */
 export async function calcularRanking(db: Db, ligaId: string): Promise<RankingRow[]> {
-  const [rows, pontos, acertos] = await Promise.all([
+  const [rows, pontos, acertos, potencial] = await Promise.all([
     db`
       with ev as (
         select a.user_id, a.fichas_apostadas as f
@@ -405,6 +435,7 @@ export async function calcularRanking(db: Db, ligaId: string): Promise<RankingRo
       where e.liga_id = ${ligaId}`,
     pontosPorUsuario(db, ligaId),
     acertosPorUsuario(db, ligaId),
+    potencialPorUsuario(db, ligaId),
   ]);
   const lista = rows.map((r) => ({
     r,
@@ -445,6 +476,7 @@ export async function calcularRanking(db: Db, ligaId: string): Promise<RankingRo
       fichas_apostadas: num(x.r.fichas),
       maior_acerto: x.maior,
       acertos: x.n,
+      potencial: round2(x.pontos + (potencial.get(x.r.id as string) ?? 0)),
       desempate,
     };
   });

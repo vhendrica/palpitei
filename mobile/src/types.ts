@@ -151,6 +151,8 @@ export type RankingRow = {
   nome: string;
   bairro: string;
   pontuacao: number;
+  /** Máximo que a pontuação pode chegar se tudo que está em aberto bater. */
+  potencial?: number;
   fichas_apostadas: number;
   primeira_aposta_em: string | null;
   eu: boolean;

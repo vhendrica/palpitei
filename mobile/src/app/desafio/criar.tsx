@@ -39,6 +39,24 @@ export default function CriarDesafio() {
   const [marcados, setMarcados] = useState<Record<number, Set<string>>>({});
   const [custom, setCustom] = useState<Record<number, Custom[]>>({});
   const [salvando, setSalvando] = useState(false);
+  const [abertos, setAbertos] = useState<Set<number>>(new Set());
+  const [abertas, setAbertas] = useState<Record<number, Set<string>>>({});
+
+  const toggleAberto = useCallback((fid: number) => {
+    setAbertos((s) => {
+      const n = new Set(s);
+      if (n.has(fid)) n.delete(fid); else n.add(fid);
+      return n;
+    });
+  }, []);
+
+  const toggleSecaoAberta = useCallback((fid: number, sec: string) => {
+    setAbertas((m) => {
+      const s = new Set(m[fid] ?? []);
+      if (s.has(sec)) s.delete(sec); else s.add(sec);
+      return { ...m, [fid]: s };
+    });
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -55,7 +73,14 @@ export default function CriarDesafio() {
 
   const toggleJogo = useCallback((id: number) => {
     setSelecionados((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
-  }, []);
+    // Ao selecionar o jogo, todos os mercados já vêm marcados.
+    setMarcados((m) => {
+      if (m[id]) return m;
+      const f = fixtures?.find((x) => x.fixture_id === id);
+      const grupos = new Set((f?.mercados_sugeridos ?? []).map((x) => x.grupo ?? ""));
+      return { ...m, [id]: grupos };
+    });
+  }, [fixtures]);
 
   const toggleMercado = useCallback((fid: number, grupo: string) => {
     setMarcados((m) => {
@@ -239,44 +264,64 @@ export default function CriarDesafio() {
               </Pressable>
               {sel ? (
                 <View className="mt-3 border-t border-line pt-3">
-                  {agruparMercados(sug.map((m) => ({ ...m, grupo: m.grupo ?? "" }))).map((g, gi, arr) => {
-                    const sec = secaoDo(g.grupo);
-                    const daSecao = arr.filter((x) => secaoDo(x.grupo) === sec);
-                    const novaSecao = gi === 0 || secaoDo(arr[gi - 1].grupo) !== sec;
-                    const on = !!marcados[f.fixture_id]?.has(g.grupo);
-                    const todasDaSecao = daSecao.every((x) => marcados[f.fixture_id]?.has(x.grupo));
+                  {(() => {
+                    const grupos = agruparMercados(sug.map((m) => ({ ...m, grupo: m.grupo ?? "" })));
+                    const secoes: { sec: string; grupos: typeof grupos }[] = [];
+                    for (const g of grupos) {
+                      const sec = secaoDo(g.grupo);
+                      const ultima = secoes[secoes.length - 1];
+                      if (ultima && ultima.sec === sec) ultima.grupos.push(g);
+                      else secoes.push({ sec, grupos: [g] });
+                    }
+                    const marc = marcados[f.fixture_id] ?? new Set<string>();
+                    const abertoJ = abertos.has(f.fixture_id);
                     return (
-                      <View key={g.grupo || `g${gi}`}>
-                        {novaSecao ? (
-                          <Pressable
-                            className="mt-2 flex-row items-center"
-                            onPress={() => toggleSecao(f.fixture_id, daSecao)}
-                          >
-                            <T className="flex-1 font-mont-xb text-sm text-primary">{sec}</T>
-                            <T className="text-xs text-muted">
-                              {todasDaSecao ? "desmarcar tudo" : "marcar tudo"}
-                            </T>
-                          </Pressable>
-                        ) : null}
-                        <Pressable
-                          className="flex-row items-start py-1.5"
-                          onPress={() => toggleMercado(f.fixture_id, g.grupo)}
-                        >
-                          <Ionicons
-                            name={on ? "checkbox" : "square-outline"}
-                            size={20}
-                            color={on ? C.primary : C.muted}
-                          />
-                          <View className="ml-2 flex-1">
-                            <T className="text-sm font-mont-b">{g.grupo || g.opcoes[0]?.descricao}</T>
-                            <T className="text-xs text-muted">
-                              {g.opcoes.map((o) => `${o.descricao} ${fmtOdd(o.multiplicador)}`).join("  ·  ")}
-                            </T>
-                          </View>
+                      <>
+                        <Pressable className="flex-row items-center py-1" onPress={() => toggleAberto(f.fixture_id)}>
+                          <T className="flex-1 text-xs text-muted">
+                            {marc.size} {marc.size === 1 ? "mercado" : "mercados"} selecionados
+                          </T>
+                          <T className="text-xs text-primary">{abertoJ ? "fechar" : "editar"}</T>
+                          <Ionicons name={abertoJ ? "chevron-up" : "chevron-down"} size={15} color={C.primary} style={{ marginLeft: 4 }} />
                         </Pressable>
-                      </View>
+                        {abertoJ ? secoes.map(({ sec, grupos: gsec }) => {
+                          const todas = gsec.every((x) => marc.has(x.grupo));
+                          const aberta = abertas[f.fixture_id]?.has(sec) ?? false;
+                          return (
+                            <View key={sec} className="mt-2">
+                              <View className="flex-row items-center">
+                                <Pressable className="flex-1 flex-row items-center" onPress={() => toggleSecao(f.fixture_id, gsec)}>
+                                  <Ionicons name={todas ? "checkbox" : "square-outline"} size={18} color={todas ? C.primary : C.muted} />
+                                  <T className="ml-2 font-mont-xb text-sm text-primary">{sec}</T>
+                                </Pressable>
+                                <Pressable onPress={() => toggleSecaoAberta(f.fixture_id, sec)} hitSlop={8}>
+                                  <Ionicons name={aberta ? "chevron-up" : "chevron-down"} size={15} color={C.muted} />
+                                </Pressable>
+                              </View>
+                              {aberta ? gsec.map((g, gi) => {
+                                const on = marc.has(g.grupo);
+                                return (
+                                  <Pressable
+                                    key={g.grupo || `g${gi}`}
+                                    className="flex-row items-start py-1.5 pl-6"
+                                    onPress={() => toggleMercado(f.fixture_id, g.grupo)}
+                                  >
+                                    <Ionicons name={on ? "checkbox" : "square-outline"} size={18} color={on ? C.primary : C.muted} />
+                                    <View className="ml-2 flex-1">
+                                      <T className="text-sm font-mont-b">{g.grupo || g.opcoes[0]?.descricao}</T>
+                                      <T className="text-xs text-muted">
+                                        {g.opcoes.map((o) => `${o.descricao} ${fmtOdd(o.multiplicador)}`).join("  ·  ")}
+                                      </T>
+                                    </View>
+                                  </Pressable>
+                                );
+                              }) : null}
+                            </View>
+                          );
+                        }) : null}
+                      </>
                     );
-                  })}
+                  })()}
                   {(custom[f.fixture_id] ?? []).map((m, i) => (
                     <View key={`c${i}`} className="flex-row items-center py-1">
                       <View className="flex-1">

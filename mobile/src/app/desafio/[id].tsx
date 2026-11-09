@@ -401,7 +401,12 @@ export default function Detalhe() {
                         <T className="font-mont-xb text-xs">{r.posicao}º</T>
                       </View>
                       <T className="ml-3 flex-1 font-mont-b text-sm">{r.nome}</T>
-                      <T className="font-odds text-sm text-primary">{fmtPontos(r.pontuacao)} pts</T>
+                      <View className="items-end">
+                        <T className="font-odds text-sm text-primary">{fmtPontos(r.pontuacao)} pts</T>
+                        {(r.potencial ?? r.pontuacao) > r.pontuacao ? (
+                          <T className="text-[10px] text-muted">até {fmtPontos(r.potencial!)}</T>
+                        ) : null}
+                      </View>
                       <Ionicons
                         name={aberto ? "chevron-up" : "chevron-down"}
                         size={15}
