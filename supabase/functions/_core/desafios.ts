@@ -50,8 +50,15 @@ const RESUMO = `
          (select count(*)::int from jogos j where j.liga_id = l.id) as jogos
   from ligas l join users u on u.id = l.owner_id`;
 
-/** Desafios que eu criei ou entrei + os públicos abertos/em andamento. */
-export async function meusDesafios(db: Db, userId: string) {
+/** Desafios que eu criei ou entrei + os públicos abertos/em andamento. `busca` filtra públicos por título ou ID. */
+export async function meusDesafios(db: Db, userId: string, busca?: string) {
+  const termo = busca?.trim();
+  const publicosQuery = `${RESUMO}
+       where l.publico and l.status <> 'finalizada'
+         and l.owner_id <> $1
+         and not exists (select 1 from entradas e where e.liga_id = l.id and e.user_id = $1)
+         ${termo ? 'and (l.titulo ilike $2 or l.id::text = $2)' : ''}
+       order by l.created_at desc limit 30`;
   const [meus, publicos] = await Promise.all([
     db.unsafe(
       `${RESUMO}
@@ -60,14 +67,7 @@ export async function meusDesafios(db: Db, userId: string) {
        order by l.created_at desc`,
       [userId],
     ),
-    db.unsafe(
-      `${RESUMO}
-       where l.publico and l.status <> 'finalizada'
-         and l.owner_id <> $1
-         and not exists (select 1 from entradas e where e.liga_id = l.id and e.user_id = $1)
-       order by l.created_at desc limit 30`,
-      [userId],
-    ),
+    db.unsafe(publicosQuery, termo ? [userId, `%${termo}%`] : [userId]),
   ]);
   // Posição do usuário nos desafios finalizados — pra selo de campeão/pódio na lista.
   const fin = meus.filter((r) => r.status === 'finalizada');

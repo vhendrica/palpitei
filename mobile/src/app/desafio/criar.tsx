@@ -33,6 +33,7 @@ export default function CriarDesafio() {
   const [modalModo, setModalModo] = useState(false);
   const [publico, setPublico] = useState(false);
   const [dia, setDia] = useState(0);
+  const [dataLivre, setDataLivre] = useState("");
   const [fixtures, setFixtures] = useState<Fixture[] | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [selecionados, setSelecionados] = useState<number[]>([]);
@@ -63,13 +64,16 @@ export default function CriarDesafio() {
       try {
         setFixtures(null);
         setErro(null);
-        setFixtures((await api.desafios.fixtures(di(dia))).fixtures);
+        const data = /^\d{2}\/\d{2}$/.test(dataLivre)
+          ? `${new Date().getFullYear()}-${dataLivre.slice(3)}-${dataLivre.slice(0, 2)}`
+          : di(dia);
+        setFixtures((await api.desafios.fixtures(data)).fixtures);
       } catch (e) {
         setErro(errorMessage(e));
         setFixtures([]);
       }
     })();
-  }, [dia]);
+  }, [dia, dataLivre]);
 
   const toggleJogo = useCallback((id: number) => {
     setSelecionados((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
@@ -236,6 +240,15 @@ export default function CriarDesafio() {
               <T className={`text-xs ${dia === i ? "text-onPrimary font-mont-b" : "text-muted"}`}>{lbl}</T>
             </Pressable>
           ))}
+          <View className="ml-1 w-[86px]">
+            <Field
+              label=""
+              value={dataLivre}
+              onChangeText={setDataLivre}
+              placeholder="dd/mm"
+              keyboardType="numeric"
+            />
+          </View>
         </View>
 
         <ErrorBox erro={erro} />

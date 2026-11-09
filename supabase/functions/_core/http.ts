@@ -118,10 +118,20 @@ export function createApi(deps: ApiDeps) {
       return apostar(sql, u.id, (await ligaDeHoje()).id, bilhete);
     }],
     // ---- desafios (rodadas criadas por usuários; entrada grátis)
-    ['GET', /^\/desafios$/, async (c) => desafios.meusDesafios(sql, (await c.requireUser()).id)],
+    ['GET', /^\/desafios$/, async (c) => desafios.meusDesafios(sql, (await c.requireUser()).id, c.query.get('busca') ?? undefined)],
     ['GET', /^\/desafios\/fixtures$/, async (c) => {
       await c.requireUser();
-      const fixtures = await admin.listarFixtures(sql, c.query.get('data') ?? hoje());
+      const data = c.query.get('data') ?? hoje();
+      let fixtures = await admin.listarFixtures(sql, data);
+      // Sem pool pra essa data: puxa da API e cacheia em fixtures_dia (1 req por dia, não por jogo).
+      if (fixtures.length === 0 && deps.odds) {
+        try {
+          await importarOdds(sql, deps.odds, data);
+          fixtures = await admin.listarFixtures(sql, data);
+        } catch (e) {
+          console.error('[fixtures] import on-demand falhou', e);
+        }
+      }
       // Lazy: preenche mercados_sugeridos pela API (1 req/fixture, cacheado). Limite pra não estourar o FREE.
       let buscados = 0;
       for (const f of fixtures) {
@@ -140,6 +150,13 @@ export function createApi(deps: ApiDeps) {
         }
       }
       return { fixtures };
+    }],
+    // Odds de UM fixture — lazy por jogo na criação (1 request por jogo aberto, cacheado em mercados_sugeridos).
+    ['GET', /^\/desafios\/fixture-mercados$/, async (c) => {
+      await c.requireUser();
+      const fid = c.query.get('fixture_id');
+      if (!fid) throw new RuleError('fixture_id obrigatório.');
+      return { mercados_sugeridos: await mercadosDaFixture(sql, deps.odds, fid) };
     }],
     ['POST', /^\/desafios$/, async (c) => desafios.criarDesafio(sql, await c.requireUser(), await c.body())],
     ['GET', /^\/desafios\/convite\/([^/]+)$/, async (c) => desafios.conviteView(sql, c.params[0])],

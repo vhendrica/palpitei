@@ -118,8 +118,14 @@ export const api = {
   me: () => req<Perfil>('GET', '/me'),
 
   desafios: {
-    listar: () => req<{ meus: DesafioResumo[]; publicos: DesafioResumo[] }>('GET', '/desafios'),
+    listar: (busca?: string) =>
+      req<{ meus: DesafioResumo[]; publicos: DesafioResumo[] }>('GET', `/desafios${busca ? `?busca=${encodeURIComponent(busca)}` : ''}`),
     fixtures: (data: string) => req<{ fixtures: Fixture[] }>('GET', `/desafios/fixtures?data=${data}`),
+    fixtureMercados: (fixtureId: number) =>
+      req<{ mercados_sugeridos: { grupo: string; descricao: string; multiplicador: number }[] }>(
+        'GET',
+        `/desafios/fixture-mercados?fixture_id=${fixtureId}`,
+      ),
     criar: (input: CriarDesafioInput) => req<{ id: string; convite: string }>('POST', '/desafios', input),
     convite: (token: string) => req<{ desafio: DesafioResumo }>('GET', `/desafios/convite/${encodeURIComponent(token)}`),
     detalhe: (id: string) => req<DesafioDetalhe>('GET', `/desafios/${id}`),

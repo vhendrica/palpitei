@@ -1,10 +1,10 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useFocusEffect, router } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Modal, Pressable, RefreshControl, ScrollView, View } from "react-native";
 
 import { AppHeader } from "../../components/AppHeader";
-import { ErrorBox } from "../../components/Form";
+import { ErrorBox, Field } from "../../components/Form";
 import { Button, Card, EmptyState, StatusBadge, T } from "../../components/ui";
 import { ModalModo, type ModoDesafio } from "../../components/ModalModo";
 import { api } from "../../lib/api";
@@ -19,6 +19,7 @@ export default function Desafios() {
   const { palette: C } = useTheme();
   const [meus, setMeus] = useState<DesafioResumo[] | null>(null);
   const [publicos, setPublicos] = useState<DesafioResumo[]>([]);
+  const [busca, setBusca] = useState("");
   const [erro, setErro] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [modalCriar, setModalCriar] = useState(false);
@@ -30,7 +31,7 @@ export default function Desafios() {
       return;
     }
     try {
-      const r = await api.desafios.listar();
+      const r = await api.desafios.listar(busca.trim() || undefined);
       setMeus(r.meus);
       setPublicos(r.publicos);
       setErro(null);
@@ -43,6 +44,11 @@ export default function Desafios() {
       load();
     }, [load]),
   );
+  useEffect(() => {
+    if (!busca.trim()) return;
+    const t = setTimeout(load, 350);
+    return () => clearTimeout(t);
+  }, [busca]);
 
   if (!user) {
     return (
@@ -133,14 +139,24 @@ export default function Desafios() {
             {meus.map(item)}
           </>
         ) : null}
-        {publicos.length > 0 ? (
-          <>
-            <T className="mb-2 mt-4 font-mont-xb text-xs uppercase text-muted">
-              Desafios públicos
-            </T>
-            {publicos.map(item)}
-          </>
+        <T className="mb-2 mt-4 font-mont-xb text-xs uppercase text-muted">
+          Explorar desafios
+        </T>
+        <Field
+          label="Buscar desafio público"
+          icon="search"
+          value={busca}
+          onChangeText={setBusca}
+          placeholder="Nome ou ID do desafio"
+          autoCapitalize="none"
+        />
+        {busca.trim() !== "" && publicos.length === 0 ? (
+          <T className="mt-2 text-center text-muted">Nenhum desafio público achou esse nome.</T>
         ) : null}
+        {publicos.length > 0 && !busca.trim() ? (
+          <T className="mb-2 mt-3 font-mont-xb text-xs uppercase text-muted">Desafios públicos</T>
+        ) : null}
+        {publicos.map(item)}
       </ScrollView>
       <ModalModo visivel={modalCriar} onFechar={() => setModalCriar(false)} onEscolher={(m) => { setModalCriar(false); router.push(`/desafio/criar?modo=${m}`); }} />
     </View>
