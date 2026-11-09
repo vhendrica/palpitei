@@ -26,7 +26,17 @@ export function PontosPill() {
   );
 }
 
-export function AppHeader({ title, back }: { title?: string; back?: boolean }) {
+export function AppHeader({
+  title,
+  back,
+  streak,
+  onStreak,
+}: {
+  title?: string;
+  back?: boolean;
+  streak?: number;
+  onStreak?: () => void;
+}) {
   const insets = useSafeAreaInsets();
   const { user } = useApp();
   const { palette: C } = useTheme();
@@ -63,6 +73,11 @@ export function AppHeader({ title, back }: { title?: string; back?: boolean }) {
             <View className="mr-2 rounded-full bg-headerAccent/20 px-2 py-1">
               <T className="font-mont-b text-[10px] text-headerAccent">ADMIN</T>
             </View>
+          ) : null}
+          {user && streak != null && streak > 0 ? (
+            <Pressable onPress={onStreak} className="mr-2 rounded-full bg-headerAccent/20 px-2 py-1">
+              <T className="font-mont-b text-[10px] text-headerAccent">🔥 {streak}</T>
+            </Pressable>
           ) : null}
           {user ? (
             <PontosPill />

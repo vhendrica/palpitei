@@ -92,7 +92,11 @@ export type Home = {
     nome: string;
     saldo_pontos: number;
     is_admin: boolean;
+    login_streak?: number;
+    maior_streak?: number;
   } | null;
+  /** Resgate do login diário — só vem no primeiro acesso do dia. */
+  bonus_login?: { dia: number; pontos: number; quebrou: boolean } | null;
   liga: Liga | null;
   jogos: Jogo[];
   premio: Premio;

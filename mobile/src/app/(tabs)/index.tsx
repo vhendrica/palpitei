@@ -18,6 +18,7 @@ import { BetButton } from "../../components/BetButton";
 import { Bilhete, type OpcaoBilhete } from "../../components/Bilhete";
 import { ResumoBilhete } from "../../components/ResumoBilhete";
 import { EntradaModal } from "../../components/EntradaModal";
+import { StreakModal } from "../../components/StreakModal";
 import { ErrorBox } from "../../components/Form";
 import { Ficha } from "../../components/Ficha";
 import { PremioBar, PremioLinha } from "../../components/PremioBar";
@@ -44,6 +45,10 @@ const MERCADOS_VISIVEIS = 2;
 export default function HomeMultipla() {
   const { palette: C, scheme } = useTheme();
   const { home, homeErro, refreshHome, user, entrarNaLiga, apostar } = useApp();
+  const [streak, setStreak] = useState<{ dia: number; pontos: number; quebrou: boolean } | null>(null);
+  useEffect(() => {
+    if (home?.bonus_login) setStreak(home.bonus_login);
+  }, [home?.bonus_login]);
   const [refreshing, setRefreshing] = useState(false);
   const draftKey = `${home?.liga?.id}:${user?.id}`;
   const [draftState, setDraftState] = useState<{
@@ -381,7 +386,10 @@ export default function HomeMultipla() {
 
   return (
     <View className="flex-1 bg-bg">
-      <AppHeader />
+      <AppHeader
+        streak={home.usuario?.login_streak ?? undefined}
+        onStreak={() => setStreak({ dia: home.usuario?.login_streak ?? 1, pontos: 0, quebrou: false })}
+      />
       <ScrollView
         ref={scrollRef}
         contentContainerStyle={{
@@ -530,6 +538,9 @@ export default function HomeMultipla() {
           </>
         )}
       </ScrollView>
+      {streak ? (
+        <StreakModal dia={streak.dia} pontos={streak.pontos} quebrou={streak.quebrou} onFechar={() => setStreak(null)} />
+      ) : null}
       {draft.itens.length > 0 && eu ? (
         <>
           <Bilhete

@@ -180,15 +180,46 @@ export async function minhaSituacao(db: Db, userId: string, liga: LigaRow) {
 }
 
 /** Tudo que a home precisa: múltipla do dia, jogos (com destaque), barra do prêmio e situação do usuário. */
+const CURVA_LOGIN = [40, 50, 60, 70, 80, 90, 110];
+
+/** Resgata o bônus de login do dia (sequência de 7, zera se faltar). Só no primeiro acesso do dia. */
+async function claimLoginBonus(db: Db, userId: string, hoje: string) {
+  const [u] = await db`
+    select login_streak, ultimo_login = ${hoje}::date as ja, ultimo_login = ${hoje}::date - 1 as ontem
+    from users where id = ${userId} for update`;
+  if (!u || u.ja) return null;
+  const anterior = num(u.login_streak);
+  const quebrou = !u.ontem && anterior > 0;
+  // Ontem = continua a rampa; depois do 7º dia recomeça; sem streak/ontem = dia 1.
+  const dia = u.ontem ? (anterior >= 7 ? 1 : anterior + 1) : 1;
+  const pontos = CURVA_LOGIN[dia - 1];
+  await db`
+    update users set saldo_pontos = saldo_pontos + ${pontos}, login_streak = ${dia}, ultimo_login = ${hoje}::date,
+      maior_streak = greatest(maior_streak, ${dia})
+    where id = ${userId}`;
+  return { dia, pontos, quebrou };
+}
+
 export async function home(db: Db, user: UserPublico | null, data = hojeISO()) {
   const [liga, config] = await Promise.all([getLigaAtual(db, data), getConfig(db)]);
+  const bonus = user ? await claimLoginBonus(db, user.id, data) : null;
   const base = {
     data,
     regras: {
       custo_entrada_pontos: liga?.custo_entrada ?? config.custo_entrada_pontos,
       fichas_por_entrada: liga?.fichas_por_entrada ?? config.fichas_por_entrada,
     },
-    usuario: user ? { id: user.id, nome: user.nome, saldo_pontos: user.saldo_pontos, is_admin: user.is_admin } : null,
+    usuario: user
+      ? {
+          id: user.id,
+          nome: user.nome,
+          saldo_pontos: num(user.saldo_pontos) + (bonus?.pontos ?? 0),
+          is_admin: user.is_admin,
+          login_streak: bonus?.dia ?? num(user.login_streak),
+          maior_streak: Math.max(num(user.maior_streak), bonus?.dia ?? 0),
+        }
+      : null,
+    bonus_login: bonus,
   };
   if (!liga) return { ...base, liga: null, jogos: [], premio: progressoPremio(await getEscada(db), 0, null, config.premio_inicial), eu: null };
   const [jogos, premio, eu] = await Promise.all([
