@@ -296,7 +296,8 @@ export default function Detalhe() {
         {encerrada && d && d.ranking.length > 0 ? (
           <View className="mb-1 items-center">
             <T className="font-mont-xb text-3xl">
-              <T className="text-primary">{d.ranking.find((r) => r.eu)?.posicao ?? "—"}º</T> lugar
+              <T className="font-mont-xb text-3xl text-primary">{d.ranking.find((r) => r.eu)?.posicao ?? "—"}º</T>
+              <T className="font-mont-xb text-3xl"> lugar</T>
             </T>
             <T className="mt-0.5 text-xs text-muted">
               {d.ranking.find((r) => r.eu) ? `${fmtPontos(d.ranking.find((r) => r.eu)!.pontuacao)} pontos` : ""}
