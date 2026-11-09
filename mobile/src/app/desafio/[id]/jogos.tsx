@@ -1,7 +1,6 @@
-import Ionicons from "@expo/vector-icons/Ionicons";
 import { useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { Pressable, ScrollView, View } from "react-native";
+import { ScrollView, View } from "react-native";
 
 import { AppHeader } from "../../../components/AppHeader";
 import { BetButton } from "../../../components/BetButton";
@@ -11,14 +10,11 @@ import { api } from "../../../lib/api";
 import { errorMessage } from "../../../store/AppStore";
 import { agruparMercados, type DesafioDetalhe } from "../../../types";
 
-const MERCADOS_VISIVEIS = 2;
-
 /** Jogos do desafio com mercados e o que bateu (✓) — tela separada, aberta pelo card "Jogos ›". */
 export default function JogosDesafio() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [d, setD] = useState<DesafioDetalhe | null>(null);
   const [erro, setErro] = useState<string | null>(null);
-  const [abertos, setAbertos] = useState<string[]>([]);
 
   const load = useCallback(async () => {
     try {
@@ -53,9 +49,7 @@ export default function JogosDesafio() {
               ) : null}
             </View>
             <View className="mt-2">
-              {agruparMercados(j.mercados)
-                .filter((_, gi) => gi < MERCADOS_VISIVEIS || abertos.includes(j.id))
-                .map((g) => (
+              {agruparMercados(j.mercados).map((g) => (
                 <View key={g.grupo || "_"} className="mt-2">
                   {g.grupo ? <GrupoTitulo grupo={g.grupo} /> : null}
                   <View className="flex-row flex-wrap" style={{ gap: 6 }}>
@@ -84,27 +78,6 @@ export default function JogosDesafio() {
                   </View>
                 </View>
               ))}
-              {agruparMercados(j.mercados).length > MERCADOS_VISIVEIS ? (
-                <Pressable
-                  onPress={() =>
-                    setAbertos((a) =>
-                      a.includes(j.id) ? a.filter((x) => x !== j.id) : [...a, j.id],
-                    )
-                  }
-                  className="mt-1 flex-row items-center justify-center py-1 active:opacity-70"
-                >
-                  <T className="font-mont-b text-xs text-primary">
-                    {abertos.includes(j.id)
-                      ? "Ver menos mercados"
-                      : `Ver mais mercados (${agruparMercados(j.mercados).length - MERCADOS_VISIVEIS})`}
-                  </T>
-                  <Ionicons
-                    name={abertos.includes(j.id) ? "chevron-up" : "chevron-down"}
-                    size={14}
-                    color="#00C447"
-                  />
-                </Pressable>
-              ) : null}
             </View>
           </Card>
         ))}
