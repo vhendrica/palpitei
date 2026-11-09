@@ -1,8 +1,6 @@
-import Ionicons from "@expo/vector-icons/Ionicons";
 import { useEffect } from "react";
 import { Modal, Pressable, View } from "react-native";
 
-import { useTheme } from "../store/Theme";
 import { T } from "./ui";
 
 const CURVA = [40, 50, 60, 70, 80, 90, 110];
@@ -28,7 +26,6 @@ export function StreakModal({
   }, [onFechar]);
 
   const amanha = CURVA[Math.min(dia, 6)]; // CURVA[dia] = dia seguinte (dia é 1-based)
-  const { palette: C } = useTheme();
 
   return (
     <Modal transparent visible animationType="fade" onRequestClose={onFechar}>
@@ -40,9 +37,7 @@ export function StreakModal({
           <Pressable onPress={onFechar} hitSlop={10} className="absolute right-3 top-2">
             <T className="text-sm text-muted">✕</T>
           </Pressable>
-          <View className="items-center">
-            <Ionicons name={quebrou ? "refresh-circle" : "flame"} size={42} color={quebrou ? C.primary : "#FF8A2A"} />
-          </View>
+          <T className="text-center text-4xl">{quebrou ? "💪" : "🔥"}</T>
           <T className="mt-1 text-center font-mont-xb text-base">
             {quebrou ? "Sequência recomeçou" : `Sequência: ${dia} ${dia === 1 ? "dia" : "dias"}!`}
           </T>
@@ -80,7 +75,7 @@ export function StreakModal({
             <T className="text-center text-xs text-muted">Dia {dia} · volta amanhã pro dia 2</T>
           ) : (
             <T className="text-center text-xs text-muted">
-              Amanhã <T className="font-mont-b text-fg">+{amanha}</T> · 7º dia <T className="font-mont-b text-primary">+110</T> 🔥
+              Amanhã <T className="font-mont-b text-fg">+{amanha} pontos</T>{"\n"}No 7º dia: <T className="font-mont-b text-primary">+110 pontos</T> 🔥
             </T>
           )}
         </View>
