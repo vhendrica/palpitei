@@ -249,6 +249,8 @@ export type DesafioResumo = {
   fichas_por_entrada: number;
   palpiteiros: number;
   jogos: number;
+  /** Só em finalizado: minha posição no ranking (selo de campeão/pódio). */
+  minha_posicao?: number | null;
 };
 
 export type CriarDesafioInput = {

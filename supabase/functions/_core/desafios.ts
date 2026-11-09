@@ -69,8 +69,14 @@ export async function meusDesafios(db: Db, userId: string) {
       [userId],
     ),
   ]);
+  // Posição do usuário nos desafios finalizados — pra selo de campeão/pódio na lista.
+  const fin = meus.filter((r) => r.status === 'finalizada');
+  const posicoes = await Promise.all(fin.map((r) => calcularRanking(db, r.id as string)));
+  const minhaPos = new Map(
+    fin.map((r, i) => [r.id as string, posicoes[i].find((x) => x.user_id === userId)?.posicao ?? null]),
+  );
   return {
-    meus: meus.map((r) => mapResumo(r, userId)),
+    meus: meus.map((r) => ({ ...mapResumo(r, userId), minha_posicao: minhaPos.get(r.id as string) ?? null })),
     publicos: publicos.map((r) => mapResumo(r, userId)),
   };
 }

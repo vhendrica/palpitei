@@ -40,6 +40,7 @@ export default function Detalhe() {
   const [placarInput, setPlacarInput] = useState<Record<string, { casa: string; fora: string }>>({});
   const [bilhetes, setBilhetes] = useState<PalpiteiroView[] | null>(null);
   const [bilheteAberto, setBilheteAberto] = useState<number | null>(null);
+  const [jogoAberto, setJogoAberto] = useState<Set<string>>(new Set());
 
   const toggleBilhete = useCallback(
     async (posicao: number) => {
@@ -100,6 +101,8 @@ export default function Detalhe() {
   const liga = d?.liga;
   const eu = d?.eu && d.eu.entrou ? d.eu : null;
   const aberta = liga?.status === "aberta";
+  const encerrada = liga?.status === "finalizada";
+  const COR_POS: Record<number, string> = { 1: "#F2B01E", 2: "#C0C8D4", 3: "#D08A4E" };
 
   // Fichas que posso distribuir: as livres + as já postas em jogos não iniciados (edição libera).
   const base = useMemo(() => {
@@ -290,9 +293,51 @@ export default function Detalhe() {
           </>
         ) : null}
 
+        {encerrada && d && d.ranking.length > 0 ? (
+          <View className="mb-1 items-center">
+            <T className="font-mont-xb text-3xl">
+              <T className="text-primary">{d.ranking.find((r) => r.eu)?.posicao ?? "—"}º</T> lugar
+            </T>
+            <T className="mt-0.5 text-xs text-muted">
+              {d.ranking.find((r) => r.eu) ? `${fmtPontos(d.ranking.find((r) => r.eu)!.pontuacao)} pontos` : ""}
+            </T>
+          </View>
+        ) : null}
+        {encerrada && d && d.ranking.length >= 2 ? (
+          <View className="mb-4 flex-row items-end justify-center" style={{ gap: 10 }}>
+            {[d.ranking[1], d.ranking[0], d.ranking[2]].filter(Boolean).map((r) => {
+              const cor = COR_POS[r.posicao];
+              const tam = r.posicao === 1 ? 56 : 44;
+              return (
+                <View key={r.posicao} className="w-[86px] items-center">
+                  <View
+                    className="items-center justify-center rounded-full bg-cardAlt"
+                    style={{ width: tam, height: tam, borderWidth: 1.5, borderColor: cor }}
+                  >
+                    <T className="font-mont-xb" style={{ color: cor, fontSize: r.posicao === 1 ? 20 : 16 }}>
+                      {r.nome[0]?.toUpperCase()}
+                    </T>
+                  </View>
+                  <T className="mt-1 text-center font-mont-b text-[11px]" numberOfLines={1}>{r.nome}</T>
+                  <T className="font-odds text-[11px]" style={{ color: cor }}>{fmtPontos(r.pontuacao)} pts</T>
+                  <View
+                    className="mt-1 w-full items-center rounded-t-md border border-b-0 bg-cardAlt pt-0.5"
+                    style={{ height: r.posicao === 1 ? 36 : r.posicao === 2 ? 24 : 16, borderColor: cor }}
+                  >
+                    <T className="font-odds text-[10px]" style={{ color: cor }}>{r.posicao}</T>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        ) : null}
+
         {d?.jogos.map((j) => (
           <Card key={j.id} className="mb-2">
-            <View className="flex-row items-center">
+            <Pressable
+              className="flex-row items-center"
+              onPress={encerrada ? () => setJogoAberto((s) => { const n = new Set(s); n.has(j.id) ? n.delete(j.id) : n.add(j.id); return n; }) : undefined}
+            >
               <View className="flex-1">
                 <T className="font-mont-b text-sm">
                   {j.time_casa} x {j.time_fora}
@@ -308,7 +353,10 @@ export default function Detalhe() {
                   {j.placar.casa} - {j.placar.fora}
                 </T>
               ) : null}
-            </View>
+              {encerrada ? (
+                <Ionicons name={jogoAberto.has(j.id) ? "chevron-up" : "chevron-down"} size={15} color={C.muted} style={{ marginLeft: 8 }} />
+              ) : null}
+            </Pressable>
             {liga?.e_dono && !j.finalizado ? (
               <View className="mt-2 flex-row items-center">
                 <T className="mr-2 text-xs text-muted">Placar final:</T>
@@ -347,6 +395,7 @@ export default function Detalhe() {
                 </Pressable>
               </View>
             ) : null}
+            {!encerrada || jogoAberto.has(j.id) ? (
             <View className="mt-2">
               {agruparMercados(j.mercados).map((g) => (
                 <View key={g.grupo || "_"} className="mt-2">
@@ -382,6 +431,7 @@ export default function Detalhe() {
                 </View>
               ))}
             </View>
+            ) : null}
           </Card>
         ))}
 
@@ -402,7 +452,7 @@ export default function Detalhe() {
                       </View>
                       <T className="ml-3 flex-1 font-mont-b text-sm">{r.nome}</T>
                       <View className="items-end">
-                        <T className="font-odds text-sm text-primary">{fmtPontos(r.pontuacao)} pts</T>
+                        <T className="font-odds text-sm" style={{ color: COR_POS[r.posicao] ?? C.primary }}>{fmtPontos(r.pontuacao)} pts</T>
                         {(r.potencial ?? r.pontuacao) > r.pontuacao ? (
                           <T className="text-[10px] text-muted">até {fmtPontos(r.potencial!)}</T>
                         ) : null}

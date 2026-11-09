@@ -58,9 +58,21 @@ export default function Desafios() {
     );
   }
 
-  const item = (d: DesafioResumo) => (
+  const COR_POS: Record<number, string> = { 1: "#F2B01E", 2: "#C0C8D4", 3: "#D08A4E", 4: "#6B7280" };
+  const item = (d: DesafioResumo) => {
+    const cor = d.minha_posicao != null ? COR_POS[Math.min(d.minha_posicao, 4)] : null;
+    return (
     <Pressable key={d.id} onPress={() => router.push(`/desafio/${d.id}`)}>
       <Card className="mb-2 flex-row items-center">
+        {cor ? (
+          <View
+            className="mr-3 h-11 w-11 items-center justify-center rounded-xl border"
+            style={{ borderColor: cor, backgroundColor: `${cor}14` }}
+          >
+            <T className="font-mont-xb text-[13px]" style={{ color: cor }}>{d.minha_posicao}º</T>
+            <T className="text-[8px]" style={{ color: cor }}>lugar</T>
+          </View>
+        ) : null}
         <View className="flex-1">
           <View className="flex-row items-center">
             <T className="font-mont-b text-sm" style={{ flexShrink: 1 }} numberOfLines={1}>
@@ -83,6 +95,7 @@ export default function Desafios() {
       </Card>
     </Pressable>
   );
+  };
 
   return (
     <View className="flex-1 bg-bg">
