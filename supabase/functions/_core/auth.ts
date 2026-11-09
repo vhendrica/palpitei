@@ -38,6 +38,8 @@ export type UserPublico = {
   bairro: string;
   saldo_pontos: number;
   is_admin: boolean;
+  login_streak?: number;
+  maior_streak?: number;
   created_at: string;
 };
 
@@ -48,6 +50,8 @@ export const mapUser = (u: Record<string, unknown>): UserPublico => ({
   bairro: u.bairro as string,
   saldo_pontos: num(u.saldo_pontos),
   is_admin: !!u.is_admin,
+  login_streak: u.login_streak == null ? undefined : num(u.login_streak),
+  maior_streak: u.maior_streak == null ? undefined : num(u.maior_streak),
   created_at: iso(u.created_at as Date)!,
 });
 
