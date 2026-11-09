@@ -17,7 +17,9 @@ import type {
 } from '../types';
 
 /** URL da Edge Function `api` (ex.: https://<ref>.supabase.co/functions/v1/api) ou do dev server local. */
-export const API_URL = (process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8787').replace(/\/+$/, '');
+export const API_URL = (
+  process.env.EXPO_PUBLIC_API_URL ?? 'https://mkhpkguwjwtoxsgwcgmm.supabase.co/functions/v1/api'
+).replace(/\/+$/, '');
 
 export class ApiError extends Error {
   constructor(

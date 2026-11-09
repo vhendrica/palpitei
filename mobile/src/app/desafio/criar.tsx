@@ -14,6 +14,7 @@ import { ModalModo, type ModoDesafio } from "../../components/ModalModo";
 import { secaoDo } from "../../lib/secoes";
 import { errorMessage } from "../../store/AppStore";
 import { useTheme } from "../../store/Theme";
+import { DatePicker } from "../../components/DatePicker";
 import { agruparMercados, type Fixture } from "../../types";
 
 type Custom = { descricao: string; multiplicador: string };
@@ -34,6 +35,7 @@ export default function CriarDesafio() {
   const [publico, setPublico] = useState(false);
   const [dia, setDia] = useState(0);
   const [dataLivre, setDataLivre] = useState("");
+  const [calendario, setCalendario] = useState(false);
   const [fixtures, setFixtures] = useState<Fixture[] | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [selecionados, setSelecionados] = useState<number[]>([]);
@@ -249,6 +251,17 @@ export default function CriarDesafio() {
               keyboardType="numeric"
             />
           </View>
+          <Pressable
+            onPress={() => setCalendario(true)}
+            className="ml-2 h-[46px] w-[46px] items-center justify-center rounded-xl border border-line bg-card"
+          >
+            <Ionicons name="calendar-outline" size={20} color={C.muted} />
+          </Pressable>
+          <DatePicker
+            visivel={calendario}
+            onFechar={() => setCalendario(false)}
+            onEscolher={setDataLivre}
+          />
         </View>
 
         <ErrorBox erro={erro} />
