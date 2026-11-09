@@ -17,7 +17,8 @@ import { isUuid, nomePublico } from './validation.ts';
  */
 
 const MAX_JOGOS = 10;
-const MAX_MERCADOS = 15;
+/** Teto técnico contra payload malformado — o pool da API tem ~30 linhas, uso real nunca chega perto. */
+const MAX_MERCADOS = 60;
 
 /** Liga validada como desafio (owner_id preenchido). */
 export async function porId(db: Db, ligaId: string): Promise<LigaRow> {
