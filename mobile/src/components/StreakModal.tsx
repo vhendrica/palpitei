@@ -41,7 +41,13 @@ export function StreakModal({
           <T className="mt-1 text-center font-mont-xb text-base">
             {quebrou ? "Sequência recomeçou" : `Sequência: ${dia} ${dia === 1 ? "dia" : "dias"}!`}
           </T>
-          <T className="mt-0.5 text-center font-odds text-2xl text-primary">+{pontos} PONTOS</T>
+          {pontos > 0 ? (
+            <T className="mt-0.5 text-center font-odds text-2xl text-primary">+{pontos} PONTOS</T>
+          ) : (
+            <T className="mt-0.5 text-center text-sm text-muted">
+              Hoje você já resgatou <T className="font-mont-b text-primary">+{CURVA[dia - 1]} pontos</T>
+            </T>
+          )}
           <View className="my-3 flex-row justify-between">
             {CURVA.map((v, i) => {
               const d = i + 1;
