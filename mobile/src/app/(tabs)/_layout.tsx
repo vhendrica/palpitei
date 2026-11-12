@@ -30,20 +30,19 @@ export default function TabsLayout() {
     <View style={{ flex: 1 }}>
       {desktop ? <DesktopNav /> : null}
       <Tabs
+      tabBar={desktop ? () => null : undefined}
       screenOptions={{
         headerShown: false,
         tabBarPosition: "bottom",
         tabBarActiveTintColor: C.primary,
         tabBarInactiveTintColor: C.muted,
-        tabBarStyle: desktop
-          ? { display: "none" }
-          : {
-              backgroundColor: C.card,
-              borderTopColor: C.line,
-              borderTopWidth: 1,
-              paddingBottom: Math.max(insets.bottom, 4),
-              height: 56 + insets.bottom,
-            },
+        tabBarStyle: {
+          backgroundColor: C.card,
+          borderTopColor: C.line,
+          borderTopWidth: 1,
+          paddingBottom: Math.max(insets.bottom, 4),
+          height: 56 + insets.bottom,
+        },
         tabBarLabelStyle: { fontFamily: "Montserrat_700Bold", fontSize: 11 },
         sceneStyle: { backgroundColor: C.bg },
       }}

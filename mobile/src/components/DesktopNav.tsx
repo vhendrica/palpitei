@@ -1,6 +1,7 @@
 import { usePathname, useRouter } from "expo-router";
 import { Pressable, View } from "react-native";
 
+import { fmtPts } from "../lib/format";
 import { useApp } from "../store/AppStore";
 import { useTheme } from "../store/Theme";
 import { T } from "./ui";
@@ -50,6 +51,16 @@ export function DesktopNav() {
           );
         })}
       </View>
+      {user ? (
+        <View className="ml-auto flex-row items-center" style={{ gap: 14 }}>
+          <T className="font-odds text-sm text-primary">{fmtPts(user.saldo_pontos)} P</T>
+          <View className="h-7 w-7 items-center justify-center rounded-full bg-primary">
+            <T className="font-mont-xb text-xs text-onPrimary">
+              {user.nome[0]?.toUpperCase()}
+            </T>
+          </View>
+        </View>
+      ) : null}
     </View>
   );
 }
