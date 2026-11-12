@@ -319,8 +319,9 @@ export async function palpiteirosDaLiga(db: Db, user: UserPublico | null, liga: 
           resultado: resultadoDe(!!a.finalizado || tudo, !!a.resultado_final),
           ...(mostraFichas ? { fichas: num(a.fichas) } : {}),
         }));
-      // Potencial da Simples: retorno bruto das apostas ainda não decididas.
-      const potencialSimples = mostraFichas
+      // Detalhe por seção (Simples / cada Múltipla) só no próprio bilhete ou no admin:
+      // do adversário mostra só o potencial total, sem quebrar por seção.
+      const potencialSimples = eu || verTudo
         ? exato(
             apostas
               .filter((a) => a.user_id === e.user_id && !a.finalizado)
@@ -330,7 +331,7 @@ export async function palpiteirosDaLiga(db: Db, user: UserPublico | null, liga: 
       // Potencial de cada múltipla: fichas × odd total se nenhuma perna morreu e ainda tem perna viva.
       // Perna oculta mascara o potencial pra não vazar a odd escondida.
       const potMult = (m: (typeof multiplas)[number], ocultas: number) => {
-        if (!mostraFichas || ocultas > 0) return null;
+        if (!(eu || verTudo) || ocultas > 0) return null;
         const morta = m.pernas.some((p) => p.finalizado && !p.resultado_final);
         const viva = m.pernas.some((p) => !p.finalizado);
         return !morta && viva ? exato(m.fichas * m.odd) : 0;
@@ -357,9 +358,8 @@ export async function palpiteirosDaLiga(db: Db, user: UserPublico | null, liga: 
         })
         .filter((m) => m.pernas.length > 0);
       const r = ranking.find((x) => x.user_id === e.user_id);
-      // Potencial (só do próprio usuário): o que ainda pode render, somando o que já bateu.
-      const potencial = eu
-        ? exato(
+      // Potencial total: público (já aparece no ranking de todo mundo), sem detalhar composição.
+      const potencial = exato(
             apostas
               .filter((a) => a.user_id === e.user_id && !(a.finalizado && !a.resultado_final))
               .reduce((t, a) => t + num(a.fichas) * num(a.multiplicador), 0) +
@@ -373,8 +373,7 @@ export async function palpiteirosDaLiga(db: Db, user: UserPublico | null, liga: 
                   multiplas.filter((m) => m.user_id === e.user_id).reduce((t, m) => t + m.fichas, 0) -
                   num(e.fichas_total),
               ),
-          )
-        : null;
+          );
       return {
         nome: e.nome as string,
         entrou_em: iso(e.created_at)!,

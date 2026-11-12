@@ -24,13 +24,18 @@ export function RankingDoDia({ voltar }: { voltar?: boolean }) {
   const { palette: C, scheme } = useTheme();
   const [rows, setRows] = useState<PalpiteiroView[] | null>(null);
   const [erro, setErro] = useState<string | null>(null);
-  const [aberto, setAberto] = useState<number | null>(null);
+  const [aberto, setAberto] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const desktop = useDesktop();
 
   const load = useCallback(async () => {
     try {
-      setRows((await api.palpiteiros()).palpiteiros);
+      const next = (await api.palpiteiros()).palpiteiros;
+      // Polling de 15s: só re-renderiza quando algo realmente mudou —
+      // evita o "refresh do nada" a cada ciclo e o card aberto pular de pessoa.
+      setRows((prev) =>
+        prev && JSON.stringify(prev) === JSON.stringify(next) ? prev : next,
+      );
       setErro(null);
     } catch (e) {
       setErro(errorMessage(e));
@@ -80,12 +85,12 @@ export function RankingDoDia({ voltar }: { voltar?: boolean }) {
           const nada = p.palpites.length === 0 && p.multiplas.length === 0;
           return (
             <Card
-              key={i}
+              key={p.entrou_em}
               className={`mb-2 ${p.eu ? "border-2 border-primary" : ""}`}
             >
               <Pressable
                 className="flex-row items-center"
-                onPress={() => setAberto(aberto === i ? null : i)}
+                onPress={() => setAberto(aberto === p.entrou_em ? null : p.entrou_em)}
               >
                 <View className="h-9 w-9 items-center justify-center rounded-full bg-cardAlt">
                   <T className="font-mont-xb text-sm">{p.posicao ? `${p.posicao}º` : "—"}</T>
@@ -98,12 +103,12 @@ export function RankingDoDia({ voltar }: { voltar?: boolean }) {
                 </View>
                 <T className="mr-2 font-odds text-base text-primary">{fmtPontos(p.pontuacao)} pts</T>
                 <Ionicons
-                  name={aberto === i ? "chevron-up" : "chevron-down"}
+                  name={aberto === p.entrou_em ? "chevron-up" : "chevron-down"}
                   size={18}
                   color={C.muted}
                 />
               </Pressable>
-              {aberto === i ? (
+              {aberto === p.entrou_em ? (
                 <View className="mt-3">
                   {nada ? (
                     <T className="text-xs text-muted">
