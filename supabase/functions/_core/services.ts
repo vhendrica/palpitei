@@ -249,10 +249,31 @@ export async function perfil(db: Db, user: UserPublico) {
   const vouchers = await db`
     select v.codigo, v.valor, v.resgatado, v.created_at, l.data
     from vouchers v join ligas l on l.id = v.liga_id where v.user_id = ${user.id} order by v.created_at desc`;
-  const historico = await db`
-    select l.id, l.data, l.status, e.fichas_total, e.created_at
-    from entradas e join ligas l on l.id = e.liga_id where e.user_id = ${user.id}
-    order by l.data desc limit 30`;
+  const [historico, [total], [simples], [mults]] = await Promise.all([
+    participacoes(db, user),
+    db`select count(*)::int as n from entradas where user_id = ${user.id}`,
+    // Palpites já decididos (mercado apurado ou rodada encerrada). Múltipla inteira conta 1.
+    db`
+      select count(distinct a.mercado_id) filter (where m.resultado_final)::int as certos,
+             count(distinct a.mercado_id)::int as total
+      from apostas a join mercados m on m.id = a.mercado_id
+      join jogos j on j.id = m.jogo_id join ligas l on l.id = j.liga_id
+      where a.user_id = ${user.id} and (m.decidido_em is not null or l.status = 'finalizada')`,
+    db`
+      select count(*) filter (where perdidas = 0)::int as certos, count(*)::int as total from (
+        select mu.id,
+               count(*) filter (where not coalesce(m.resultado_final, false)
+                                  and (m.decidido_em is not null or l.status = 'finalizada')) as perdidas,
+               count(*) filter (where m.decidido_em is null and l.status <> 'finalizada') as pendentes
+        from multiplas mu join multipla_pernas p on p.multipla_id = mu.id
+        join mercados m on m.id = p.mercado_id join ligas l on l.id = mu.liga_id
+        where mu.user_id = ${user.id}
+        group by mu.id
+      ) x where perdidas > 0 or pendentes = 0`,
+  ]);
+  const fechadas = historico.filter((h) => h.status === 'finalizada');
+  const duelos = fechadas.filter((h) => h.modo === 'duelo' && h.palpiteiros === 2);
+  const decididos = num(simples.total) + num(mults.total);
   return {
     user,
     vouchers: vouchers.map((v) => ({
@@ -261,12 +282,19 @@ export async function perfil(db: Db, user: UserPublico) {
       resgatado: !!v.resgatado,
       data: iso(v.data)!.slice(0, 10),
     })),
-    historico: historico.map((h) => ({
-      liga_id: h.id as string,
-      data: iso(h.data)!.slice(0, 10),
-      status: h.status as string,
-      fichas_total: num(h.fichas_total),
-    })),
+    historico,
+    // Vitórias/pódios/recordes saem das participações carregadas (as 50 mais recentes).
+    stats: {
+      participacoes: num(total.n),
+      vitorias: fechadas.filter((h) => h.posicao === 1 && h.pontuacao > 0).length,
+      podios: fechadas.filter((h) => h.posicao != null && h.posicao <= 3 && h.pontuacao > 0).length,
+      maior_odd: Math.max(0, ...historico.map((h) => h.maior_acerto)),
+      recorde_pontos: Math.max(0, ...historico.map((h) => h.pontuacao)),
+      palpites_decididos: decididos,
+      taxa_acerto: decididos ? Math.round(((num(simples.certos) + num(mults.certos)) / decididos) * 100) : null,
+      duelos_vitorias: duelos.filter((h) => h.posicao === 1 && h.pontuacao > 0).length,
+      duelos_derrotas: duelos.filter((h) => h.posicao === 2 && h.pontuacao_lider > 0).length,
+    },
   };
 }
 
@@ -396,9 +424,13 @@ export async function palpiteirosDaLiga(db: Db, user: UserPublico | null, liga: 
 
 /** Rodadas/desafios em que o usuário entrou, com sua posição e pontuação final/atual. */
 export async function historico(db: Db, user: UserPublico) {
+  return { historico: await participacoes(db, user) };
+}
+
+async function participacoes(db: Db, user: UserPublico) {
   const rows = await db`
     select e.liga_id, e.fichas_total, e.pontos_pagos, e.created_at as entrou_em,
-           l.data, l.status, l.titulo, l.owner_id, l.premio_final,
+           l.data, l.status, l.titulo, l.owner_id, l.premio_final, l.modo,
            u.nome as dono_nome
     from entradas e
     join ligas l on l.id = e.liga_id
@@ -423,9 +455,15 @@ export async function historico(db: Db, user: UserPublico) {
       palpiteiros: ranking.length,
       premio_final: r.premio_final == null ? null : num(r.premio_final),
       entrou_em: iso(r.entrou_em)!,
+      modo: ((r.modo as string) ?? 'grupo') as 'grupo' | 'duelo',
+      // Duelo: o nome do outro lado, pra linha do histórico dizer contra quem foi.
+      adversario:
+        r.modo === 'duelo' && ranking.length === 2 ? (ranking.find((x) => x.user_id !== user.id)?.nome ?? null) : null,
+      maior_acerto: eu?.maior_acerto ?? 0,
+      pontuacao_lider: ranking[0]?.pontuacao ?? 0,
     });
   }
-  return { historico: out };
+  return out;
 }
 
 /** O bilhete completo do usuário numa rodada/desafio de que ele participou. */

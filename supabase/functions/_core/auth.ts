@@ -189,6 +189,14 @@ export async function confirmarCodigo(d: AuthDeps, input: { whatsapp: unknown; c
   return { token, user: res.user, nova_conta: res.novaConta };
 }
 
+/** O usuário edita o próprio nome e bairro (WhatsApp e CPF não mudam por aqui). */
+export async function atualizarPerfil(sql: Db, user: UserPublico, input: { nome: unknown; bairro: unknown }) {
+  const nome = validarNome(input.nome);
+  const bairro = validarBairro(input.bairro);
+  const [u] = await sql`update users set nome = ${nome}, bairro = ${bairro} where id = ${user.id} returning *`;
+  return { user: mapUser(u) };
+}
+
 export async function usuarioDaSessao(sql: Db, token: string | null | undefined) {
   if (!token) return null;
   const [u] = await sql`

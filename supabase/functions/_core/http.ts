@@ -198,6 +198,7 @@ export function createApi(deps: ApiDeps) {
       return aplicarPlacar(sql, c.params[0], Number(b.casa), Number(b.fora));
     }],
     ['GET', /^\/me$/, async (c) => perfil(sql, await c.requireUser())],
+    ['PUT', /^\/me$/, async (c) => auth.atualizarPerfil(sql, await c.requireUser(), await c.body())],
 
     // ---- histórico de palpites (o usuário só vê as rodadas que entrou)
     ['GET', /^\/historico$/, async (c) => historico(sql, await c.requireUser())],

@@ -8,6 +8,9 @@ export type User = {
   bairro: string;
   saldo_pontos: number;
   is_admin: boolean;
+  /** Dias seguidos de login (ciclo de 7) e o maior já alcançado. */
+  login_streak?: number;
+  maior_streak?: number;
   created_at: string;
 };
 
@@ -175,12 +178,20 @@ export type Perfil = {
     resgatado: boolean;
     data: string;
   }[];
-  historico: {
-    liga_id: string;
-    data: string;
-    status: LigaStatus;
-    fichas_total: number;
-  }[];
+  /** As 50 participações mais recentes. */
+  historico: HistoricoItem[];
+  stats: {
+    participacoes: number;
+    vitorias: number;
+    podios: number;
+    maior_odd: number;
+    recorde_pontos: number;
+    palpites_decididos: number;
+    /** % de palpites certos entre os já decididos (null sem nenhum decidido). */
+    taxa_acerto: number | null;
+    duelos_vitorias: number;
+    duelos_derrotas: number;
+  };
 };
 
 export type CodigoEnviado = {
@@ -302,6 +313,11 @@ export type HistoricoItem = {
   palpiteiros: number;
   premio_final: number | null;
   entrou_em: string;
+  modo: "grupo" | "duelo";
+  /** Só em duelo com os dois lados dentro. */
+  adversario: string | null;
+  maior_acerto: number;
+  pontuacao_lider: number;
 };
 
 export type MeuBilhete = {

@@ -127,6 +127,7 @@ export const api = {
   editarApostas: (bilhete: BilheteInput) =>
     req<{ fichas_distribuidas: number; fichas_livres: number }>('PUT', '/liga/hoje/apostas', bilhete),
   me: () => req<Perfil>('GET', '/me'),
+  atualizarPerfil: (input: { nome: string; bairro: string }) => req<{ user: User }>('PUT', '/me', input),
 
   desafios: {
     listar: (busca?: string) =>
