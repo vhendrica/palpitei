@@ -455,6 +455,8 @@ export default function Detalhe() {
             {d.ranking.map((r) => {
               const aberto = bilheteAberto === r.posicao;
               const bilhete = aberto ? bilhetes?.find((b) => b.posicao === r.posicao) : null;
+              // Ninguém pontuou ainda: a ordem segue o potencial e ele é o número principal.
+              const semPontos = d.ranking.every((x) => x.pontuacao === 0);
               return (
                 <Pressable key={r.posicao} onPress={() => toggleBilhete(r.posicao)}>
                   <Card className="mb-2 py-2">
@@ -463,12 +465,19 @@ export default function Detalhe() {
                         <T className="font-mont-xb text-xs">{r.posicao}º</T>
                       </View>
                       <T className="ml-3 flex-1 font-mont-b text-sm">{r.nome}</T>
-                      <View className="items-end">
-                        <T className="font-odds text-sm" style={{ color: COR_POS[r.posicao] ?? C.primary }}>{fmtPontos(r.pontuacao)} pts</T>
-                        {(r.potencial ?? r.pontuacao) > r.pontuacao ? (
-                          <T className="text-[10px] text-muted">até {fmtPontos(r.potencial!)}</T>
-                        ) : null}
-                      </View>
+                      {semPontos ? (
+                        <View className="items-end">
+                          <T className="font-odds text-sm" style={{ color: COR_POS[r.posicao] ?? C.primary }}>{fmtPontos(r.potencial ?? 0)} pts</T>
+                          <T className="text-[10px] text-muted">potencial máx.</T>
+                        </View>
+                      ) : (
+                        <View className="items-end">
+                          <T className="font-odds text-sm" style={{ color: COR_POS[r.posicao] ?? C.primary }}>{fmtPontos(r.pontuacao)} pts</T>
+                          {(r.potencial ?? r.pontuacao) > r.pontuacao ? (
+                            <T className="text-[10px] text-muted">até {fmtPontos(r.potencial!)}</T>
+                          ) : null}
+                        </View>
+                      )}
                       <Ionicons
                         name={aberto ? "chevron-up" : "chevron-down"}
                         size={15}

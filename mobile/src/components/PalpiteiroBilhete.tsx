@@ -5,7 +5,7 @@ import { useTheme } from "../store/Theme";
 import type { PalpiteiroView, Resultado } from "../types";
 import { Ficha } from "./Ficha";
 import { T } from "./ui";
-import { fmtOdd, rotuloPalpite } from "../lib/format";
+import { fmtOdd, fmtPontos, rotuloPalpite } from "../lib/format";
 
 const icone = (r: Resultado) =>
   r === "green" ? "checkmark-circle" : r === "red" ? "close-circle" : "time-outline";
@@ -32,6 +32,12 @@ export function PalpiteiroBilhete({ p }: { p: PalpiteiroView }) {
           <Ionicons name={icone(a.resultado)} size={16} color={cor(a.resultado)} />
         </View>
       ))}
+      {p.potencial_simples ? (
+        <T className="mt-1 text-right text-[11px] text-muted">
+          Simples pode render até{" "}
+          <T className="font-mont-xb text-[11px] text-primary">{fmtPontos(p.potencial_simples)} pts</T>
+        </T>
+      ) : null}
       {p.multiplas.map((m) => (
         <View key={m.numero} className="mt-1 rounded-lg bg-cardAlt p-2">
           <T className="font-mont-xb text-xs">
@@ -50,8 +56,20 @@ export function PalpiteiroBilhete({ p }: { p: PalpiteiroView }) {
               <Ionicons name={icone(l.resultado)} size={14} color={cor(l.resultado)} />
             </View>
           ))}
+          {m.potencial ? (
+            <T className="mt-1.5 text-right text-[11px] text-muted">
+              se todas baterem →{" "}
+              <T className="font-mont-xb text-[11px] text-primary">{fmtPontos(m.potencial)} pts</T>
+            </T>
+          ) : null}
         </View>
       ))}
+      {p.potencial != null ? (
+        <View className="mt-2 flex-row items-center justify-between border-t border-line pt-2">
+          <T className="font-mont-b text-xs text-muted">Potencial máximo</T>
+          <T className="font-odds text-lg text-primary">{fmtPontos(p.potencial)} pts</T>
+        </View>
+      ) : null}
     </View>
   );
 }

@@ -133,6 +133,8 @@ export type PalpiteiroView = {
   acertos?: number;
   /** Potencial máximo de pontos (só no próprio bilhete). */
   potencial: number | null;
+  /** Retorno máximo das apostas simples ainda vivas (mesma regra de visibilidade do potencial). */
+  potencial_simples?: number | null;
   /** Simples. Dos outros, só os jogos que já começaram, sem fichas. */
   palpites: {
     jogo: string;
@@ -147,6 +149,8 @@ export type PalpiteiroView = {
     odd: number;
     ocultas: number;
     fichas?: number;
+    /** Retorno máximo se todas as pernas baterem (null quando há perna oculta). */
+    potencial?: number | null;
     pernas: { jogo: string; grupo: string; descricao: string; odd: number; resultado: Resultado }[];
   }[];
 };

@@ -127,10 +127,17 @@ export function RankingDoDia({ voltar }: { voltar?: boolean }) {
                           fichas={x.fichas}
                         />
                       ))}
+                      {p.potencial_simples ? (
+                        <T className="mt-1.5 text-right text-[11px] text-muted">
+                          Simples pode render até{" "}
+                          <T className="font-mont-xb text-[11px] text-primary">{fmtPontos(p.potencial_simples)} pts</T>
+                        </T>
+                      ) : null}
                     </View>
                   ) : null}
                   {p.multiplas.map((m) => {
                     const cor = corMultipla(m.numero - 1, scheme);
+                    const pot = m.potencial ?? (m.fichas != null && m.odd != null ? m.fichas * m.odd : null);
                     return (
                       <View
                         key={m.numero}
@@ -160,10 +167,10 @@ export function RankingDoDia({ voltar }: { voltar?: boolean }) {
                             resultado={x.resultado}
                           />
                         ))}
-                        {m.fichas != null ? (
+                        {pot ? (
                           <T className="text-right text-[11px] text-muted">
                             se todas baterem →{" "}
-                            <T className="font-mont-xb text-[11px] text-primary">{fmtPontos(m.fichas * (m.odd ?? 0))} pts</T>
+                            <T className="font-mont-xb text-[11px] text-primary">{fmtPontos(pot)} pts</T>
                           </T>
                         ) : null}
                         {m.ocultas > 0 ? (

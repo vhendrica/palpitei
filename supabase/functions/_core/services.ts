@@ -319,6 +319,22 @@ export async function palpiteirosDaLiga(db: Db, user: UserPublico | null, liga: 
           resultado: resultadoDe(!!a.finalizado || tudo, !!a.resultado_final),
           ...(mostraFichas ? { fichas: num(a.fichas) } : {}),
         }));
+      // Potencial da Simples: retorno bruto das apostas ainda não decididas.
+      const potencialSimples = mostraFichas
+        ? exato(
+            apostas
+              .filter((a) => a.user_id === e.user_id && !a.finalizado)
+              .reduce((t, a) => t + num(a.fichas) * num(a.multiplicador), 0),
+          )
+        : null;
+      // Potencial de cada múltipla: fichas × odd total se nenhuma perna morreu e ainda tem perna viva.
+      // Perna oculta mascara o potencial pra não vazar a odd escondida.
+      const potMult = (m: (typeof multiplas)[number], ocultas: number) => {
+        if (!mostraFichas || ocultas > 0) return null;
+        const morta = m.pernas.some((p) => p.finalizado && !p.resultado_final);
+        const viva = m.pernas.some((p) => !p.finalizado);
+        return !morta && viva ? exato(m.fichas * m.odd) : 0;
+      };
       const minhas = multiplas
         .filter((m) => m.user_id === e.user_id)
         .map((m, k) => {
@@ -326,6 +342,7 @@ export async function palpiteirosDaLiga(db: Db, user: UserPublico | null, liga: 
           return {
             numero: k + 1,
             ocultas: m.pernas.length - pernas.length,
+            potencial: potMult(m, m.pernas.length - pernas.length),
             // Com perna oculta, o total permitiria deduzir a odd escondida.
             odd: pernas.length === m.pernas.length ? m.odd : null,
             pernas: pernas.map((p) => ({
@@ -368,6 +385,7 @@ export async function palpiteirosDaLiga(db: Db, user: UserPublico | null, liga: 
         acertos: r?.acertos ?? 0,
         pontuacao: r?.pontuacao ?? 0,
         potencial,
+        potencial_simples: potencialSimples,
         palpites,
         multiplas: minhas,
       };

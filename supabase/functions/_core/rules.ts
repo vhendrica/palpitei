@@ -442,17 +442,21 @@ export async function calcularRanking(db: Db, ligaId: string): Promise<RankingRo
     pontos: pontos.get(r.id as string) ?? 0,
     maior: acertos.get(r.id as string)?.maior ?? 0,
     n: acertos.get(r.id as string)?.n ?? 0,
+    pot: potencial.get(r.id as string) ?? 0,
   }));
   type L = (typeof lista)[number];
   const criterio = (a: L, b: L): string | null =>
-    a.maior !== b.maior
-      ? `maior multiplicador acertado: ${a.maior.toFixed(2)}`
-      : a.n !== b.n
-        ? `${a.n} ${a.n === 1 ? 'acerto' : 'acertos'}`
-        : null;
+    a.pot !== b.pot
+      ? `maior potencial: ${round2(a.pontos + a.pot)} pts`
+      : a.maior !== b.maior
+        ? `maior multiplicador acertado: ${a.maior.toFixed(2)}`
+        : a.n !== b.n
+          ? `${a.n} ${a.n === 1 ? 'acerto' : 'acertos'}`
+          : null;
   lista.sort(
     (a, b) =>
       b.pontos - a.pontos ||
+      b.pot - a.pot ||
       b.maior - a.maior ||
       b.n - a.n ||
       String(a.r.id).localeCompare(String(b.r.id)),
