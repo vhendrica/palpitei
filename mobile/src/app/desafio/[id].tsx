@@ -1,6 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { Alert, Platform, Pressable, RefreshControl, ScrollView, Share, TextInput, View } from "react-native";
 
 import { AppHeader } from "../../components/AppHeader";
@@ -34,6 +34,12 @@ export default function Detalhe() {
   const [d, setD] = useState<DesafioDetalhe | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft>(DRAFT_VAZIO);
+  // Edições não confirmadas: o load não pode recriar o draft por cima delas.
+  const dirty = useRef(false);
+  const marcaDraft: typeof setDraft = useCallback((v) => {
+    dirty.current = true;
+    setDraft(v);
+  }, []);
   const [salvando, setSalvando] = useState(false);
   const [entrando, setEntrando] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -86,7 +92,7 @@ export default function Detalhe() {
           if (!ini.itens.includes(p.mercado_id)) ini.itens.push(p.mercado_id);
         }
       }
-      setDraft(ini);
+      if (!dirty.current) setDraft(ini);
       setErro(null);
     } catch (e) {
       setErro(errorMessage(e));
@@ -206,6 +212,7 @@ export default function Detalhe() {
         ),
         multiplas: draft.multiplas.filter((m) => m.mercados.length > 0),
       });
+      dirty.current = false;
       await load();
       Alert.alert("Feito!", "Palpites confirmados.");
     } catch (e) {
@@ -435,7 +442,7 @@ export default function Detalhe() {
                           selos={selosDe(m.id)}
                           resultado={resultado}
                           disabled={!pode && !m.decidido && !m.resultado_final}
-                          onPress={() => (pode ? setDraft((d) => alternarOdd(d, m.id)) : undefined)}
+                          onPress={() => (pode ? marcaDraft((d) => alternarOdd(d, m.id)) : undefined)}
                         />
                       </View>
                     );
@@ -455,8 +462,9 @@ export default function Detalhe() {
             {d.ranking.map((r) => {
               const aberto = bilheteAberto === r.posicao;
               const bilhete = aberto ? bilhetes?.find((b) => b.posicao === r.posicao) : null;
-              // Ninguém pontuou ainda: a ordem segue o potencial e ele é o número principal.
-              const semPontos = d.ranking.every((x) => x.pontuacao === 0);
+              // Rodada não iniciada (nenhum jogo começou): a ordem segue o potencial
+              // e ele é o número principal. Com jogo rolando, pontos + "até X".
+              const semJogos = d.jogos.every((j) => !j.comecou);
               return (
                 <Pressable key={r.posicao} onPress={() => toggleBilhete(r.posicao)}>
                   <Card className="mb-2 py-2">
@@ -465,7 +473,7 @@ export default function Detalhe() {
                         <T className="font-mont-xb text-xs">{r.posicao}º</T>
                       </View>
                       <T className="ml-3 flex-1 font-mont-b text-sm">{r.nome}</T>
-                      {semPontos ? (
+                      {semJogos ? (
                         <View className="items-end">
                           <T className="font-odds text-sm" style={{ color: COR_POS[r.posicao] ?? C.primary }}>{fmtPontos(r.potencial ?? 0)} pts</T>
                           <T className="text-[10px] text-muted">potencial máx.</T>
@@ -513,7 +521,7 @@ export default function Detalhe() {
           opcoes={opcoes}
           fichasLivres={base}
           offsetMultiplas={travadas.length}
-          onChange={setDraft}
+          onChange={marcaDraft}
           onResumo={confirmar}
         />
       ) : null}
