@@ -289,7 +289,8 @@ export async function perfil(db: Db, user: UserPublico) {
       vitorias: fechadas.filter((h) => h.posicao === 1 && h.pontuacao > 0).length,
       podios: fechadas.filter((h) => h.posicao != null && h.posicao <= 3 && h.pontuacao > 0).length,
       maior_odd: Math.max(0, ...historico.map((h) => h.maior_acerto)),
-      recorde_pontos: Math.max(0, ...historico.map((h) => h.pontuacao)),
+      // Só rodadas do dia: desafio tem fichas por entrada próprias e distorceria o recorde.
+      recorde_pontos: Math.max(0, ...historico.filter((h) => !h.desafio).map((h) => h.pontuacao)),
       palpites_decididos: decididos,
       taxa_acerto: decididos ? Math.round(((num(simples.certos) + num(mults.certos)) / decididos) * 100) : null,
       duelos_vitorias: duelos.filter((h) => h.posicao === 1 && h.pontuacao > 0).length,

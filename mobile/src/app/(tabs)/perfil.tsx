@@ -156,7 +156,7 @@ export default function Perfil() {
         <Numero key="v" valor={fmtPts(s.vitorias)} rotulo={desktop ? "vitórias" : "vitórias (1º lugar)"} cor="text-gold" />,
         <Numero key="d" valor={fmtPts(s.podios)} rotulo={desktop ? "pódios" : "pódios (top 3)"} />,
         <Numero key="o" valor={s.maior_odd ? fmtOdd(s.maior_odd) : "—"} rotulo="maior odd acertada" cor="text-primary" />,
-        <Numero key="r" valor={fmtPts(s.recorde_pontos)} rotulo="recorde de pontos" cor="text-primary" />,
+        <Numero key="r" valor={fmtPts(s.recorde_pontos)} rotulo="recorde na rodada do dia" cor="text-primary" />,
         <Numero key="t" valor={s.taxa_acerto == null ? "—" : `${s.taxa_acerto}%`} rotulo="palpites certos" />,
       ]
     : [];
