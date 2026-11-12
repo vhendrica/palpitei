@@ -8,6 +8,7 @@ import { ErrorBox, Field } from "../../components/Form";
 import { Button, Card, EmptyState, StatusBadge, T } from "../../components/ui";
 import { ModalModo, type ModoDesafio } from "../../components/ModalModo";
 import { api } from "../../lib/api";
+import { useDesktop } from "../../lib/desktop";
 import { fmtData } from "../../lib/format";
 import { errorMessage, useApp } from "../../store/AppStore";
 import { useTheme } from "../../store/Theme";
@@ -20,6 +21,7 @@ export default function Desafios() {
   const [meus, setMeus] = useState<DesafioResumo[] | null>(null);
   const [publicos, setPublicos] = useState<DesafioResumo[]>([]);
   const [busca, setBusca] = useState("");
+  const desktop = useDesktop();
   const [erro, setErro] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [modalCriar, setModalCriar] = useState(false);
@@ -119,6 +121,7 @@ export default function Desafios() {
           />
         }
       >
+        <View style={desktop ? { maxWidth: 980, width: "100%", alignSelf: "center" } : undefined}>
         <ErrorBox erro={erro} />
         <Button
           title="Criar desafio"
@@ -157,6 +160,7 @@ export default function Desafios() {
           <T className="mb-2 mt-3 font-mont-xb text-xs uppercase text-muted">Desafios públicos</T>
         ) : null}
         {publicos.map(item)}
+        </View>
       </ScrollView>
       <ModalModo visivel={modalCriar} onFechar={() => setModalCriar(false)} onEscolher={(m) => { setModalCriar(false); router.push(`/desafio/criar?modo=${m}`); }} />
     </View>

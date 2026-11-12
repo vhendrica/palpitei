@@ -32,6 +32,7 @@ import {
   T,
 } from "../../components/ui";
 import { alternarOdd, corMultipla, type Draft, DRAFT_VAZIO, fichasNoDraft } from "../../lib/bilhete";
+import { useDesktop } from "../../lib/desktop";
 import { fmtData, fmtPontos, fmtPts } from "../../lib/format";
 import { errorMessage, useApp } from "../../store/AppStore";
 import { useTheme } from "../../store/Theme";
@@ -45,6 +46,7 @@ const MERCADOS_VISIVEIS = 2;
 export default function HomeMultipla() {
   const { palette: C, scheme } = useTheme();
   const { home, homeErro, refreshHome, user, entrarNaLiga, apostar } = useApp();
+  const desktop = useDesktop();
   const [streak, setStreak] = useState<{ dia: number; pontos: number; quebrou: boolean } | null>(null);
   useEffect(() => {
     if (home?.bonus_login) setStreak(home.bonus_login);
@@ -396,12 +398,14 @@ export default function HomeMultipla() {
         ref={scrollRef}
         contentContainerStyle={{
           padding: 16,
-          paddingBottom: draft.itens.length > 0 ? 480 : 120,
+          paddingBottom: draft.itens.length > 0 && !desktop ? 480 : 120,
+          paddingRight: desktop && eu && draft.itens.length > 0 ? 360 : 16,
         }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
+        <View style={desktop ? { maxWidth: 980, width: "100%", alignSelf: "center" } : undefined}>
         {!home.liga ? (
           <EmptyState
             icon="calendar-outline"
@@ -536,9 +540,20 @@ export default function HomeMultipla() {
               <SectionTitle>Jogos</SectionTitle>
             </View>
             {destaque ? renderJogo(destaque) : null}
-            {outros.map(renderJogo)}
+            {desktop ? (
+              <View style={{ flexDirection: "row", flexWrap: "wrap", marginHorizontal: -6 }}>
+                {outros.map((j) => (
+                  <View key={j.id} style={{ width: "50%", paddingHorizontal: 6 }}>
+                    {renderJogo(j)}
+                  </View>
+                ))}
+              </View>
+            ) : (
+              outros.map(renderJogo)
+            )}
           </>
         )}
+        </View>
       </ScrollView>
       {streak ? (
         <StreakModal dia={streak.dia} pontos={streak.pontos} quebrou={streak.quebrou} onFechar={() => setStreak(null)} />
@@ -551,6 +566,7 @@ export default function HomeMultipla() {
             fichasLivres={fichasLivresBase}
             offsetMultiplas={offsetMultiplas}
             onChange={setDraft}
+            rail={desktop}
             onResumo={() => {
               setErroBilhete(null);
               setResumo(true);

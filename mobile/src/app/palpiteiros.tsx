@@ -9,6 +9,7 @@ import { ErrorBox } from "../components/Form";
 import { Card, EmptyState, T } from "../components/ui";
 import { api } from "../lib/api";
 import { corMultipla } from "../lib/bilhete";
+import { useDesktop } from "../lib/desktop";
 import { fmtOdd, fmtPontos, rotuloPalpite } from "../lib/format";
 import { errorMessage } from "../store/AppStore";
 import { useTheme } from "../store/Theme";
@@ -25,6 +26,7 @@ export function RankingDoDia({ voltar }: { voltar?: boolean }) {
   const [erro, setErro] = useState<string | null>(null);
   const [aberto, setAberto] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const desktop = useDesktop();
 
   const load = useCallback(async () => {
     try {
@@ -58,6 +60,7 @@ export function RankingDoDia({ voltar }: { voltar?: boolean }) {
           />
         }
       >
+        <View style={desktop ? { maxWidth: 980, width: "100%", alignSelf: "center" } : undefined}>
         <ErrorBox erro={erro} />
         {rows && rows.length === 0 ? (
           <EmptyState
@@ -202,6 +205,7 @@ export function RankingDoDia({ voltar }: { voltar?: boolean }) {
             </Card>
           );
         })}
+        </View>
       </ScrollView>
     </View>
   );

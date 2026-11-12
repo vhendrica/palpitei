@@ -50,6 +50,7 @@ export function Bilhete({
   offsetMultiplas,
   onChange,
   onResumo,
+  rail,
 }: {
   draft: Draft;
   opcoes: Record<string, OpcaoBilhete>;
@@ -59,6 +60,8 @@ export function Bilhete({
   offsetMultiplas: number;
   onChange: (d: Draft) => void;
   onResumo: () => void;
+  /** Desktop: bilhete vira coluna fixa à direita em vez de bottom sheet. */
+  rail?: boolean;
 }) {
   const { palette: C, scheme } = useTheme();
   const [aberto, setAberto] = useState(true);
@@ -176,10 +179,14 @@ export function Bilhete({
 
   return (
     <View
-      className="absolute bottom-0 left-0 right-0 rounded-t-3xl border-t-2 border-primary px-4 pb-1.5 pt-2"
+      className={
+        rail
+          ? "absolute right-0 top-0 bottom-0 w-[340px] border-l-2 border-primary px-4 pb-1.5 pt-2"
+          : "absolute bottom-0 left-0 right-0 rounded-t-3xl border-t-2 border-primary px-4 pb-1.5 pt-2"
+      }
       style={{
         backgroundColor: fundo,
-        maxHeight: expandido ? height * 0.75 : height / 3,
+        maxHeight: rail ? "100%" : expandido ? height * 0.75 : height / 3,
         shadowColor: "#000",
         shadowOpacity: 0.2,
         shadowRadius: 12,

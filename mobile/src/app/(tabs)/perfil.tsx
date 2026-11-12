@@ -14,6 +14,7 @@ import {
   T,
 } from "../../components/ui";
 import { api } from "../../lib/api";
+import { useDesktop } from "../../lib/desktop";
 import { fmtPts, fmtWhats } from "../../lib/format";
 import { useApp } from "../../store/AppStore";
 import { useTheme } from "../../store/Theme";
@@ -25,6 +26,7 @@ export default function Perfil() {
   const { palette: C, noturno, setNoturno } = useTheme();
   const { user, sair, refreshUser } = useApp();
   const [perfil, setPerfil] = useState<PerfilT | null>(null);
+  const desktop = useDesktop();
 
   useFocusEffect(
     useCallback(() => {
@@ -73,6 +75,7 @@ export default function Perfil() {
     <View className="flex-1 bg-bg">
       <AppHeader title="Perfil" />
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
+        <View style={desktop ? { maxWidth: 720, width: "100%", alignSelf: "center" } : undefined}>
         <Card className="flex-row items-center">
           <View className="h-14 w-14 items-center justify-center rounded-full bg-primary">
             <T className="font-mont-xb text-2xl text-onPrimary">
@@ -147,6 +150,7 @@ export default function Perfil() {
 
         {tema}
         <Button title="Sair" variant="danger" onPress={sair} className="mt-6" />
+        </View>
       </ScrollView>
     </View>
   );
