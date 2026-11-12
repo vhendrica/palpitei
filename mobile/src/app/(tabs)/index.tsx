@@ -399,7 +399,7 @@ export default function HomeMultipla() {
         contentContainerStyle={{
           padding: 16,
           paddingBottom: draft.itens.length > 0 && !desktop ? 480 : 120,
-          paddingRight: desktop && eu && draft.itens.length > 0 ? 360 : 16,
+          paddingRight: desktop && eu ? 360 : 16,
         }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
@@ -558,7 +558,7 @@ export default function HomeMultipla() {
       {streak ? (
         <StreakModal dia={streak.dia} pontos={streak.pontos} quebrou={streak.quebrou} onFechar={() => setStreak(null)} />
       ) : null}
-      {draft.itens.length > 0 && eu ? (
+      {eu && (desktop || draft.itens.length > 0) ? (
         <>
           <Bilhete
             draft={draft}

@@ -64,11 +64,14 @@ export function Bilhete({
   rail?: boolean;
 }) {
   const { palette: C, scheme } = useTheme();
-  const [aberto, setAberto] = useState(true);
+  const [abertoState, setAberto] = useState(true);
   const [largura, setLargura] = useState(0);
   const [pagina, setPagina] = useState(0);
   const [info, setInfo] = useState(false);
-  const [expandido, setExpandido] = useState(false);
+  const [expandidoState, setExpandido] = useState(false);
+  // No rail (desktop) o bilhete é sempre aberto e expandido — sem recolher nem paginar.
+  const aberto = rail ? true : abertoState;
+  const expandido = rail ? true : expandidoState;
   const [perguntar, setPerguntar] = useState<string | null>(null);
   const { height } = useWindowDimensions();
   const fundo = misturar(C.primary, C.card, scheme === "dark" ? 0.14 : 0.1);
@@ -193,9 +196,8 @@ export function Bilhete({
         elevation: 12,
       }}
     >
-      <Pressable onPress={() => setAberto((a) => !a)} className="items-center pb-2">
-        <View className="mb-2 h-1 w-10 rounded-full bg-line" />
-        <View className="w-full flex-row items-center justify-between">
+      {rail ? (
+        <View className="w-full flex-row items-center justify-between pb-2">
           <T className="font-mont-xb text-sm">
             Meu bilhete · {draft.itens.length} {draft.itens.length === 1 ? "palpite" : "palpites"}
           </T>
@@ -203,11 +205,25 @@ export function Bilhete({
             <Ficha size={15} />
             <T className="ml-1 font-odds text-sm">{fmtPts(livres)}</T>
             <T className="ml-1 mr-2 text-xs text-muted">livres</T>
-            <Ionicons name={aberto ? "chevron-down" : "chevron-up"} size={18} color={C.muted} />
           </View>
         </View>
-      </Pressable>
-      {aberto && paginas.length > 1 ? (
+      ) : (
+        <Pressable onPress={() => setAberto((a) => !a)} className="items-center pb-2">
+          <View className="mb-2 h-1 w-10 rounded-full bg-line" />
+          <View className="w-full flex-row items-center justify-between">
+            <T className="font-mont-xb text-sm">
+              Meu bilhete · {draft.itens.length} {draft.itens.length === 1 ? "palpite" : "palpites"}
+            </T>
+            <View className="flex-row items-center">
+              <Ficha size={15} />
+              <T className="ml-1 font-odds text-sm">{fmtPts(livres)}</T>
+              <T className="ml-1 mr-2 text-xs text-muted">livres</T>
+              <Ionicons name={aberto ? "chevron-down" : "chevron-up"} size={18} color={C.muted} />
+            </View>
+          </View>
+        </Pressable>
+      )}
+      {!rail && aberto && paginas.length > 1 ? (
         <View className="mb-1.5 flex-row items-center justify-between">
           {expandido ? (
             <View />
