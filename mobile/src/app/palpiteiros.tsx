@@ -83,6 +83,8 @@ export function RankingDoDia({ voltar }: { voltar?: boolean }) {
         ) : null}
         {rows?.map((p, i) => {
           const nada = p.palpites.length === 0 && p.multiplas.length === 0;
+          // Antes de pontuar, o potencial é o número principal do ranking.
+          const semPontos = rows.every((o) => o.pontuacao === 0);
           return (
             <Card
               key={p.entrou_em}
@@ -101,7 +103,14 @@ export function RankingDoDia({ voltar }: { voltar?: boolean }) {
                     {p.eu ? " (você)" : ""}
                   </T>
                 </View>
-                <T className="mr-2 font-odds text-base text-primary">{fmtPontos(p.pontuacao)} pts</T>
+                {semPontos ? (
+                  <View className="mr-2 items-end">
+                    <T className="font-odds text-base text-primary">{fmtPontos(p.potencial ?? 0)} pts</T>
+                    <T className="text-[10px] text-muted">potencial</T>
+                  </View>
+                ) : (
+                  <T className="mr-2 font-odds text-base text-primary">{fmtPontos(p.pontuacao)} pts</T>
+                )}
                 <Ionicons
                   name={aberto === p.entrou_em ? "chevron-up" : "chevron-down"}
                   size={18}
