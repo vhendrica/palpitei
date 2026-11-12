@@ -30,7 +30,7 @@ export function RankingDoDia({ voltar }: { voltar?: boolean }) {
 
   const load = useCallback(async () => {
     try {
-      const next = (await api.palpiteiros()).palpiteiros;
+      const next = (await api.palpiteiros(true)).palpiteiros;
       // Polling de 15s: só re-renderiza quando algo realmente mudou —
       // evita o "refresh do nada" a cada ciclo e o card aberto pular de pessoa.
       setRows((prev) =>

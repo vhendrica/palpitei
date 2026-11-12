@@ -51,9 +51,16 @@ export function wireFeedback(handlers: {
   onApiError = handlers.onApiError;
 }
 
-async function req<T>(method: string, path: string, body?: unknown): Promise<T> {
+async function req<T>(
+  method: string,
+  path: string,
+  body?: unknown,
+  opts?: { silencioso?: boolean },
+): Promise<T> {
   let res: Response;
-  sinalizaLoading(1);
+  // Requisições de fundo (polling) não acendem o overlay global de loading.
+  const silencioso = !!opts?.silencioso;
+  if (!silencioso) sinalizaLoading(1);
   try {
     try {
       res = await fetch(`${API_URL}${path}`, {
@@ -75,7 +82,7 @@ async function req<T>(method: string, path: string, body?: unknown): Promise<T> 
     }
     return data as T;
   } finally {
-    sinalizaLoading(-1);
+    if (!silencioso) sinalizaLoading(-1);
   }
 }
 
@@ -107,10 +114,12 @@ export const api = {
     'GET',
     '/liga/hoje/ranking',
   ),
-  palpiteiros: () =>
+  palpiteiros: (silencioso = false) =>
     req<{ data: string; liga: { id: string; status: string } | null; palpiteiros: PalpiteiroView[] }>(
       'GET',
       '/liga/hoje/palpiteiros',
+      undefined,
+      { silencioso },
     ),
   entrar: () => req<{ fichas_total: number; saldo_pontos: number }>('POST', '/liga/hoje/entrar'),
   apostar: (bilhete: BilheteInput) =>
