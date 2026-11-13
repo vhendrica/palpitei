@@ -1,31 +1,14 @@
 const P_PATH =
-  "M24 16 H55 C68 16 78 26 78 38 C78 50 68 60 55 60 H41 V84 H24 Z M41 30 V46 H54 C58.5 46 62 42.5 62 38 C62 33.5 58.5 30 54 30 Z";
-const CHECK_PATH = "M48 66 L60 78 L86 50";
+  "M275 527 H565 C678 527 768 619 768 732 C768 845 678 937 565 937 H447 V817 H565 C608 817 643 779 643 732 C643 685 608 647 565 647 H402 V1111 H275 Z";
+const CHECK_PATH = "M807 851 L896 771 L987 899 L1460 465 L987 1103 Z";
 
-/** Marca Palpitei: "P" com um sinal de certo verde. */
+/** Marca PALPIT: "P" com o sinal de certo, verde #00C447 sobre preto. */
 export function LogoMark({ size = 32 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 100 100" aria-label="Palpitei">
-      <rect width="100" height="100" rx="24" fill="#1E1E1E" />
-      <g transform="translate(6 4) scale(0.88)">
-        <path d={P_PATH} fill="#FFFFFF" fillRule="evenodd" />
-        <path
-          d={CHECK_PATH}
-          fill="none"
-          stroke="#1E1E1E"
-          strokeWidth={20}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        <path
-          d={CHECK_PATH}
-          fill="none"
-          stroke="#00FF88"
-          strokeWidth={10}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </g>
+    <svg width={size} height={size} viewBox="0 0 1600 1600" aria-label="PALPIT">
+      <rect width="1600" height="1600" rx="360" fill="#000000" />
+      <path d={P_PATH} fill="#00C447" />
+      <path d={CHECK_PATH} fill="#00C447" />
     </svg>
   );
 }

@@ -3,6 +3,7 @@ import { router } from "expo-router";
 import { Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { useDesktop } from "../lib/desktop";
 import { fmtPts } from "../lib/format";
 import { useApp } from "../store/AppStore";
 import { useTheme } from "../store/Theme";
@@ -26,10 +27,43 @@ export function PontosPill() {
   );
 }
 
-export function AppHeader({ title, back }: { title?: string; back?: boolean }) {
+export function AppHeader({
+  title,
+  back,
+  streak,
+  onStreak,
+}: {
+  title?: string;
+  back?: boolean;
+  streak?: number;
+  onStreak?: () => void;
+}) {
   const insets = useSafeAreaInsets();
   const { user } = useApp();
   const { palette: C } = useTheme();
+  const desktop = useDesktop();
+  // Desktop: a barra do topo (DesktopNav) já faz o papel do cabeçalho. Tela interna ganha só o caminho de volta.
+  if (desktop) {
+    if (!back) return null;
+    return (
+      <View className="px-4 pt-4" style={{ maxWidth: 1212, width: "100%", alignSelf: "center" }}>
+        <View className="flex-row items-center">
+          <Pressable
+            onPress={() => (router.canGoBack() ? router.back() : router.replace("/"))}
+            className="flex-row items-center rounded-lg px-1 py-1 hover:bg-cardAlt"
+          >
+            <Ionicons name="chevron-back" size={16} color={C.muted} />
+            <T className="ml-0.5 text-xs text-muted">Voltar</T>
+          </Pressable>
+          {title ? (
+            <T className="ml-3 flex-1 font-mont-xb text-sm" numberOfLines={1}>
+              {title}
+            </T>
+          ) : null}
+        </View>
+      </View>
+    );
+  }
   return (
     <View
       style={{ paddingTop: insets.top + 8 }}
@@ -59,14 +93,26 @@ export function AppHeader({ title, back }: { title?: string; back?: boolean }) {
           )}
         </View>
         <View className="flex-row items-center">
-          {user?.is_premium ? (
+          {user?.is_admin ? (
             <View className="mr-2 rounded-full bg-headerAccent/20 px-2 py-1">
-              <T className="font-mont-b text-[10px] text-headerAccent">
-                PREMIUM
-              </T>
+              <T className="font-mont-b text-[10px] text-headerAccent">ADMIN</T>
             </View>
           ) : null}
-          <PontosPill />
+          {user && streak != null && streak > 0 ? (
+            <Pressable onPress={onStreak} className="mr-2 rounded-full bg-headerAccent/20 px-2 py-1">
+              <T className="font-mont-b text-[10px] text-headerAccent">🔥 {streak}</T>
+            </Pressable>
+          ) : null}
+          {user ? (
+            <PontosPill />
+          ) : (
+            <Pressable
+              onPress={() => router.push("/entrar")}
+              className="rounded-full bg-headerAccent px-3 py-1.5"
+            >
+              <T className="font-mont-xb text-xs text-onPrimary">ENTRAR</T>
+            </Pressable>
+          )}
         </View>
       </View>
     </View>

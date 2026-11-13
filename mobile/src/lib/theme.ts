@@ -18,9 +18,12 @@ export type Palette = {
   gold: string;
   check: string;
   logoBadge: string;
+  logoP: string;
+  logoCheck: string;
+  logoText: string;
 };
 
-/** light = padrão (estilo bet365, claro). dark = modo noturno (#121212 / #1E1E1E / #00FF88). */
+/** light = padrão claro (header verde, selo branco). dark = modo noturno, marca PALPIT verde #00C447 sobre preto. */
 export const PALETTES: Record<Scheme, Palette> = {
   light: {
     bg: '#EEF0F2',
@@ -38,6 +41,9 @@ export const PALETTES: Record<Scheme, Palette> = {
     gold: '#B7791F',
     check: '#00C46A',
     logoBadge: '#FFFFFF',
+    logoP: '#1A1A1A',
+    logoCheck: '#00C46A',
+    logoText: '#FFFFFF',
   },
   dark: {
     bg: '#121212',
@@ -46,15 +52,18 @@ export const PALETTES: Record<Scheme, Palette> = {
     line: '#2E2E2E',
     fg: '#FFFFFF',
     muted: '#9A9A9A',
-    primary: '#00FF88',
+    primary: '#00C447',
     onPrimary: '#121212',
-    header: '#121212',
+    header: '#000000',
     onHeader: '#FFFFFF',
-    headerAccent: '#00FF88',
+    headerAccent: '#00C447',
     danger: '#FF4D5E',
     gold: '#FFC83D',
-    check: '#00FF88',
-    logoBadge: '#1E1E1E',
+    check: '#00C447',
+    logoBadge: '#000000',
+    logoP: '#00C447',
+    logoCheck: '#00C447',
+    logoText: '#00C447',
   },
 };
 

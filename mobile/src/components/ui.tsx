@@ -13,7 +13,7 @@ import type { LigaStatus } from "../types";
 import { useTheme } from "../store/Theme";
 
 const TEXT_COLOR =
-  /(^|\s)text-(white|black|fg|muted|primary|onPrimary|danger|gold|onHeader|headerAccent|bg)(\/|\s|$)/;
+  /(^|\s)text-(white|black|fg|muted|primary|onPrimary|danger|gold|onHeader|headerAccent|logoText|bg)(\/|\s|$)/;
 
 export function T({
   className = "",
@@ -43,6 +43,8 @@ export function Card({
 }
 
 type ButtonProps = {
+  /** Botão mais baixo. */
+  compact?: boolean;
   title: string;
   onPress?: () => void;
   variant?: "primary" | "outline" | "ghost" | "danger";
@@ -60,9 +62,10 @@ export function Button({
   loading,
   icon,
   className = "",
+  compact,
 }: ButtonProps) {
   const { palette: C } = useTheme();
-  const base = "flex-row items-center justify-center rounded-xl px-4 py-3.5";
+  const base = `flex-row items-center justify-center rounded-xl px-4 ${compact ? "py-2" : "py-3.5"}`;
   const styles = {
     primary: "bg-primary",
     outline: "border border-primary bg-transparent",
@@ -128,6 +131,21 @@ export function StatusBadge({ status }: { status: LigaStatus }) {
       >
         {STATUS_LABEL[status]}
       </T>
+    </View>
+  );
+}
+
+/** Esqueleto de carregamento: ocupa o lugar do conteúdo em vez de escurecer a tela. */
+export function Esqueleto({ blocos = 3 }: { blocos?: number }) {
+  return (
+    <View>
+      {Array.from({ length: blocos }, (_, i) => (
+        <View key={i} className="mb-2 rounded-2xl border border-line bg-card p-4 opacity-70">
+          <View className="h-3 w-2/3 rounded-full bg-cardAlt" />
+          <View className="mt-3 h-3 w-full rounded-full bg-cardAlt" />
+          <View className="mt-3 h-3 w-1/2 rounded-full bg-cardAlt" />
+        </View>
+      ))}
     </View>
   );
 }

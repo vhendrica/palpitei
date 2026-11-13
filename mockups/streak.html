@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Palpitei — Mockups Streak v3</title>
+<style>
+  :root {
+    --bg:#121212; --card:#1E1E1E; --cardAlt:#262626; --line:#2E2E2E;
+    --fg:#FFFFFF; --muted:#9A9A9A; --primary:#00C447; --danger:#FF4D5E;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; font-family: system-ui, -apple-system, sans-serif; }
+  body { background:#0a0a0a; color:var(--fg); padding:40px 16px; display:flex; flex-wrap:wrap; gap:32px; justify-content:center; }
+  .screen { width:340px; }
+  .label { color:var(--muted); font-size:11px; letter-spacing:2px; text-transform:uppercase; margin-bottom:10px; }
+  .phone { background:var(--bg); border:1px solid var(--line); border-radius:20px; overflow:hidden; min-height:520px; position:relative; padding:16px; }
+  .modal-veil { position:absolute; inset:0; background:rgba(0,0,0,.55); display:flex; align-items:center; justify-content:center; padding:20px; }
+  .modal { background:var(--card); border:1px solid var(--line); border-radius:18px; padding:22px 18px 16px; width:100%; text-align:center; position:relative; overflow:hidden; }
+  .close-x { position:absolute; top:8px; right:10px; color:var(--muted); font-size:16px; cursor:pointer; }
+  .autob { position:absolute; bottom:0; left:0; height:3px; background:var(--primary); animation:shrink 4s linear forwards; }
+  @keyframes shrink { from { width:100% } to { width:0% } }
+  .fire { font-size:42px; }
+  .modal h2 { font-size:18px; margin:6px 0 2px; }
+  .pts { color:var(--primary); font-size:26px; font-weight:800; margin:4px 0 14px; }
+  .track { display:flex; align-items:flex-start; justify-content:space-between; margin:10px 0 14px; }
+  .dot { display:flex; flex-direction:column; align-items:center; gap:4px; flex:1; }
+  .pt { width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:800; }
+  .done .pt { background:var(--primary); color:#fff; }
+  .today .pt { background:var(--primary); color:#fff; width:32px; height:32px; font-size:14px; box-shadow:0 0 0 4px rgba(0,196,71,.25); }
+  .next .pt { background:var(--cardAlt); color:var(--muted); border:1px dashed var(--line); }
+  .dot .v { font-size:9px; color:var(--muted); font-weight:700; }
+  .today .v { color:var(--primary); }
+  .done { opacity:.7; }
+  .cta { color:var(--primary); font-weight:700; font-size:13px; }
+  .pill { display:inline-flex; align-items:center; gap:4px; background:var(--cardAlt); border:1px solid var(--line); border-radius:999px; padding:5px 12px; font-size:12px; }
+  .cardbox { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; }
+  .row { display:flex; justify-content:space-between; align-items:center; }
+  .muted { color:var(--muted); font-size:12px; }
+  .big { font-size:16px; font-weight:700; }
+  .fake { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; margin-top:10px; color:var(--muted); font-size:12px; }
+</style>
+</head>
+<body>
+
+<!-- SVG wallet (Ionicons wallet) reutilizado nos marcadores -->
+<svg width="0" height="0" style="position:absolute">
+  <symbol id="w" viewBox="0 0 512 512"><path d="M416 88v-.55C414.42 51.45 391.4 32 363.84 32H147.15C96.94 32 56 73.21 56 124.36v264.17C56 440.42 98.1 480 150.15 480H408c44.18 0 80-35.82 80-80V136c0-26.47-20.48-47.99-47-48zM360 416H150.15c-15.6 0-28.12-12.65-28.1-27.64a28.06 28.06 0 0128.1-28.36H400a24 24 0 0024-24V136h-32v-.55a48.6 48.6 0 0148-48.55V88a24 24 0 0124 24v304a24 24 0 01-24 24h-56z"/><circle cx="416" cy="288" r="16"/></symbol>
+</svg>
+
+<!-- 1. Modal de resgate — dia 3 -->
+<div class="screen">
+  <div class="label">1 · Resgate — some em 4s + X</div>
+  <div class="phone">
+    <div class="fake">palpite · mercados · bilhete (tela normal atrás)</div>
+    <div class="modal-veil">
+      <div class="modal">
+        <span class="close-x">✕</span>
+        <div class="fire">🔥</div>
+        <h2>Sequência: 3 dias!</h2>
+        <div class="pts">+60 PONTOS</div>
+        <div class="track">
+          <div class="dot done"><div class="pt">✓</div><div class="v">40</div></div>
+          <div class="dot done"><div class="pt">✓</div><div class="v">50</div></div>
+          <div class="dot today"><div class="pt">✓</div><div class="v">hoje</div></div>
+          <div class="dot next"><div class="pt">4</div><div class="v">70</div></div>
+          <div class="dot next"><div class="pt">5</div><div class="v">80</div></div>
+          <div class="dot next"><div class="pt">6</div><div class="v">90</div></div>
+          <div class="dot next"><div class="pt">7</div><div class="v">110</div></div>
+        </div>
+        <div class="muted" style="margin-bottom:14px">
+          Amanhã tem <b style="color:var(--fg)">+70</b> na sua conta.<br>No 7º dia o prêmio fica ainda melhor: <b style="color:var(--primary)">+110</b> 🏆
+        </div>
+        <span class="autob"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 2. Sequência quebrada -->
+<div class="screen">
+  <div class="label">2 · Sequência quebrada</div>
+  <div class="phone">
+    <div class="fake">tela normal atrás</div>
+    <div class="modal-veil">
+      <div class="modal">
+        <span class="close-x">✕</span>
+        <div class="fire">💪</div>
+        <h2>Sequência zerou</h2>
+        <div class="muted" style="margin:4px 0 2px">Faltou ontem — recomeçando do dia 1. Bora retomar?</div>
+        <div class="pts">+40 PONTOS</div>
+        <div class="track">
+          <div class="dot today"><div class="pt">✓</div><div class="v">hoje</div></div>
+          <div class="dot next"><div class="pt">2</div><div class="v">50</div></div>
+          <div class="dot next"><div class="pt">3</div><div class="v">60</div></div>
+          <div class="dot next"><div class="pt">4</div><div class="v">70</div></div>
+          <div class="dot next"><div class="pt">5</div><div class="v">80</div></div>
+          <div class="dot next"><div class="pt">6</div><div class="v">90</div></div>
+          <div class="dot next"><div class="pt">7</div><div class="v">110</div></div>
+        </div>
+        <span class="autob"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 3. Pill na home -->
+<div class="screen">
+  <div class="label">3 · Indicador na home</div>
+  <div class="phone">
+    <div class="row" style="margin-bottom:14px">
+      <div class="big">Palpite</div>
+      <div class="pill">🔥 <b>3</b></div>
+    </div>
+    <div class="fake">jogos do dia…</div>
+    <div class="fake">jogos do dia…</div>
+    <div class="muted" style="margin-top:14px">Tocar na pill abre o modal em modo "progresso": trilho + "amanhã +70".</div>
+  </div>
+</div>
+
+<!-- 4. Card no Perfil -->
+<div class="screen">
+  <div class="label">4 · Card no Perfil</div>
+  <div class="phone">
+    <div class="cardbox">
+      <div class="row" style="margin-bottom:10px">
+        <div>
+          <div class="big">🔥 Sequência</div>
+          <div class="muted">3 dias seguidos · recorde: 9</div>
+        </div>
+        <div class="pill">🔥 3</div>
+      </div>
+      <div class="track">
+        <div class="dot done"><div class="pt">✓</div><div class="v">40</div></div>
+        <div class="dot done"><div class="pt">✓</div><div class="v">50</div></div>
+        <div class="dot today"><div class="pt">✓</div><div class="v">hoje</div></div>
+        <div class="dot next"><div class="pt">4</div><div class="v">70</div></div>
+        <div class="dot next"><div class="pt">5</div><div class="v">80</div></div>
+        <div class="dot next"><div class="pt">6</div><div class="v">90</div></div>
+        <div class="dot next"><div class="pt">7</div><div class="v">110</div></div>
+      </div>
+      <div class="row muted"><span>Total resgatado</span><span style="color:var(--fg)">340 pts</span></div>
+      <div class="row muted" style="margin-top:4px"><span>P/ o 7º dia</span><span style="color:var(--primary)">4 dias · +110</span></div>
+    </div>
+    <div class="fake">resto do perfil…</div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -10,18 +10,21 @@ import {
 } from "@expo-google-fonts/montserrat";
 import { DarkTheme, DefaultTheme, ThemeProvider } from "expo-router";
 import { Stack } from "expo-router/stack";
+import { ActivityIndicator, Text, View } from "react-native";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo } from "react";
 
-import { DemoBridge } from "../components/DemoBridge";
+import { DesktopNav } from "../components/DesktopNav";
+import { useDesktop } from "../lib/desktop";
 import { AppStoreProvider, useApp } from "../store/AppStore";
 import { ThemeStoreProvider, useTheme } from "../store/Theme";
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 function RootNavigator() {
-  const { ready, user } = useApp();
+  const { ready, carregando, toast } = useApp();
+  const desktop = useDesktop();
   const { ready: themeReady, scheme, palette } = useTheme();
   const [fontsLoaded] = useFonts({
     Montserrat_400Regular,
@@ -56,21 +59,57 @@ function RootNavigator() {
   return (
     <ThemeProvider value={navTheme}>
       <StatusBar style="light" />
-      <DemoBridge />
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: palette.bg },
-        }}
-      >
-        <Stack.Protected guard={!!user}>
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="liga/[id]" />
-        </Stack.Protected>
-        <Stack.Protected guard={!user}>
-          <Stack.Screen name="onboarding" />
-        </Stack.Protected>
-      </Stack>
+      <View style={{ flex: 1, backgroundColor: palette.bg }}>
+        {desktop ? <DesktopNav /> : null}
+        <View style={{ flex: 1 }}>
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              contentStyle: { backgroundColor: palette.bg },
+            }}
+          >
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="entrar" />
+            <Stack.Screen name="cadastro" />
+            <Stack.Screen name="codigo" />
+            <Stack.Screen name="palpiteiros" />
+          </Stack>
+        </View>
+      </View>
+      {carregando ? (
+        <View
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0,0,0,0.45)",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+          }}
+          pointerEvents="auto"
+        >
+          <ActivityIndicator size="large" color={palette.primary} />
+        </View>
+      ) : null}
+      {toast ? (
+        <View
+          style={{
+            position: "absolute",
+            bottom: 40,
+            left: 16,
+            right: 16,
+            backgroundColor: toast.tipo === "erro" ? "#B42318" : "#14805E",
+            borderRadius: 10,
+            padding: 14,
+            zIndex: 9999,
+          }}
+        >
+          <Text style={{ color: "#fff", fontWeight: "700", textAlign: "center" }}>{toast.texto}</Text>
+        </View>
+      ) : null}
     </ThemeProvider>
   );
 }

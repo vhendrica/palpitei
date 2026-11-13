@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Palpitei — Perfil</title>
+<style>
+  :root { --bg:#0F0F0F; --card:#1A1A1A; --alt:#222; --line:#2A2A2A; --fg:#FFF; --muted:#8A8A8A; --primary:#00C447; --gold:#F2B01E; --danger:#FF4D5E; }
+  * { margin:0; padding:0; box-sizing:border-box; font-family:system-ui,-apple-system,sans-serif; }
+  body { background:#000; color:var(--fg); padding:24px; display:flex; flex-direction:column; gap:36px; }
+  .label { color:var(--muted); font-size:11px; letter-spacing:2px; text-transform:uppercase; margin-bottom:10px; }
+  .num { font-family:ui-monospace,Menlo,monospace; font-weight:800; }
+  .row { display:flex; gap:28px; flex-wrap:wrap; align-items:flex-start; }
+
+  .phone { width:360px; border:1px solid var(--line); border-radius:28px; background:var(--bg); overflow:hidden; }
+  .hdr { background:var(--card); border-bottom:1px solid var(--line); padding:14px 16px; font-weight:800; font-size:15px; }
+  .pad { padding:16px; display:flex; flex-direction:column; gap:12px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; }
+  .sec { font-size:11px; font-weight:800; color:var(--muted); letter-spacing:1px; text-transform:uppercase; margin-top:6px; }
+
+  .id { display:flex; align-items:center; gap:12px; }
+  .avatar { width:52px; height:52px; border-radius:50%; background:var(--primary); color:#04210F; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:22px; flex-shrink:0; }
+  .id h2 { font-size:17px; font-weight:800; }
+  .id p { font-size:12px; color:var(--muted); margin-top:2px; }
+  .edit { margin-left:auto; border:1px solid var(--line); border-radius:8px; padding:6px 10px; font-size:11px; font-weight:700; color:var(--muted); }
+
+  .saldo { border:1px solid rgba(0,196,71,.4); background:rgba(0,196,71,.1); border-radius:16px; padding:16px; display:flex; align-items:flex-end; justify-content:space-between; }
+  .saldo small { display:block; font-size:10px; letter-spacing:2px; text-transform:uppercase; color:var(--primary); }
+  .saldo .v { font-size:38px; color:var(--primary); line-height:1; margin-top:6px; }
+  .saldo .v span { font-size:12px; font-family:system-ui; font-weight:700; margin-left:6px; }
+  .seq { text-align:right; }
+  .seq b { font-size:20px; display:block; }
+  .seq i { font-style:normal; font-size:10px; color:var(--muted); }
+  .dias { display:flex; gap:4px; margin-top:6px; justify-content:flex-end; }
+  .dias span { width:14px; height:4px; border-radius:2px; background:var(--line); }
+  .dias span.on { background:var(--primary); }
+
+  .stats { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; }
+  .stat { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:12px 10px; }
+  .stat b { font-size:20px; display:block; }
+  .stat i { font-style:normal; font-size:10px; color:var(--muted); display:block; margin-top:3px; line-height:1.25; }
+  .stat.g b { color:var(--gold); }
+  .stat.p b { color:var(--primary); }
+
+  .duelo { display:flex; align-items:center; gap:10px; }
+  .duelo .bar { flex:1; height:6px; border-radius:3px; background:var(--danger); overflow:hidden; }
+  .duelo .bar div { height:100%; background:var(--primary); }
+  .duelo span { font-size:11px; color:var(--muted); }
+  .duelo b { font-size:13px; }
+
+  .h { display:flex; align-items:center; gap:10px; padding:10px 0; border-top:1px solid var(--line); }
+  .h:first-child { border-top:0; padding-top:0; }
+  .h:last-child { padding-bottom:0; }
+  .pos { width:34px; height:34px; border-radius:50%; background:var(--alt); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:800; flex-shrink:0; }
+  .pos.o { background:rgba(242,176,30,.15); color:var(--gold); }
+  .h .t { flex:1; min-width:0; }
+  .h .t b { font-size:13px; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .h .t i { font-style:normal; font-size:11px; color:var(--muted); }
+  .h .pts { text-align:right; font-size:13px; color:var(--primary); }
+  .h .pts i { display:block; font-style:normal; font-family:system-ui; font-weight:400; font-size:10px; color:var(--muted); }
+  .tag { font-size:9px; font-weight:800; letter-spacing:.5px; padding:2px 5px; border-radius:4px; border:1px solid var(--line); color:var(--muted); margin-left:4px; }
+  .live { color:var(--primary); border-color:rgba(0,196,71,.4); }
+  .more { text-align:center; font-size:12px; font-weight:700; color:var(--muted); padding-top:10px; border-top:1px solid var(--line); margin-top:10px; }
+
+  .vou { display:flex; align-items:center; justify-content:space-between; }
+  .vou b { font-size:13px; }
+  .vou i { font-style:normal; font-size:11px; color:var(--muted); display:block; }
+  .vou .v { color:var(--gold); font-size:15px; }
+
+  .line { display:flex; align-items:center; justify-content:space-between; font-size:13px; font-weight:700; }
+  .sw { width:38px; height:22px; border-radius:11px; background:var(--primary); position:relative; }
+  .sw::after { content:""; position:absolute; right:2px; top:2px; width:18px; height:18px; border-radius:50%; background:#fff; }
+  .sair { text-align:center; font-size:13px; font-weight:800; color:var(--danger); border:1px solid rgba(255,77,94,.4); border-radius:12px; padding:12px; }
+
+  /* desktop */
+  .frame { border:1px solid var(--line); border-radius:12px; background:var(--bg); overflow:hidden; width:1040px; max-width:100%; }
+  .topbar { background:var(--card); border-bottom:1px solid var(--line); padding:0 24px; height:52px; display:flex; align-items:center; gap:28px; }
+  .logo { font-weight:900; font-size:15px; }
+  .logo span { color:var(--primary); }
+  .tabs { display:flex; height:100%; }
+  .tab { display:flex; align-items:center; padding:0 14px; font-size:12px; font-weight:600; color:var(--muted); border-bottom:2px solid transparent; }
+  .tab.on { color:var(--fg); border-bottom-color:var(--primary); }
+  .dbody { display:grid; grid-template-columns:320px 1fr; gap:20px; padding:24px; }
+  .col { display:flex; flex-direction:column; gap:12px; }
+  .dstats { grid-template-columns:repeat(6,1fr); }
+  .note { color:var(--muted); font-size:12px; line-height:1.6; max-width:760px; }
+  .note b { color:var(--fg); }
+</style>
+</head>
+<body>
+
+<div>
+  <div class="label">Perfil — mobile</div>
+  <div class="row">
+    <div class="phone">
+      <div class="hdr">Perfil</div>
+      <div class="pad">
+        <div class="card id">
+          <div class="avatar">V</div>
+          <div><h2>Vitória H.</h2><p>(11) 9 8888-0000 · Pinheiros</p></div>
+          <div class="edit">Editar</div>
+        </div>
+
+        <div class="saldo">
+          <div><small>Saldo do perfil</small><div class="v num">1.240<span>PONTOS</span></div></div>
+          <div class="seq">
+            <b class="num">5 dias</b><i>sequência · recorde 12</i>
+            <div class="dias"><span class="on"></span><span class="on"></span><span class="on"></span><span class="on"></span><span class="on"></span><span></span><span></span></div>
+          </div>
+        </div>
+
+        <div class="sec">Meus números</div>
+        <div class="stats">
+          <div class="stat"><b class="num">23</b><i>rodadas e desafios</i></div>
+          <div class="stat g"><b class="num">4</b><i>vitórias (1º lugar)</i></div>
+          <div class="stat"><b class="num">9</b><i>pódios (top 3)</i></div>
+          <div class="stat p"><b class="num">12.40</b><i>maior odd acertada</i></div>
+          <div class="stat p"><b class="num">2.180</b><i>recorde de pontos</i></div>
+          <div class="stat"><b class="num">41%</b><i>palpites certos</i></div>
+        </div>
+        <div class="card duelo">
+          <b>Duelos</b>
+          <span class="num" style="color:var(--primary)">6V</span>
+          <div class="bar"><div style="width:67%"></div></div>
+          <span class="num" style="color:var(--danger)">3D</span>
+        </div>
+
+        <div class="sec">Histórico</div>
+        <div class="card">
+          <div class="h"><div class="pos">2º</div><div class="t"><b>Desafio da firma <span class="tag live">AO VIVO</span></b><i>hoje · 8 palpiteiros</i></div><div class="pts num">640<i>pontos</i></div></div>
+          <div class="h"><div class="pos o">1º</div><div class="t"><b>Rodada de 11/11</b><i>oficial · 54 palpiteiros</i></div><div class="pts num">2.180<i>pontos</i></div></div>
+          <div class="h"><div class="pos">1º</div><div class="t"><b>Duelo com Rafa <span class="tag">DUELO</span></b><i>10/11 · venceu</i></div><div class="pts num">410<i>pontos</i></div></div>
+          <div class="h"><div class="pos">17º</div><div class="t"><b>Rodada de 09/11</b><i>oficial · 61 palpiteiros</i></div><div class="pts num" style="color:var(--muted)">0<i>pontos</i></div></div>
+          <div class="more">Ver histórico completo</div>
+        </div>
+
+        <div class="sec">Vouchers</div>
+        <div class="card vou"><div><b class="num">PLP-8K2Q</b><i>Rodada de 11/11 · não resgatado</i></div><div class="v num">R$ 50</div></div>
+
+        <div class="card line"><span>Modo noturno</span><div class="sw"></div></div>
+        <div class="sair">Sair</div>
+      </div>
+    </div>
+
+    <div class="note">
+      <p><b>O que muda em relação a hoje</b></p><br>
+      <p><b>1. Cabeçalho</b> — bairro junto do telefone e botão Editar (nome e bairro).</p>
+      <p><b>2. Saldo + sequência</b> — a sequência de login (dias seguidos, recorde e os 7 passos do ciclo) entra no mesmo bloco do saldo, já que é ela que alimenta os PONTOS.</p>
+      <p><b>3. Meus números</b> — seis indicadores fixos: participações, vitórias, pódios, maior odd acertada, recorde de pontos numa rodada e % de palpites certos. Abaixo, o placar de duelos (vitórias x derrotas).</p>
+      <p><b>4. Histórico</b> — cada linha passa a mostrar posição, pontos, nº de palpiteiros e o tipo (oficial, desafio, duelo). Hoje aparece só data + fichas. Mostra os 4 mais recentes e o resto fica em "Ver histórico completo".</p>
+      <p><b>5. Vouchers</b> — indica se já foi resgatado.</p><br>
+      <p>Os números são ilustrativos. Sem conquistas/medalhas nem níveis nesta versão — dá para acrescentar depois em cima de "Meus números".</p>
+    </div>
+  </div>
+</div>
+
+<div>
+  <div class="label">Perfil — desktop (duas colunas, sem esticar a coluna do celular)</div>
+  <div class="frame">
+    <div class="topbar">
+      <div class="logo">PALP<span>IT</span></div>
+      <div class="tabs"><div class="tab">Palpite</div><div class="tab">Desafio</div><div class="tab">Ranking</div><div class="tab on">Perfil</div></div>
+    </div>
+    <div class="dbody">
+      <div class="col">
+        <div class="card id">
+          <div class="avatar">V</div>
+          <div><h2>Vitória H.</h2><p>(11) 9 8888-0000 · Pinheiros</p></div>
+          <div class="edit">Editar</div>
+        </div>
+        <div class="saldo">
+          <div><small>Saldo do perfil</small><div class="v num">1.240<span>PONTOS</span></div></div>
+          <div class="seq">
+            <b class="num">5 dias</b><i>recorde 12</i>
+            <div class="dias"><span class="on"></span><span class="on"></span><span class="on"></span><span class="on"></span><span class="on"></span><span></span><span></span></div>
+          </div>
+        </div>
+        <div class="sec">Vouchers</div>
+        <div class="card vou"><div><b class="num">PLP-8K2Q</b><i>Rodada de 11/11 · não resgatado</i></div><div class="v num">R$ 50</div></div>
+        <div class="card line"><span>Modo noturno</span><div class="sw"></div></div>
+        <div class="sair">Sair</div>
+      </div>
+
+      <div class="col">
+        <div class="sec" style="margin-top:0">Meus números</div>
+        <div class="stats dstats">
+          <div class="stat"><b class="num">23</b><i>rodadas e desafios</i></div>
+          <div class="stat g"><b class="num">4</b><i>vitórias</i></div>
+          <div class="stat"><b class="num">9</b><i>pódios</i></div>
+          <div class="stat p"><b class="num">12.40</b><i>maior odd acertada</i></div>
+          <div class="stat p"><b class="num">2.180</b><i>recorde de pontos</i></div>
+          <div class="stat"><b class="num">41%</b><i>palpites certos</i></div>
+        </div>
+        <div class="card duelo">
+          <b>Duelos</b>
+          <span class="num" style="color:var(--primary)">6V</span>
+          <div class="bar"><div style="width:67%"></div></div>
+          <span class="num" style="color:var(--danger)">3D</span>
+        </div>
+        <div class="sec">Histórico</div>
+        <div class="card">
+          <div class="h"><div class="pos">2º</div><div class="t"><b>Desafio da firma <span class="tag live">AO VIVO</span></b><i>hoje · 8 palpiteiros</i></div><div class="pts num">640<i>pontos</i></div></div>
+          <div class="h"><div class="pos o">1º</div><div class="t"><b>Rodada de 11/11</b><i>oficial · 54 palpiteiros</i></div><div class="pts num">2.180<i>pontos</i></div></div>
+          <div class="h"><div class="pos">1º</div><div class="t"><b>Duelo com Rafa <span class="tag">DUELO</span></b><i>10/11 · venceu</i></div><div class="pts num">410<i>pontos</i></div></div>
+          <div class="h"><div class="pos">17º</div><div class="t"><b>Rodada de 09/11</b><i>oficial · 61 palpiteiros</i></div><div class="pts num" style="color:var(--muted)">0<i>pontos</i></div></div>
+          <div class="h"><div class="pos">5º</div><div class="t"><b>Bolão do domingo</b><i>08/11 · 12 palpiteiros</i></div><div class="pts num">320<i>pontos</i></div></div>
+          <div class="more">Ver histórico completo</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

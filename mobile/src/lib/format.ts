@@ -2,7 +2,15 @@ export const fmtOdd = (n: number) => `${n.toFixed(2)}x`;
 
 export const fmtPts = (n: number) => n.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
 
+/** "2026-11-12" → "QUI 12/11" (data sem hora: não passa por fuso). */
+export function fmtDia(iso: string) {
+  const [a, m, d] = iso.slice(0, 10).split('-').map(Number);
+  const sem = new Date(a, m - 1, d, 12).toLocaleDateString('pt-BR', { weekday: 'short' });
+  return `${sem.replace('.', '').toUpperCase()} ${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}`;
+}
+
 export function fmtData(iso: string) {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) return fmtDia(iso);
   const d = new Date(iso);
   const dia = d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit', timeZone: 'America/Fortaleza' });
   const hora = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Fortaleza' });
@@ -21,3 +29,44 @@ export const STATUS_LABEL = {
   em_andamento: 'AO VIVO',
   finalizada: 'FINALIZADA',
 } as const;
+
+export function fmtCpf(raw: string) {
+  const d = raw.replace(/\D/g, '').slice(0, 11);
+  return d
+    .replace(/^(\d{3})(\d)/, '$1.$2')
+    .replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3')
+    .replace(/\.(\d{3})(\d{1,2})$/, '.$1-$2');
+}
+
+export function fmtDataNasc(raw: string) {
+  const d = raw.replace(/\D/g, '').slice(0, 8);
+  if (d.length <= 2) return d;
+  if (d.length <= 4) return `${d.slice(0, 2)}/${d.slice(2)}`;
+  return `${d.slice(0, 2)}/${d.slice(2, 4)}/${d.slice(4)}`;
+}
+
+/** Odd sem arredondar (mínimo 2 casas): 3.885x, 2.10x. */
+export function fmtOddExata(n: number) {
+  const s = String(Number(n.toFixed(8)));
+  const [i, d = ""] = s.split(".");
+  return `${i}.${d.padEnd(2, "0")}x`;
+}
+
+/** Pontos/retornos: até 2 casas, com ponto (151.23). */
+export const fmtPontos = (n: number) => String(Math.round(n * 100) / 100);
+export const fmtExato = fmtPontos;
+
+const MINUSC = new Set(["de", "da", "do", "ou", "e"]);
+const titulo = (s: string) =>
+  s
+    .toLowerCase()
+    .split(" ")
+    .map((w, i) => (i > 0 && MINUSC.has(w) ? w : w.charAt(0).toUpperCase() + w.slice(1)))
+    .join(" ");
+
+/** "AMBOS MARCAM" + "NÃO" → "Ambos marcam: Não". */
+export function rotuloPalpite(grupo: string, descricao: string) {
+  const g = grupo.trim().toLowerCase();
+  const d = titulo(descricao.trim());
+  return g ? `${g.charAt(0).toUpperCase()}${g.slice(1)}: ${d}` : d;
+}
