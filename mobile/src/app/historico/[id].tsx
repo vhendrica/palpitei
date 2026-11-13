@@ -6,8 +6,9 @@ import { Pressable, ScrollView, View } from "react-native";
 import { AppHeader } from "../../components/AppHeader";
 import { ErrorBox } from "../../components/Form";
 import { PalpiteiroBilhete } from "../../components/PalpiteiroBilhete";
-import { Card, EmptyState, StatusBadge, T } from "../../components/ui";
+import { Card, EmptyState, Esqueleto, StatusBadge, T } from "../../components/ui";
 import { api } from "../../lib/api";
+import { useDesktop } from "../../lib/desktop";
 import { fmtData, fmtPontos } from "../../lib/format";
 import { errorMessage } from "../../store/AppStore";
 import { useTheme } from "../../store/Theme";
@@ -20,6 +21,7 @@ export default function HistoricoDetalhe() {
   const [d, setD] = useState<MeuBilhete | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [aberto, setAberto] = useState<Set<number>>(new Set());
+  const desktop = useDesktop();
 
   useEffect(() => {
     let ativo = true;
@@ -43,8 +45,11 @@ export default function HistoricoDetalhe() {
   return (
     <View className="flex-1 bg-bg">
       <AppHeader title="Histórico" back />
-      <ScrollView contentContainerStyle={{ padding: 16 }}>
+      <ScrollView
+        contentContainerStyle={[{ padding: 16 }, desktop ? { maxWidth: 760, width: "100%", alignSelf: "center" } : null]}
+      >
         <ErrorBox erro={erro} />
+        {!d && !erro ? <Esqueleto /> : null}
         {liga ? (
           <Card className="mb-3">
             <View className="flex-row items-center">

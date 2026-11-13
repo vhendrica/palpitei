@@ -47,10 +47,22 @@ export default function HomeMultipla() {
   const { palette: C, scheme } = useTheme();
   const { home, homeErro, refreshHome, user, entrarNaLiga, apostar } = useApp();
   const desktop = useDesktop();
-  const [streak, setStreak] = useState<{ dia: number; pontos: number; quebrou: boolean } | null>(null);
-  useEffect(() => {
-    if (home?.bonus_login) setStreak(home.bonus_login);
-  }, [home?.bonus_login]);
+  // Modal da sequência: deriva do bonus_login. `bonusVisto` guarda a chave do bônus
+  // já exibido/dispensado para não reabrir a cada refetch; `streakManual` cobre o
+  // clique no indicador do header.
+  const bonus = home?.bonus_login ?? null;
+  const bonusKey = bonus ? `${bonus.dia}:${bonus.pontos}:${bonus.quebrou}` : null;
+  const [streakManual, setStreakManual] = useState<{
+    dia: number;
+    pontos: number;
+    quebrou: boolean;
+  } | null>(null);
+  const [bonusVisto, setBonusVisto] = useState<string | null>(null);
+  const streak = streakManual ?? (bonus && bonusKey !== bonusVisto ? bonus : null);
+  const fecharStreak = () => {
+    setStreakManual(null);
+    setBonusVisto(bonusKey);
+  };
   const [refreshing, setRefreshing] = useState(false);
   const draftKey = `${home?.liga?.id}:${user?.id}`;
   const [draftState, setDraftState] = useState<{
@@ -392,20 +404,28 @@ export default function HomeMultipla() {
     <View className="flex-1 bg-bg">
       <AppHeader
         streak={home.usuario?.login_streak ?? undefined}
-        onStreak={() => setStreak({ dia: home.usuario?.login_streak ?? 1, pontos: 0, quebrou: false })}
+        onStreak={() =>
+          setStreakManual({ dia: home.usuario?.login_streak ?? 1, pontos: 0, quebrou: false })
+        }
       />
       <ScrollView
         ref={scrollRef}
         contentContainerStyle={{
           padding: 16,
           paddingBottom: draft.itens.length > 0 && !desktop ? 480 : 120,
-          paddingRight: desktop && eu ? 360 : 16,
         }}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        <View style={desktop ? { maxWidth: 980, width: "100%", alignSelf: "center" } : undefined}>
+        <View
+          style={
+            desktop
+              ? { maxWidth: 1180, width: "100%", alignSelf: "center", flexDirection: "row", alignItems: "flex-start", gap: 20 }
+              : undefined
+          }
+        >
+        <View style={desktop ? { flex: 1, minWidth: 0 } : undefined}>
         {!home.liga ? (
           <EmptyState
             icon="calendar-outline"
@@ -434,6 +454,7 @@ export default function HomeMultipla() {
                 custo={home.regras.custo_entrada_pontos}
                 fichas={home.regras.fichas_por_entrada}
                 saldo={user.saldo_pontos}
+                streak={home.usuario?.login_streak ?? 0}
                 busy={busy}
                 onConfirmar={entrar}
                 onFechar={() => setExplicando(false)}
@@ -554,37 +575,71 @@ export default function HomeMultipla() {
           </>
         )}
         </View>
+        {desktop && eu && home.liga ? (
+          <View style={[{ width: 340 }, { position: "sticky", top: 16 } as object]}>
+            {aberta || draft.itens.length > 0 ? (
+              <Bilhete
+                draft={draft}
+                opcoes={opcoes}
+                fichasLivres={fichasLivresBase}
+                offsetMultiplas={offsetMultiplas}
+                onChange={setDraft}
+                rail
+                onResumo={() => {
+                  setErroBilhete(null);
+                  setResumo(true);
+                }}
+              />
+            ) : (
+              <Card>
+                <T className="font-mont-xb text-sm">Meu bilhete</T>
+                <T className="mt-1 text-xs leading-4 text-muted">
+                  A rodada não aceita mais palpites. Acompanhe seus acertos nos jogos ao lado.
+                </T>
+              </Card>
+            )}
+            {editando && draft.itens.length === 0 ? (
+              <Card className="mt-3">
+                <T className="mb-2 text-center text-xs text-muted">
+                  Você tirou todos os palpites dos jogos que não começaram.
+                </T>
+                <Button title="Salvar alterações" loading={busy} onPress={confirmar} />
+                <ErrorBox erro={erroBilhete} />
+              </Card>
+            ) : null}
+          </View>
+        ) : null}
+        </View>
       </ScrollView>
       {streak ? (
-        <StreakModal dia={streak.dia} pontos={streak.pontos} quebrou={streak.quebrou} onFechar={() => setStreak(null)} />
+        <StreakModal dia={streak.dia} pontos={streak.pontos} quebrou={streak.quebrou} onFechar={fecharStreak} />
       ) : null}
-      {eu && (desktop || draft.itens.length > 0) ? (
-        <>
-          <Bilhete
-            draft={draft}
-            opcoes={opcoes}
-            fichasLivres={fichasLivresBase}
-            offsetMultiplas={offsetMultiplas}
-            onChange={setDraft}
-            rail={desktop}
-            onResumo={() => {
-              setErroBilhete(null);
-              setResumo(true);
-            }}
-          />
-          <ResumoBilhete
-            visible={resumo}
-            draft={draft}
-            opcoes={opcoes}
-            fichasLivres={fichasLivresBase}
-            offsetMultiplas={offsetMultiplas}
-            busy={busy}
-            erro={erroBilhete}
-            onChange={setDraft}
-            onFechar={() => setResumo(false)}
-            onConfirmar={confirmar}
-          />
-        </>
+      {eu ? (
+        <ResumoBilhete
+          visible={resumo}
+          draft={draft}
+          opcoes={opcoes}
+          fichasLivres={fichasLivresBase}
+          offsetMultiplas={offsetMultiplas}
+          busy={busy}
+          erro={erroBilhete}
+          onChange={setDraft}
+          onFechar={() => setResumo(false)}
+          onConfirmar={confirmar}
+        />
+      ) : null}
+      {desktop ? null : eu && draft.itens.length > 0 ? (
+        <Bilhete
+          draft={draft}
+          opcoes={opcoes}
+          fichasLivres={fichasLivresBase}
+          offsetMultiplas={offsetMultiplas}
+          onChange={setDraft}
+          onResumo={() => {
+            setErroBilhete(null);
+            setResumo(true);
+          }}
+        />
       ) : editando && eu ? (
         <View className="absolute bottom-0 left-0 right-0 rounded-t-3xl border-t-2 border-primary bg-card p-4">
           <T className="mb-2 text-center text-sm text-muted">
@@ -649,7 +704,7 @@ function SituacaoFichas({
         </T>
         <T className="text-xs text-muted">
           {noBilhete > 0
-            ? "Confirme o bilhete lá embaixo pra valer."
+            ? "Revise e confirme o bilhete pra valer."
             : "Toque nas opções dos jogos pra montar seu bilhete."}
         </T>
       </View>

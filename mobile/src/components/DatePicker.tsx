@@ -1,8 +1,8 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useState } from "react";
-import { Modal, Pressable, View } from "react-native";
+import { Modal, Pressable, TextInput, View } from "react-native";
 
-import { useTheme } from "../store/Theme";
+import { ThemeVars, useTheme } from "../store/Theme";
 import { T } from "./ui";
 
 const MESES = [
@@ -11,7 +11,7 @@ const MESES = [
 ];
 const DIA_SEM = ["D", "S", "T", "Q", "Q", "S", "S"];
 
-/** Calendário simples pra escolher uma data — devolve ISO (yyyy-mm-dd) ou dd/mm via `formato`. */
+/** Calendário simples pra escolher uma data — devolve ISO (yyyy-mm-dd). */
 export function DatePicker({
   visivel,
   onFechar,
@@ -19,9 +19,9 @@ export function DatePicker({
 }: {
   visivel: boolean;
   onFechar: () => void;
-  onEscolher: (ddmm: string) => void;
+  onEscolher: (iso: string) => void;
 }) {
-  const { palette: { primary, card, line, fg, muted } } = useTheme();
+  const { palette: { primary, card, line, fg } } = useTheme();
   const hoje = new Date();
   const [mes, setMes] = useState(hoje.getMonth());
   const [ano, setAno] = useState(hoje.getFullYear());
@@ -33,6 +33,23 @@ export function DatePicker({
     ...Array.from({ length: diasNoMes }, (_, i) => i + 1),
   ];
 
+  const [digitada, setDigitada] = useState("");
+  // Digitando dd/mm completo e válido, já escolhe (ano corrente; se a data já passou, o próximo).
+  const digitar = (t: string) => {
+    const n = t.replace(/\D/g, "").slice(0, 4);
+    const txt = n.length > 2 ? `${n.slice(0, 2)}/${n.slice(2)}` : n;
+    setDigitada(txt);
+    if (n.length < 4) return;
+    const [dd, mm] = [Number(n.slice(0, 2)), Number(n.slice(2))];
+    let a = hoje.getFullYear();
+    if (new Date(a, mm - 1, dd) < new Date(a, hoje.getMonth(), hoje.getDate())) a += 1;
+    const dt = new Date(a, mm - 1, dd);
+    if (dt.getMonth() !== mm - 1 || dt.getDate() !== dd) return;
+    onEscolher(`${a}-${String(mm).padStart(2, "0")}-${String(dd).padStart(2, "0")}`);
+    setDigitada("");
+    onFechar();
+  };
+
   const muda = (delta: number) => {
     const d = new Date(ano, mes + delta, 1);
     setMes(d.getMonth());
@@ -41,8 +58,21 @@ export function DatePicker({
 
   return (
     <Modal visible={visivel} transparent animationType="fade" onRequestClose={onFechar}>
+      <ThemeVars>
       <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "center", padding: 24 }}>
-        <View style={{ backgroundColor: card, borderRadius: 16, borderWidth: 1, borderColor: line, padding: 16 }}>
+        <View style={{ backgroundColor: card, borderRadius: 16, borderWidth: 1, borderColor: line, padding: 16, width: "100%", maxWidth: 380, alignSelf: "center" }}>
+          <View className="mb-3 flex-row items-center rounded-xl border border-line px-3">
+            <Ionicons name="create-outline" size={16} color={line} />
+            <TextInput
+              value={digitada}
+              onChangeText={digitar}
+              placeholder="Digite a data (dd/mm)"
+              placeholderTextColor={line}
+              keyboardType="numeric"
+              maxLength={5}
+              className="ml-2 flex-1 py-2.5 font-mont-sb text-sm text-fg"
+            />
+          </View>
           <View className="flex-row items-center justify-between mb-3">
             <Pressable onPress={() => muda(-1)} className="p-2" hitSlop={8}>
               <Ionicons name="chevron-back" size={20} color={fg} />
@@ -67,7 +97,7 @@ export function DatePicker({
                   key={i}
                   disabled={dia === null || passado}
                   onPress={() => {
-                    onEscolher(`${String(dia).padStart(2, "0")}/${String(mes + 1).padStart(2, "0")}`);
+                    onEscolher(`${ano}-${String(mes + 1).padStart(2, "0")}-${String(dia).padStart(2, "0")}`);
                     onFechar();
                   }}
                   style={{ width: "14.28%", aspectRatio: 1, alignItems: "center", justifyContent: "center" }}
@@ -103,6 +133,7 @@ export function DatePicker({
           </Pressable>
         </View>
       </View>
+      </ThemeVars>
     </Modal>
   );
 }

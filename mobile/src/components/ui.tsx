@@ -135,6 +135,21 @@ export function StatusBadge({ status }: { status: LigaStatus }) {
   );
 }
 
+/** Esqueleto de carregamento: ocupa o lugar do conteúdo em vez de escurecer a tela. */
+export function Esqueleto({ blocos = 3 }: { blocos?: number }) {
+  return (
+    <View>
+      {Array.from({ length: blocos }, (_, i) => (
+        <View key={i} className="mb-2 rounded-2xl border border-line bg-card p-4 opacity-70">
+          <View className="h-3 w-2/3 rounded-full bg-cardAlt" />
+          <View className="mt-3 h-3 w-full rounded-full bg-cardAlt" />
+          <View className="mt-3 h-3 w-1/2 rounded-full bg-cardAlt" />
+        </View>
+      ))}
+    </View>
+  );
+}
+
 export function SectionTitle({
   children,
   right,

@@ -5,6 +5,7 @@ import { KeyboardAvoidingView, Platform, ScrollView } from "react-native";
 import { AppHeader } from "../components/AppHeader";
 import { ErrorBox, Field } from "../components/Form";
 import { Button, T } from "../components/ui";
+import { pegarRetorno } from "../lib/retorno";
 import { errorMessage, useApp } from "../store/AppStore";
 
 export default function Codigo() {
@@ -25,8 +26,10 @@ export default function Codigo() {
     setErro(null);
     try {
       await confirmarCodigo(params.whatsapp, codigo);
+      // Quem chegou por um convite volta pra ele, não pra home.
+      const retorno = pegarRetorno();
       router.dismissAll();
-      router.replace("/");
+      router.replace((retorno ?? "/") as never);
     } catch (e) {
       setErro(errorMessage(e));
     } finally {

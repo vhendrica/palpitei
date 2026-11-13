@@ -15,13 +15,16 @@ import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo } from "react";
 
+import { DesktopNav } from "../components/DesktopNav";
+import { useDesktop } from "../lib/desktop";
 import { AppStoreProvider, useApp } from "../store/AppStore";
 import { ThemeStoreProvider, useTheme } from "../store/Theme";
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 function RootNavigator() {
-  const { ready } = useApp();
+  const { ready, carregando, toast } = useApp();
+  const desktop = useDesktop();
   const { ready: themeReady, scheme, palette } = useTheme();
   const [fontsLoaded] = useFonts({
     Montserrat_400Regular,
@@ -53,22 +56,26 @@ function RootNavigator() {
 
   if (!loaded) return null;
 
-  const { carregando, toast } = useApp();
   return (
     <ThemeProvider value={navTheme}>
       <StatusBar style="light" />
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: palette.bg },
-        }}
-      >
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen name="entrar" />
-        <Stack.Screen name="cadastro" />
-        <Stack.Screen name="codigo" />
-        <Stack.Screen name="palpiteiros" />
-      </Stack>
+      <View style={{ flex: 1, backgroundColor: palette.bg }}>
+        {desktop ? <DesktopNav /> : null}
+        <View style={{ flex: 1 }}>
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              contentStyle: { backgroundColor: palette.bg },
+            }}
+          >
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="entrar" />
+            <Stack.Screen name="cadastro" />
+            <Stack.Screen name="codigo" />
+            <Stack.Screen name="palpiteiros" />
+          </Stack>
+        </View>
+      </View>
       {carregando ? (
         <View
           style={{

@@ -1,5 +1,5 @@
-import { useLocalSearchParams } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useFocusEffect, useLocalSearchParams } from "expo-router";
+import { useCallback, useState } from "react";
 import { ScrollView, View } from "react-native";
 
 import { AppHeader } from "../../../components/AppHeader";
@@ -24,9 +24,11 @@ export default function JogosDesafio() {
     }
   }, [id]);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load]),
+  );
 
   return (
     <View className="flex-1 bg-bg">

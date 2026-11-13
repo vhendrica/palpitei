@@ -6,7 +6,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useApp } from "../../store/AppStore";
 import { useTheme } from "../../store/Theme";
-import { DesktopNav } from "../../components/DesktopNav";
 import { useDesktop } from "../../lib/desktop";
 
 type IconName = keyof typeof Ionicons.glyphMap;
@@ -28,7 +27,6 @@ export default function TabsLayout() {
   const insets = useSafeAreaInsets();
   return (
     <View style={{ flex: 1 }}>
-      {desktop ? <DesktopNav /> : null}
       <Tabs
       tabBar={desktop ? () => null : undefined}
       screenOptions={{

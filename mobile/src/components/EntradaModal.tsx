@@ -1,4 +1,5 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { router } from "expo-router";
 import { Modal, Pressable, View } from "react-native";
 
 import { fmtPts } from "../lib/format";
@@ -6,11 +7,15 @@ import { ThemeVars, useTheme } from "../store/Theme";
 import { Ficha } from "./Ficha";
 import { Button, T } from "./ui";
 
+/** Mesma curva do bônus de login do backend (dias 1 a 7). */
+const CURVA_LOGIN = [40, 50, 60, 70, 80, 90, 110];
+
 export function EntradaModal({
   visible,
   custo,
   fichas,
   saldo,
+  streak = 0,
   busy,
   onConfirmar,
   onFechar,
@@ -19,12 +24,55 @@ export function EntradaModal({
   custo: number;
   fichas: number;
   saldo: number;
+  /** Dias seguidos de login (pra dizer quanto a sequência rende amanhã). */
+  streak?: number;
   busy?: boolean;
   onConfirmar: () => void;
   onFechar: () => void;
 }) {
   const { palette: C } = useTheme();
   const semSaldo = saldo < custo;
+  if (semSaldo) {
+    // Depois do 7º dia o ciclo recomeça no dia 1.
+    const proximo = streak >= 7 || streak < 1 ? 1 : streak + 1;
+    return (
+      <Modal visible={visible} transparent animationType="fade" onRequestClose={onFechar}>
+        <ThemeVars>
+          <Pressable className="flex-1 items-center justify-center bg-black/60 px-5" onPress={onFechar}>
+            <Pressable className="w-full max-w-[420px] rounded-2xl bg-card p-5" onPress={() => {}}>
+              <T className="font-mont-xb text-lg">Faltam {fmtPts(custo - saldo)} PONTOS</T>
+              <T className="mt-1 text-xs leading-4 text-muted">
+                A entrada custa {fmtPts(custo)} PONTOS e você tem {fmtPts(saldo)}. Dá para completar assim:
+              </T>
+              <View className="mt-3 flex-row items-center rounded-xl bg-cardAlt p-3">
+                <View className="flex-1">
+                  <T className="font-mont-b text-xs">Sequência diária</T>
+                  <T className="text-[11px] text-muted">Abra o app amanhã (dia {proximo} de 7)</T>
+                </View>
+                <T className="font-odds text-sm text-primary">+{CURVA_LOGIN[proximo - 1]}</T>
+              </View>
+              <View className="mt-2 flex-row items-center rounded-xl bg-cardAlt p-3">
+                <View className="flex-1">
+                  <T className="font-mont-b text-xs">Desafios entre amigos</T>
+                  <T className="text-[11px] text-muted">Entrada grátis, não usa PONTOS</T>
+                </View>
+                <T className="font-odds text-sm text-primary">grátis</T>
+              </View>
+              <Button
+                title="Ver desafios"
+                className="mt-4"
+                onPress={() => {
+                  onFechar();
+                  router.push("/(tabs)/desafio");
+                }}
+              />
+              <Button title="Agora não" variant="ghost" onPress={onFechar} className="mt-1" />
+            </Pressable>
+          </Pressable>
+        </ThemeVars>
+      </Modal>
+    );
+  }
   return (
     <Modal
       visible={visible}

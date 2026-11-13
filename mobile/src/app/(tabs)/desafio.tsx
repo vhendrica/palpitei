@@ -1,23 +1,21 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useFocusEffect, router } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
-import { Modal, Pressable, RefreshControl, ScrollView, View } from "react-native";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Pressable, RefreshControl, ScrollView, View } from "react-native";
 
 import { AppHeader } from "../../components/AppHeader";
 import { ErrorBox, Field } from "../../components/Form";
-import { Button, Card, EmptyState, StatusBadge, T } from "../../components/ui";
-import { ModalModo, type ModoDesafio } from "../../components/ModalModo";
+import { Button, Card, EmptyState, Esqueleto, StatusBadge, T } from "../../components/ui";
+import { ModalModo } from "../../components/ModalModo";
 import { api } from "../../lib/api";
 import { useDesktop } from "../../lib/desktop";
 import { fmtData } from "../../lib/format";
 import { errorMessage, useApp } from "../../store/AppStore";
-import { useTheme } from "../../store/Theme";
 import type { DesafioResumo } from "../../types";
 
 /** Aba Desafio: os que eu criei/entrei + os públicos abertos. */
 export default function Desafios() {
   const { user } = useApp();
-  const { palette: C } = useTheme();
   const [meus, setMeus] = useState<DesafioResumo[] | null>(null);
   const [publicos, setPublicos] = useState<DesafioResumo[]>([]);
   const [busca, setBusca] = useState("");
@@ -26,6 +24,8 @@ export default function Desafios() {
   const [refreshing, setRefreshing] = useState(false);
   const [modalCriar, setModalCriar] = useState(false);
 
+  // A busca atual fica numa ref: o load do foco e o do debounce leem sempre o termo mais novo.
+  const termo = useRef("");
   const load = useCallback(async () => {
     if (!user) {
       setMeus([]);
@@ -33,7 +33,7 @@ export default function Desafios() {
       return;
     }
     try {
-      const r = await api.desafios.listar(busca.trim() || undefined);
+      const r = await api.desafios.listar(termo.current.trim() || undefined);
       setMeus(r.meus);
       setPublicos(r.publicos);
       setErro(null);
@@ -46,11 +46,17 @@ export default function Desafios() {
       load();
     }, [load]),
   );
-  useEffect(() => {
-    if (!busca.trim()) return;
-    const t = setTimeout(load, 350);
-    return () => clearTimeout(t);
-  }, [busca]);
+  const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const buscar = (t: string) => {
+    setBusca(t);
+    termo.current = t;
+    if (debounce.current) clearTimeout(debounce.current);
+    // Limpar o campo também recarrega (volta a lista completa).
+    debounce.current = setTimeout(load, 350);
+  };
+  useEffect(() => () => {
+    if (debounce.current) clearTimeout(debounce.current);
+  }, []);
 
   if (!user) {
     return (
@@ -129,7 +135,8 @@ export default function Desafios() {
           onPress={() => setModalCriar(true)}
           className="mb-4"
         />
-        {meus && meus.length === 0 && publicos.length === 0 ? (
+        {meus === null && !erro ? <Esqueleto /> : null}
+        {meus && meus.length === 0 && publicos.length === 0 && !busca.trim() ? (
           <EmptyState
             icon="medal-outline"
             title="Nenhum desafio ainda"
@@ -149,7 +156,7 @@ export default function Desafios() {
           label="Buscar desafio público"
           icon="search"
           value={busca}
-          onChangeText={setBusca}
+          onChangeText={buscar}
           placeholder="Nome ou ID do desafio"
           autoCapitalize="none"
         />

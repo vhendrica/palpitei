@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Palpitei — Desktop v2</title>
+<style>
+  :root { --bg:#0F0F0F; --card:#1A1A1A; --line:#2A2A2A; --fg:#FFF; --muted:#8A8A8A; --primary:#00C447; --danger:#FF4D5E; }
+  * { margin:0; padding:0; box-sizing:border-box; font-family:system-ui,-apple-system,sans-serif; }
+  body { background:#000; color:var(--fg); padding:24px; display:flex; flex-direction:column; gap:32px; }
+  .label { color:var(--muted); font-size:11px; letter-spacing:2px; text-transform:uppercase; margin-bottom:8px; }
+  .frame { border:1px solid var(--line); border-radius:12px; background:var(--bg); overflow:hidden; }
+  .topbar { background:var(--card); border-bottom:1px solid var(--line); padding:0 24px; height:52px; display:flex; align-items:center; gap:28px; }
+  .logo { font-weight:900; font-size:15px; letter-spacing:-0.5px; }
+  .logo span { color:var(--primary); }
+  .tabs { display:flex; height:100%; gap:2px; }
+  .tab { display:flex; align-items:center; padding:0 14px; font-size:12px; font-weight:600; color:var(--muted); border-bottom:2px solid transparent; }
+  .tab.on { color:var(--fg); border-bottom-color:var(--primary); }
+  .user { margin-left:auto; display:flex; align-items:center; gap:14px; font-size:12px; }
+  .pt { font-weight:800; font-family:ui-monospace,monospace; color:var(--primary); }
+  .st { color:var(--muted); }
+  .avatar { width:28px; height:28px; border-radius:50%; background:var(--primary); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:12px; }
+
+  .body { display:flex; min-height:480px; }
+  .main { flex:1; padding:20px 24px; }
+  .sec { font-size:11px; font-weight:800; color:var(--muted); letter-spacing:1px; margin-bottom:12px; text-transform:uppercase; }
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .jogo { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:14px; }
+  .jogo h3 { font-size:13px; font-weight:700; }
+  .jogo .m { color:var(--muted); font-size:11px; margin-top:2px; }
+  .merc { display:flex; justify-content:space-between; align-items:center; padding:7px 0; border-top:1px solid var(--line); margin-top:8px; font-size:11px; }
+  .merc .lbl { color:var(--muted); font-size:10px; font-weight:700; }
+  .opts { display:flex; gap:4px; }
+  .opt { border:1px solid var(--line); border-radius:6px; padding:3px 8px; font-size:10px; font-family:ui-monospace,monospace; }
+  .opt.b { background:var(--primary); border-color:var(--primary); color:#fff; font-weight:700; }
+  .opt.ok { border-color:var(--primary); color:var(--primary); }
+
+  .rail { width:300px; background:var(--card); border-left:1px solid var(--line); padding:16px; }
+  .bil { border:1px solid var(--line); border-radius:12px; padding:14px; }
+  .bil .pick { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--line); font-size:12px; }
+  .bil .pick .o { font-family:ui-monospace,monospace; color:var(--primary); font-weight:700; }
+  .bil .pick .j { color:var(--muted); font-size:10px; }
+  .stake { display:flex; justify-content:space-between; align-items:center; margin-top:12px; font-size:12px; }
+  .inp { background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:8px 10px; font-size:13px; width:90px; text-align:center; font-family:ui-monospace,monospace; color:var(--fg); }
+  .btn { background:var(--primary); color:#fff; border:none; border-radius:10px; padding:12px; font-weight:800; font-size:13px; width:100%; margin-top:12px; }
+  .ganho { display:flex; justify-content:space-between; margin-top:8px; font-size:11px; color:var(--muted); }
+  .ganho b { color:var(--fg); font-family:ui-monospace,monospace; }
+  .note { color:var(--muted); font-size:12px; max-width:1000px; }
+</style>
+</head>
+<body>
+
+<div>
+  <div class="label">1 · Grid de jogos + bilhete lateral permanente</div>
+  <div class="frame">
+    <div class="topbar">
+      <div class="logo">PAL<span>PIT</span></div>
+      <div class="tabs"><span class="tab on">Palpite</span><span class="tab">Desafio</span><span class="tab">Ranking</span><span class="tab">Perfil</span></div>
+      <div class="user"><span class="st">🔥 4</span><span class="pt">1.340 P</span><div class="avatar">V</div></div>
+    </div>
+    <div class="body">
+      <div class="main">
+        <div class="sec">Jogos de hoje</div>
+        <div class="grid">
+          <div class="jogo"><h3>Palmeiras × Remo</h3><div class="m">Brasileirão · 19:00</div>
+            <div class="merc"><span class="lbl">RESULTADO</span><div class="opts"><span class="opt b">Casa 1.55</span><span class="opt">Emp 4.2</span><span class="opt">Fora 6.0</span></div></div>
+            <div class="merc"><span class="lbl">GOLS 2.5</span><div class="opts"><span class="opt">Mais 1.85</span><span class="opt">Menos 1.95</span></div></div>
+          </div>
+          <div class="jogo"><h3>Bayern de Munique × B. Dortmund</h3><div class="m">Bundesliga · 21:30</div>
+            <div class="merc"><span class="lbl">RESULTADO</span><div class="opts"><span class="opt">Casa 1.75</span><span class="opt b">Emp 3.9</span><span class="opt">Fora 4.4</span></div></div>
+            <div class="merc"><span class="lbl">AMBOS MARCAM</span><div class="opts"><span class="opt">Sim 1.70</span><span class="opt">Não 2.10</span></div></div>
+          </div>
+          <div class="jogo"><h3>Real Madrid × Barcelona</h3><div class="m">La Liga · 21:00</div>
+            <div class="merc"><span class="lbl">RESULTADO</span><div class="opts"><span class="opt">Casa 2.30</span><span class="opt">Emp 3.4</span><span class="opt">Fora 2.90</span></div></div>
+          </div>
+          <div class="jogo"><h3>Corinthians × Grêmio</h3><div class="m">Brasileirão · 20:00</div>
+            <div class="merc"><span class="lbl">RESULTADO</span><div class="opts"><span class="opt">Casa 2.10</span><span class="opt">Emp 3.1</span><span class="opt b">Fora 3.6</span></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="rail">
+        <div class="sec">Seu bilhete</div>
+        <div class="bil">
+          <div class="pick"><div><b>Palmeiras vence</b><div class="j">Palmeiras × Remo</div></div><span class="o">1.55</span></div>
+          <div class="pick"><div><b>Empate</b><div class="j">Bayern × Dortmund</div></div><span class="o">3.90</span></div>
+          <div class="pick"><div><b>Grêmio vence</b><div class="j">Corinthians × Grêmio</div></div><span class="o">3.60</span></div>
+          <div class="stake"><span class="lbl">FICHAS</span><input class="inp" value="50" /></div>
+          <div class="ganho"><span>Retorno possível</span><b>1.089 pts</b></div>
+          <button class="btn">Palpitar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <p class="note" style="margin-top:8px">O bilhete vira permanente no desktop — seleciona opções e o slip enche em tempo real, igual casa de aposta de verdade. No mobile fica o modal/flutuante de hoje.</p>
+</div>
+
+<div>
+  <div class="label">2 · Grid denso sem bilhete (só layout)</div>
+  <div class="frame">
+    <div class="topbar">
+      <div class="logo">PAL<span>PIT</span></div>
+      <div class="tabs"><span class="tab on">Palpite</span><span class="tab">Desafio</span><span class="tab">Ranking</span><span class="tab">Perfil</span></div>
+      <div class="user"><span class="st">🔥 4</span><span class="pt">1.340 P</span><div class="avatar">V</div></div>
+    </div>
+    <div class="main">
+      <div class="sec">Jogos de hoje</div>
+      <div class="grid" style="grid-template-columns:1fr 1fr 1fr">
+        <div class="jogo"><h3>Palmeiras × Remo</h3><div class="m">Brasileirão · 19:00</div>
+          <div class="merc"><span class="lbl">RESULTADO</span><div class="opts"><span class="opt b">Casa</span><span class="opt">Emp</span><span class="opt">Fora</span></div></div>
+          <div class="merc"><span class="lbl">GOLS 2.5</span><div class="opts"><span class="opt">+</span><span class="opt">−</span></div></div>
+        </div>
+        <div class="jogo"><h3>Bayern de Munique × B. Dortmund</h3><div class="m">Bundesliga · 21:30</div>
+          <div class="merc"><span class="lbl">RESULTADO</span><div class="opts"><span class="opt">Casa</span><span class="opt b">Emp</span><span class="opt">Fora</span></div></div>
+        </div>
+        <div class="jogo"><h3>Real Madrid × Barcelona</h3><div class="m">La Liga · 21:00</div>
+          <div class="merc"><span class="lbl">RESULTADO</span><div class="opts"><span class="opt">Casa</span><span class="opt">Emp</span><span class="opt">Fora</span></div></div>
+        </div>
+      </div>
+      <p class="note" style="margin-top:14px">3 colunas — mais denso, mais "book". O bilhete fica como está (modal).</p>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

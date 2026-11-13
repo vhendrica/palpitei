@@ -7,7 +7,7 @@ import { AppHeader } from "../../components/AppHeader";
 import { ErrorBox, Field } from "../../components/Form";
 import { HistoricoLinha } from "../../components/HistoricoLinha";
 import { fmtReais } from "../../components/PremioBar";
-import { Button, Card, EmptyState, T } from "../../components/ui";
+import { Button, Card, EmptyState, Esqueleto, T } from "../../components/ui";
 import { api } from "../../lib/api";
 import { useDesktop } from "../../lib/desktop";
 import { fmtOdd, fmtPts, fmtWhats } from "../../lib/format";
@@ -247,18 +247,20 @@ export default function Perfil() {
               {tema}
               {sairBtn}
             </View>
-            <View style={{ flex: 1, marginTop: -20 }}>
+            <View style={{ flex: 1, marginTop: perfil ? -20 : 0 }}>
+              {perfil ? null : <Esqueleto />}
               {meusNumeros}
-              {historico}
+              {perfil ? historico : null}
             </View>
           </View>
         ) : (
           <View>
             {identidade}
             {saldo}
+            {perfil ? null : <View className="mt-4"><Esqueleto blocos={2} /></View>}
             {meusNumeros}
-            {historico}
-            {vouchers}
+            {perfil ? historico : null}
+            {perfil ? vouchers : null}
             {tema}
             {sairBtn}
           </View>

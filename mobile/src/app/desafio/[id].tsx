@@ -1,15 +1,17 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useCallback, useMemo, useRef, useState } from "react";
-import { Alert, Platform, Pressable, RefreshControl, ScrollView, Share, TextInput, View } from "react-native";
+import { Modal, Pressable, RefreshControl, ScrollView, TextInput, useWindowDimensions, View } from "react-native";
 
 import { AppHeader } from "../../components/AppHeader";
 import { BetButton } from "../../components/BetButton";
 import { Bilhete, type OpcaoBilhete } from "../../components/Bilhete";
+import { Confirmar } from "../../components/Confirmar";
 import { GrupoTitulo } from "../../components/GrupoTitulo";
 import { PalpiteiroBilhete } from "../../components/PalpiteiroBilhete";
 import { ErrorBox } from "../../components/Form";
-import { Button, Card, StatusBadge, T } from "../../components/ui";
+import { ResumoBilhete } from "../../components/ResumoBilhete";
+import { Button, Card, Esqueleto, StatusBadge, T } from "../../components/ui";
 import { api } from "../../lib/api";
 import {
   alternarOdd,
@@ -18,19 +20,27 @@ import {
   fichasNoDraft,
   type Draft,
 } from "../../lib/bilhete";
-import { fmtData, fmtPontos } from "../../lib/format";
+import { compartilhar, copiar, enviarWhatsApp, linkConvite, podeCopiar } from "../../lib/convite";
+import { useDesktop } from "../../lib/desktop";
+import { fmtData, fmtPontos, fmtPts } from "../../lib/format";
+import { guardarRetorno } from "../../lib/retorno";
 import { errorMessage, useApp } from "../../store/AppStore";
-import { useTheme } from "../../store/Theme";
-import { agruparMercados, type DesafioDetalhe, type PalpiteiroView } from "../../types";
+import { ThemeVars, useTheme } from "../../store/Theme";
+import { agruparMercados, type DesafioDetalhe, type Jogo, type PalpiteiroView, type RankingRow } from "../../types";
 
 const horaFmt = (iso: string) =>
   new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+
+const MERCADOS_VISIVEIS = 2;
+const COR_POS: Record<number, string> = { 1: "#F2B01E", 2: "#C0C8D4", 3: "#D08A4E" };
 
 /** Tela do desafio: jogos+mercados, distribuição de fichas (Simples), ranking, compartilhar. */
 export default function Detalhe() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { palette: C, scheme } = useTheme();
-  const { user } = useApp();
+  const { user, mostrarToast } = useApp();
+  const desktop = useDesktop();
+  const { height } = useWindowDimensions();
   const [d, setD] = useState<DesafioDetalhe | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft>(DRAFT_VAZIO);
@@ -47,6 +57,13 @@ export default function Detalhe() {
   const [bilhetes, setBilhetes] = useState<PalpiteiroView[] | null>(null);
   const [bilheteAberto, setBilheteAberto] = useState<number | null>(null);
   const [maisJogos, setMaisJogos] = useState(false);
+  const [aba, setAba] = useState<"jogos" | "ranking">("jogos");
+  const [abertos, setAbertos] = useState<string[]>([]);
+  const [resumo, setResumo] = useState(false);
+  const [erroBilhete, setErroBilhete] = useState<string | null>(null);
+  const [confirmaFim, setConfirmaFim] = useState(false);
+  const [finalizando, setFinalizando] = useState(false);
+  const [rankingCompleto, setRankingCompleto] = useState(false);
 
   const toggleBilhete = useCallback(
     async (posicao: number) => {
@@ -71,6 +88,9 @@ export default function Detalhe() {
     try {
       const r = await api.desafios.detalhe(String(id));
       setD(r);
+      // Bilhetes abertos no ranking ficam velhos depois de um reload.
+      setBilhetes(null);
+      setBilheteAberto(null);
       // Draft inicial = bilhete confirmado que ainda dá pra editar (jogos não iniciados).
       const ini: Draft = { itens: [], simples: {}, multiplas: [] };
       for (const j of r.jogos) {
@@ -108,7 +128,9 @@ export default function Detalhe() {
   const eu = d?.eu && d.eu.entrou ? d.eu : null;
   const aberta = liga?.status === "aberta";
   const encerrada = liga?.status === "finalizada";
-  const COR_POS: Record<number, string> = { 1: "#F2B01E", 2: "#C0C8D4", 3: "#D08A4E" };
+  // Rodada não iniciada (nenhum jogo começou): o ranking segue o potencial.
+  const semJogos = !!d && d.jogos.every((j) => !j.comecou);
+  const minhaLinha = d?.ranking.find((r) => r.eu);
 
   // Fichas que posso distribuir: as livres + as já postas em jogos não iniciados (edição libera).
   const base = useMemo(() => {
@@ -146,15 +168,15 @@ export default function Detalhe() {
         ),
       )
     : {};
-  const selosDe = (id: string) => [
-    ...(id in draft.simples ? [{ label: "S", cor: C.primary }] : []),
+  const selosDe = (mid: string) => [
+    ...(mid in draft.simples ? [{ label: "S", cor: C.primary }] : []),
     ...travadas.flatMap((m, i) =>
-      m.pernas.some((p) => p.mercado_id === id)
+      m.pernas.some((p) => p.mercado_id === mid)
         ? [{ label: `M${i + 1}`, cor: corMultipla(i, scheme) }]
         : [],
     ),
     ...draft.multiplas.flatMap((m, i) =>
-      m.mercados.includes(id)
+      m.mercados.includes(mid)
         ? [
             {
               label: `M${i + 1 + travadas.length}`,
@@ -165,18 +187,19 @@ export default function Detalhe() {
     ),
   ];
 
-  const compartilhar = useCallback(() => {
-    if (!liga) return;
-    const nome = liga.titulo ?? `Desafio de ${liga.dono}`;
-    // Web: o app roda em <domínio>/app/... — o link precisa do prefixo. Nativo: scheme palpitei://.
-    const url =
-      Platform.OS === "web" && typeof window !== "undefined"
-        ? `${window.location.origin}${window.location.pathname.split("/desafio")[0]}/desafio/convite?token=${liga.convite}`
-        : `palpitei://desafio/convite?token=${liga.convite}`;
-    Share.share({
-      message: `Entra no "${nome}" no PALPIT! ${liga.fichas_por_entrada} fichas grátis pra palpitar: ${url}`,
-    }).catch(() => {});
-  }, [liga]);
+  const url = liga ? linkConvite(liga.convite) : "";
+  const mensagem = liga
+    ? `Entra no "${liga.titulo ?? `Desafio de ${liga.dono}`}" no PALPIT! ${liga.fichas_por_entrada} fichas grátis pra palpitar: ${url}`
+    : "";
+  const convidar = useCallback(async () => {
+    const r = await compartilhar(mensagem);
+    if (r === "copiado") mostrarToast("Convite copiado. É só colar pra quem você quer chamar.");
+    else if (r === "falhou") mostrarToast("Não deu pra compartilhar. Copie o link.", "erro");
+  }, [mensagem, mostrarToast]);
+  const copiarLink = useCallback(async () => {
+    const ok = await copiar(url);
+    mostrarToast(ok ? "Link copiado." : "Não deu pra copiar o link.", ok ? "ok" : "erro");
+  }, [url, mostrarToast]);
 
   const entrar = useCallback(async () => {
     setEntrando(true);
@@ -203,6 +226,7 @@ export default function Detalhe() {
 
   const confirmar = useCallback(async () => {
     setSalvando(true);
+    setErroBilhete(null);
     try {
       await api.desafios.apostar(String(id), {
         simples: Object.fromEntries(
@@ -213,105 +237,302 @@ export default function Detalhe() {
         multiplas: draft.multiplas.filter((m) => m.mercados.length > 0),
       });
       dirty.current = false;
+      setResumo(false);
       await load();
-      Alert.alert("Feito!", "Palpites confirmados.");
+      mostrarToast("Palpites confirmados.");
     } catch (e) {
-      setErro(errorMessage(e));
+      setErroBilhete(errorMessage(e));
     }
     setSalvando(false);
-  }, [id, draft, load]);
+  }, [id, draft, load, mostrarToast]);
 
-  const finalizar = useCallback(() => {
-    Alert.alert("Finalizar desafio", "Mercados não apurados contam como perdidos. Confirmar?", [
-      { text: "Cancelar", style: "cancel" },
-      {
-        text: "Finalizar",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await api.desafios.finalizar(String(id));
-            await load();
-          } catch (e) {
-            setErro(errorMessage(e));
-          }
-        },
-      },
-    ]);
+  const finalizar = useCallback(async () => {
+    setFinalizando(true);
+    try {
+      await api.desafios.finalizar(String(id));
+      setConfirmaFim(false);
+      await load();
+    } catch (e) {
+      setConfirmaFim(false);
+      setErro(errorMessage(e));
+    }
+    setFinalizando(false);
   }, [id, load]);
 
-  return (
-    <View className="flex-1 bg-bg">
-      <AppHeader title={liga?.titulo ?? "Desafio"} back />
-      <ScrollView
-        contentContainerStyle={{ padding: 16, paddingBottom: 96 }}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={async () => {
-              setRefreshing(true);
-              await load();
-              setRefreshing(false);
-            }}
-          />
-        }
-      >
-        <ErrorBox erro={erro} />
-        {liga ? (
-          <>
-            <View className="mb-3 flex-row items-center">
-              <View className="flex-1">
-                <T className="text-sm text-muted">
-                  de {liga.dono} · {fmtData(liga.data)} · {d!.palpiteiros}{" "}
-                  {d!.palpiteiros === 1 ? "palpiteiro" : "palpiteiros"}
-                </T>
-                <View className="mt-1 flex-row items-center">
-                  <StatusBadge status={liga.status} />
-                  {eu ? (
-                    <T className="ml-2 text-xs text-muted">
-                      {fmtPontos(eu.pontuacao)} pts{eu.posicao ? ` · ${eu.posicao}º` : ""}
-                    </T>
-                  ) : null}
+  const pendentes = d?.jogos.filter((j) => !j.finalizado).length ?? 0;
+  const podeBilhete = !!eu && aberta;
+  const aguardando = !!liga && liga.modo === "duelo" && !encerrada && (d?.palpiteiros ?? 0) < 2;
+
+  const resumoCard = liga ? (
+    <Card className="mb-3">
+      <View className="flex-row items-center">
+        <View className="flex-1">
+          <T className="font-mont-xb text-base" numberOfLines={1}>
+            {liga.titulo ?? `Desafio de ${liga.dono}`}
+          </T>
+          <T className="mt-0.5 text-xs text-muted">
+            de {liga.dono} · {fmtData(liga.data)} · {d!.palpiteiros}{" "}
+            {d!.palpiteiros === 1 ? "palpiteiro" : "palpiteiros"}
+          </T>
+        </View>
+        <StatusBadge status={liga.status} />
+      </View>
+      {eu ? (
+        <View className="mt-3 flex-row" style={{ gap: 8 }}>
+          {aberta ? <Kpi valor={fmtPts(livres)} rotulo="fichas livres" destaque /> : null}
+          <Kpi valor={eu.posicao ? `${eu.posicao}º` : "—"} rotulo="sua posição" />
+          {semJogos && !encerrada ? (
+            <Kpi valor={fmtPontos(minhaLinha?.potencial ?? 0)} rotulo="potencial" />
+          ) : (
+            <Kpi valor={fmtPontos(eu.pontuacao)} rotulo="pontos" />
+          )}
+        </View>
+      ) : null}
+      {!user ? (
+        <Button
+          title="Entre na sua conta pra participar"
+          variant="outline"
+          className="mt-3"
+          onPress={() => {
+            guardarRetorno(`/desafio/${id}`);
+            router.push("/entrar");
+          }}
+        />
+      ) : d!.eu && !d!.eu.entrou && aberta ? (
+        <Button
+          title={`Entrar no desafio (ganha ${liga.fichas_por_entrada} fichas)`}
+          className="mt-3"
+          onPress={entrar}
+          loading={entrando}
+        />
+      ) : null}
+      {!encerrada && !aguardando ? (
+        <View className="mt-3 flex-row" style={{ gap: 8 }}>
+          <Button title="Convidar amigos" variant="outline" icon="share-social-outline" className="flex-1" compact onPress={convidar} />
+          {podeCopiar ? <Button title="Copiar link" variant="ghost" compact onPress={copiarLink} /> : null}
+        </View>
+      ) : null}
+    </Card>
+  ) : null;
+
+  const esperando = aguardando ? (
+    <View className="mb-3 items-center rounded-2xl border border-dashed border-line p-4">
+      <T className="font-mont-xb text-sm">Aguardando adversário</T>
+      <T className="mt-1 text-center text-xs leading-4 text-muted">
+        Mande o link. Quem entrar primeiro te enfrenta.{eu ? " Você já pode montar seu bilhete." : ""}
+      </T>
+      <View className="mt-3 w-full flex-row" style={{ gap: 6 }}>
+        <View className="flex-1 justify-center rounded-lg border border-line bg-cardAlt px-2.5 py-2">
+          <T className="text-[11px] text-muted" numberOfLines={1}>
+            {url}
+          </T>
+        </View>
+        {podeCopiar ? <Button title="Copiar" variant="ghost" compact onPress={copiarLink} /> : null}
+      </View>
+      <Button title="Enviar pelo WhatsApp" icon="logo-whatsapp" className="mt-2 self-stretch" compact onPress={() => enviarWhatsApp(mensagem)} />
+    </View>
+  ) : null;
+
+  const jogoCard = (j: Jogo) => {
+    const grupos = agruparMercados(j.mercados);
+    const aberto = abertos.includes(j.id);
+    const alternar = () => setAbertos((a) => (a.includes(j.id) ? a.filter((x) => x !== j.id) : [...a, j.id]));
+    return (
+      <Card key={j.id} className="mb-2">
+        <Pressable className="flex-row items-center" onPress={alternar}>
+          <View className="flex-1">
+            <T className="font-mont-b text-sm">
+              {j.time_casa} x {j.time_fora}
+            </T>
+            <T className="text-xs text-muted">
+              {j.campeonato} · {horaFmt(j.horario)}
+              {j.comecou && !j.finalizado ? " · AO VIVO" : ""}
+              {j.finalizado ? " · FINALIZADO" : ""}
+            </T>
+          </View>
+          {j.placar ? (
+            <T className="font-mont-xb text-base">
+              {j.placar.casa} - {j.placar.fora}
+            </T>
+          ) : null}
+        </Pressable>
+        {liga?.e_dono && !j.finalizado && !j.externo_id ? (
+          <View className="mt-2 flex-row items-center">
+            <T className="mr-2 text-xs text-muted">Placar final:</T>
+            <TextInput
+              className="w-11 rounded border border-line px-1.5 py-1 text-center font-odds text-sm text-fg"
+              keyboardType="number-pad"
+              placeholder="0"
+              placeholderTextColor={C.muted}
+              value={placarInput[j.id]?.casa ?? ""}
+              onChangeText={(t) =>
+                setPlacarInput((s) => ({
+                  ...s,
+                  [j.id]: { ...s[j.id], casa: t, fora: s[j.id]?.fora ?? "" },
+                }))
+              }
+            />
+            <T className="mx-1 text-muted">x</T>
+            <TextInput
+              className="w-11 rounded border border-line px-1.5 py-1 text-center font-odds text-sm text-fg"
+              keyboardType="number-pad"
+              placeholder="0"
+              placeholderTextColor={C.muted}
+              value={placarInput[j.id]?.fora ?? ""}
+              onChangeText={(t) =>
+                setPlacarInput((s) => ({
+                  ...s,
+                  [j.id]: { casa: s[j.id]?.casa ?? "", fora: t },
+                }))
+              }
+            />
+            <Pressable
+              onPress={() => lancarPlacar(j.id)}
+              className="ml-2 rounded-lg bg-primary px-2.5 py-1.5"
+            >
+              <T className="text-xs text-onPrimary">Lançar</T>
+            </Pressable>
+          </View>
+        ) : null}
+        <View className="mt-1">
+          {grupos
+            .filter((_, gi) => gi < MERCADOS_VISIVEIS || aberto)
+            .map((g) => (
+              <View key={g.grupo || "_"} className="mt-2.5">
+                {g.grupo ? <GrupoTitulo grupo={g.grupo} /> : null}
+                <View className="flex-row flex-wrap" style={{ gap: 6 }}>
+                  {g.opcoes.map((m) => {
+                    const pode = !!(aberta && !j.comecou && eu);
+                    const resultado =
+                      j.finalizado || m.decidido
+                        ? m.resultado_final
+                          ? "green"
+                          : (m.minhas_fichas ?? 0) > 0
+                            ? "red"
+                            : null
+                        : null;
+                    return (
+                      <View key={m.id} style={{ flexGrow: 1, flexBasis: "30%", minWidth: 0 }}>
+                        <BetButton
+                          compact
+                          descricao={m.descricao}
+                          multiplicador={m.multiplicador}
+                          selected={draft.itens.includes(m.id)}
+                          fichas={pode ? 0 : (m.minhas_fichas ?? 0)}
+                          selos={selosDe(m.id)}
+                          resultado={resultado}
+                          disabled={!pode && !m.decidido && !m.resultado_final}
+                          onPress={() => (pode ? marcaDraft((dr) => alternarOdd(dr, m.id)) : undefined)}
+                        />
+                      </View>
+                    );
+                  })}
                 </View>
               </View>
-              <Pressable
-                onPress={compartilhar}
-                className="h-10 w-10 items-center justify-center rounded-full bg-cardAlt"
-                accessibilityLabel="Compartilhar convite"
-              >
-                <Ionicons name="share-social-outline" size={20} color={C.primary} />
-              </Pressable>
-            </View>
+            ))}
+          {grupos.length > MERCADOS_VISIVEIS ? (
+            <Pressable onPress={alternar} className="mt-2 flex-row items-center justify-center py-1 active:opacity-70">
+              <T className="font-mont-b text-xs text-primary">
+                {aberto ? "Ver menos mercados" : `Ver mais mercados (${grupos.length - MERCADOS_VISIVEIS})`}
+              </T>
+              <Ionicons name={aberto ? "chevron-up" : "chevron-down"} size={14} color={C.primary} />
+            </Pressable>
+          ) : null}
+        </View>
+      </Card>
+    );
+  };
 
-            {!user ? (
-              <Button
-                title="Entre na sua conta pra participar"
-                variant="outline"
-                className="mb-3"
-                onPress={() => router.push("/entrar")}
-              />
-            ) : d!.eu && !d!.eu.entrou && aberta ? (
-              <Button
-                title={`Entrar no desafio (ganha ${liga.fichas_por_entrada} fichas)`}
-                className="mb-3"
-                onPress={entrar}
-                loading={entrando}
-              />
+  /** Uma linha do ranking. `compacta` = sem abrir bilhete (coluna lateral do desktop). */
+  const linhaRanking = (r: RankingRow, compacta?: boolean) => {
+    const aberto = !compacta && bilheteAberto === r.posicao;
+    const bilhete = aberto ? bilhetes?.find((b) => b.posicao === r.posicao) : null;
+    const cor = COR_POS[r.posicao] ?? C.primary;
+    const valor = (
+      <View className="items-end">
+        {semJogos && !encerrada ? (
+          <>
+            <T className="font-odds text-sm" style={{ color: cor }}>{fmtPontos(r.potencial ?? 0)} pts</T>
+            {compacta ? null : <T className="text-[10px] text-muted">potencial</T>}
+          </>
+        ) : (
+          <>
+            <T className="font-odds text-sm" style={{ color: cor }}>{fmtPontos(r.pontuacao)} pts</T>
+            {!compacta && (r.potencial ?? r.pontuacao) > r.pontuacao ? (
+              <T className="text-[10px] text-muted">pode chegar a {fmtPontos(r.potencial!)}</T>
             ) : null}
           </>
-        ) : null}
+        )}
+      </View>
+    );
+    const cabeca = (
+      <View className="flex-row items-center">
+        <View className="h-8 w-8 items-center justify-center rounded-full bg-cardAlt">
+          <T className="font-mont-xb text-xs">{r.posicao}º</T>
+        </View>
+        <T className={`ml-3 flex-1 font-mont-b text-sm ${r.eu ? "text-primary" : ""}`} numberOfLines={1}>
+          {r.nome}
+          {r.eu ? " (você)" : ""}
+        </T>
+        {valor}
+        {compacta ? null : (
+          <Ionicons name={aberto ? "chevron-up" : "chevron-down"} size={15} color={C.muted} style={{ marginLeft: 8 }} />
+        )}
+      </View>
+    );
+    if (compacta) {
+      return (
+        <View key={r.posicao} className="border-t border-line py-2">
+          {cabeca}
+        </View>
+      );
+    }
+    return (
+      <Pressable key={r.posicao} onPress={() => toggleBilhete(r.posicao)}>
+        <Card className="mb-2 py-2">
+          {cabeca}
+          {aberto ? (
+            <View className="mt-2 border-t border-line pt-2">
+              {bilhetes == null ? (
+                <T className="text-xs text-muted">Carregando…</T>
+              ) : bilhete && (bilhete.palpites.length > 0 || bilhete.multiplas.length > 0) ? (
+                <PalpiteiroBilhete p={bilhete} />
+              ) : (
+                <T className="text-xs text-muted">Nenhum palpite ainda.</T>
+              )}
+            </View>
+          ) : null}
+        </Card>
+      </Pressable>
+    );
+  };
 
-        {encerrada && d && d.ranking.length > 0 ? (
+  const rankingLista = d && d.ranking.length > 0 ? (
+    d.ranking.map((r) => linhaRanking(r))
+  ) : (
+    <T className="py-4 text-center text-sm text-muted">Ninguém entrou ainda.</T>
+  );
+
+  const finalizarBtn =
+    liga?.e_dono && !encerrada ? (
+      <Button title="Finalizar desafio" variant="danger" className="mt-4" onPress={() => setConfirmaFim(true)} />
+    ) : null;
+
+  const encerradaBloco =
+    encerrada && d ? (
+      <>
+        {d.ranking.length > 0 ? (
           <View className="mb-1 items-center">
             <T className="font-mont-xb text-3xl">
-              <T className="font-mont-xb text-3xl text-primary">{d.ranking.find((r) => r.eu)?.posicao ?? "—"}º</T>
+              <T className="font-mont-xb text-3xl text-primary">{minhaLinha?.posicao ?? "—"}º</T>
               <T className="font-mont-xb text-3xl"> lugar</T>
             </T>
             <T className="mt-0.5 text-xs text-muted">
-              {d.ranking.find((r) => r.eu) ? `${fmtPontos(d.ranking.find((r) => r.eu)!.pontuacao)} pontos` : ""}
+              {minhaLinha ? `${fmtPontos(minhaLinha.pontuacao)} pontos` : ""}
             </T>
           </View>
         ) : null}
-        {encerrada && d && d.ranking.length >= 2 ? (
+        {d.ranking.length >= 2 ? (
           <View className="mb-4 flex-row items-end justify-center" style={{ gap: 10 }}>
             {[d.ranking[1], d.ranking[0], d.ranking[2]].filter(Boolean).map((r) => {
               const cor = COR_POS[r.posicao];
@@ -339,8 +560,7 @@ export default function Detalhe() {
             })}
           </View>
         ) : null}
-
-        {encerrada && d && d.jogos.length > 0 ? (
+        {d.jogos.length > 0 ? (
           <Card className="mb-2">
             <Pressable className="flex-row items-center" onPress={() => router.push(`/desafio/${id}/jogos`)}>
               <T className="flex-1 font-mont-xb text-sm">Jogos</T>
@@ -359,172 +579,203 @@ export default function Detalhe() {
             ) : null}
           </Card>
         ) : null}
-        {encerrada ? null : d?.jogos.map((j) => (
-          <Card key={j.id} className="mb-2">
-            <View className="flex-row items-center">
-              <View className="flex-1">
-                <T className="font-mont-b text-sm">
-                  {j.time_casa} x {j.time_fora}
-                </T>
-                <T className="text-xs text-muted">
-                  {j.campeonato} · {horaFmt(j.horario)}
-                  {j.comecou && !j.finalizado ? " · AO VIVO" : ""}
-                  {j.finalizado ? " · FINALIZADO" : ""}
-                </T>
-              </View>
-              {j.placar ? (
-                <T className="font-mont-xb text-base">
-                  {j.placar.casa} - {j.placar.fora}
-                </T>
-              ) : null}
-            </View>
-            {liga?.e_dono && !j.finalizado && !j.externo_id ? (
-              <View className="mt-2 flex-row items-center">
-                <T className="mr-2 text-xs text-muted">Placar final:</T>
-                <TextInput
-                  className="w-11 rounded border border-line px-1.5 py-1 text-center font-odds text-sm"
-                  keyboardType="number-pad"
-                  placeholder="0"
-                  placeholderTextColor={C.muted}
-                  value={placarInput[j.id]?.casa ?? ""}
-                  onChangeText={(t) =>
-                    setPlacarInput((s) => ({
-                      ...s,
-                      [j.id]: { ...s[j.id], casa: t, fora: s[j.id]?.fora ?? "" },
-                    }))
-                  }
-                />
-                <T className="mx-1 text-muted">x</T>
-                <TextInput
-                  className="w-11 rounded border border-line px-1.5 py-1 text-center font-odds text-sm"
-                  keyboardType="number-pad"
-                  placeholder="0"
-                  placeholderTextColor={C.muted}
-                  value={placarInput[j.id]?.fora ?? ""}
-                  onChangeText={(t) =>
-                    setPlacarInput((s) => ({
-                      ...s,
-                      [j.id]: { casa: s[j.id]?.casa ?? "", fora: t },
-                    }))
-                  }
-                />
-                <Pressable
-                  onPress={() => lancarPlacar(j.id)}
-                  className="ml-2 rounded-lg bg-primary px-2.5 py-1"
-                >
-                  <T className="text-xs text-onPrimary">Lançar</T>
-                </Pressable>
-              </View>
-            ) : null}
-            <View className="mt-2">
-              {agruparMercados(j.mercados).map((g) => (
-                <View key={g.grupo || "_"} className="mt-2">
-                  {g.grupo ? <GrupoTitulo grupo={g.grupo} /> : null}
-                  <View className="flex-row flex-wrap" style={{ gap: 6 }}>
-                  {g.opcoes.map((m) => {
-                    const pode = !!(aberta && !j.comecou && eu);
-                    const resultado =
-                      j.finalizado || m.decidido
-                        ? m.resultado_final
-                          ? "green"
-                          : (m.minhas_fichas ?? 0) > 0
-                            ? "red"
-                            : null
-                        : null;
-                    return (
-                      <View key={m.id} style={{ flexGrow: 1, flexBasis: "30%", minWidth: 0 }}>
-                        <BetButton
-                          compact
-                          descricao={m.descricao}
-                          multiplicador={m.multiplicador}
-                          selected={draft.itens.includes(m.id)}
-                          fichas={pode ? 0 : (m.minhas_fichas ?? 0)}
-                          selos={selosDe(m.id)}
-                          resultado={resultado}
-                          disabled={!pode && !m.decidido && !m.resultado_final}
-                          onPress={() => (pode ? marcaDraft((d) => alternarOdd(d, m.id)) : undefined)}
-                        />
-                      </View>
-                    );
-                  })}
-                </View>
-                </View>
-              ))}
-            </View>
-          </Card>
-        ))}
+        <T className="mb-2 mt-4 font-mont-xb text-xs uppercase text-muted">Ranking</T>
+        {rankingLista}
+      </>
+    ) : null;
 
-        
+  const bilheteRail = podeBilhete ? (
+    <Bilhete
+      draft={draft}
+      opcoes={opcoes}
+      fichasLivres={base}
+      offsetMultiplas={travadas.length}
+      onChange={marcaDraft}
+      rail
+      alturaMax={Math.max(300, height - 190 - Math.min(d?.ranking.length ?? 0, 5) * 46)}
+      onResumo={() => {
+        setErroBilhete(null);
+        setResumo(true);
+      }}
+    />
+  ) : null;
 
-        {d && d.ranking.length > 0 ? (
-          <>
-            <T className="mb-2 mt-4 font-mont-xb text-xs uppercase text-muted">Ranking</T>
-            {d.ranking.map((r) => {
-              const aberto = bilheteAberto === r.posicao;
-              const bilhete = aberto ? bilhetes?.find((b) => b.posicao === r.posicao) : null;
-              // Rodada não iniciada (nenhum jogo começou): a ordem segue o potencial
-              // e ele é o número principal. Com jogo rolando, pontos + "até X".
-              const semJogos = d.jogos.every((j) => !j.comecou);
-              return (
-                <Pressable key={r.posicao} onPress={() => toggleBilhete(r.posicao)}>
-                  <Card className="mb-2 py-2">
-                    <View className="flex-row items-center">
-                      <View className="h-8 w-8 items-center justify-center rounded-full bg-cardAlt">
-                        <T className="font-mont-xb text-xs">{r.posicao}º</T>
-                      </View>
-                      <T className="ml-3 flex-1 font-mont-b text-sm">{r.nome}</T>
-                      {semJogos ? (
-                        <View className="items-end">
-                          <T className="font-odds text-sm" style={{ color: COR_POS[r.posicao] ?? C.primary }}>{fmtPontos(r.potencial ?? 0)} pts</T>
-                          <T className="text-[10px] text-muted">potencial máx.</T>
-                        </View>
-                      ) : (
-                        <View className="items-end">
-                          <T className="font-odds text-sm" style={{ color: COR_POS[r.posicao] ?? C.primary }}>{fmtPontos(r.pontuacao)} pts</T>
-                          {(r.potencial ?? r.pontuacao) > r.pontuacao ? (
-                            <T className="text-[10px] text-muted">até {fmtPontos(r.potencial!)}</T>
-                          ) : null}
-                        </View>
-                      )}
-                      <Ionicons
-                        name={aberto ? "chevron-up" : "chevron-down"}
-                        size={15}
-                        color={C.muted}
-                        style={{ marginLeft: 8 }}
-                      />
+  return (
+    <View className="flex-1 bg-bg">
+      <AppHeader title={liga?.titulo ?? "Desafio"} back />
+      <ScrollView
+        contentContainerStyle={{
+          padding: 16,
+          paddingBottom: !desktop && podeBilhete && draft.itens.length > 0 ? 420 : 96,
+        }}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={async () => {
+              setRefreshing(true);
+              await load();
+              setRefreshing(false);
+            }}
+          />
+        }
+      >
+        <View
+          style={
+            desktop
+              ? { maxWidth: encerrada ? 760 : 1180, width: "100%", alignSelf: "center" }
+              : undefined
+          }
+        >
+          <ErrorBox erro={erro} />
+          {!d && !erro ? <Esqueleto /> : null}
+          {d && encerrada ? (
+            <>
+              {resumoCard}
+              {encerradaBloco}
+            </>
+          ) : null}
+          {d && !encerrada && desktop ? (
+            <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 20 }}>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                {resumoCard}
+                {esperando}
+                <View style={{ flexDirection: "row", flexWrap: "wrap", marginHorizontal: -6 }}>
+                  {d.jogos.map((j) => (
+                    <View key={j.id} style={{ width: d.jogos.length > 1 ? "50%" : "100%", paddingHorizontal: 6 }}>
+                      {jogoCard(j)}
                     </View>
-                    {aberto ? (
-                      <View className="mt-2 border-t border-line pt-2">
-                        {bilhetes == null ? (
-                          <T className="text-xs text-muted">Carregando…</T>
-                        ) : bilhete && (bilhete.palpites.length > 0 || bilhete.multiplas.length > 0) ? (
-                          <PalpiteiroBilhete p={bilhete} />
-                        ) : (
-                          <T className="text-xs text-muted">Nenhum palpite ainda.</T>
-                        )}
-                      </View>
-                    ) : null}
-                  </Card>
-                </Pressable>
-              );
-            })}
-          </>
-        ) : null}
-
-        {liga?.e_dono && liga.status !== "finalizada" ? (
-          <Button title="Finalizar desafio" variant="danger" className="mt-4" onPress={finalizar} />
-        ) : null}
+                  ))}
+                </View>
+                {finalizarBtn}
+              </View>
+              <View style={[{ width: 340 }, { position: "sticky", top: 16 } as object]}>
+                {bilheteRail}
+                <Card className={bilheteRail ? "mt-3 py-3" : "py-3"}>
+                  <T className="mb-1 font-mont-xb text-[11px] uppercase tracking-widest text-muted">
+                    Ranking{semJogos ? " · potencial" : ""}
+                  </T>
+                  {d.ranking.length > 0 ? (
+                    d.ranking.slice(0, 5).map((r) => linhaRanking(r, true))
+                  ) : (
+                    <T className="py-3 text-center text-xs text-muted">Ninguém entrou ainda.</T>
+                  )}
+                  {d.ranking.length > 0 ? (
+                    <Pressable onPress={() => setRankingCompleto(true)} className="border-t border-line pt-2.5">
+                      <T className="text-center font-mont-b text-xs text-primary">
+                        Ver ranking e bilhetes ({d.ranking.length})
+                      </T>
+                    </Pressable>
+                  ) : null}
+                </Card>
+              </View>
+            </View>
+          ) : null}
+          {d && !encerrada && !desktop ? (
+            <>
+              {resumoCard}
+              {esperando}
+              <View className="mb-3 flex-row rounded-xl bg-cardAlt p-1">
+                {(["jogos", "ranking"] as const).map((a) => (
+                  <Pressable
+                    key={a}
+                    onPress={() => setAba(a)}
+                    className={`flex-1 items-center rounded-lg py-2 ${aba === a ? "border border-line bg-card" : ""}`}
+                  >
+                    <T className={`font-mont-b text-xs ${aba === a ? "" : "text-muted"}`}>
+                      {a === "jogos" ? `Jogos (${d.jogos.length})` : `Ranking (${d.ranking.length})`}
+                    </T>
+                  </Pressable>
+                ))}
+              </View>
+              {aba === "jogos" ? (
+                d.jogos.map(jogoCard)
+              ) : (
+                <>
+                  {semJogos && d.ranking.length > 0 ? (
+                    <T className="mb-2 text-xs text-muted">
+                      Os jogos ainda não começaram: a ordem segue o potencial de cada bilhete.
+                    </T>
+                  ) : null}
+                  {rankingLista}
+                  {finalizarBtn}
+                </>
+              )}
+            </>
+          ) : null}
+        </View>
       </ScrollView>
-      {eu && aberta && draft.itens.length > 0 ? (
+
+      {!desktop && podeBilhete && draft.itens.length > 0 ? (
         <Bilhete
           draft={draft}
           opcoes={opcoes}
           fichasLivres={base}
           offsetMultiplas={travadas.length}
           onChange={marcaDraft}
-          onResumo={confirmar}
+          onResumo={() => {
+            setErroBilhete(null);
+            setResumo(true);
+          }}
         />
       ) : null}
+      {podeBilhete ? (
+        <ResumoBilhete
+          visible={resumo}
+          draft={draft}
+          opcoes={opcoes}
+          fichasLivres={base}
+          offsetMultiplas={travadas.length}
+          busy={salvando}
+          erro={erroBilhete}
+          onChange={marcaDraft}
+          onFechar={() => setResumo(false)}
+          onConfirmar={confirmar}
+        />
+      ) : null}
+
+      <Confirmar
+        visivel={confirmaFim}
+        titulo="Finalizar desafio?"
+        texto={
+          pendentes > 0
+            ? `${pendentes} ${pendentes === 1 ? "jogo ainda não terminou" : "jogos ainda não terminaram"}. Os palpites sem resultado contam como perdidos e o ranking é congelado.`
+            : "O ranking é congelado e ninguém mais pode palpitar."
+        }
+        confirmar={pendentes > 0 ? "Finalizar mesmo assim" : "Finalizar"}
+        perigo
+        ocupado={finalizando}
+        onConfirmar={finalizar}
+        onFechar={() => setConfirmaFim(false)}
+      />
+
+      <Modal visible={rankingCompleto} transparent animationType="fade" onRequestClose={() => setRankingCompleto(false)}>
+        <ThemeVars>
+          <Pressable className="flex-1 items-center justify-center bg-black/60 p-6" onPress={() => setRankingCompleto(false)}>
+            <Pressable
+              className="w-full max-w-[560px] rounded-2xl bg-bg p-4"
+              style={{ maxHeight: height - 80 }}
+              onPress={() => {}}
+            >
+              <View className="mb-3 flex-row items-center">
+                <T className="flex-1 font-mont-xb text-base">Ranking</T>
+                <Pressable onPress={() => setRankingCompleto(false)} hitSlop={10}>
+                  <Ionicons name="close" size={20} color={C.muted} />
+                </Pressable>
+              </View>
+              <ScrollView>{rankingLista}</ScrollView>
+            </Pressable>
+          </Pressable>
+        </ThemeVars>
+      </Modal>
+    </View>
+  );
+}
+
+function Kpi({ valor, rotulo, destaque }: { valor: string; rotulo: string; destaque?: boolean }) {
+  return (
+    <View className="flex-1 rounded-xl bg-cardAlt px-2.5 py-2">
+      <T className={`font-odds text-base ${destaque ? "text-primary" : ""}`}>{valor}</T>
+      <T className="text-[11px] text-muted">{rotulo}</T>
     </View>
   );
 }

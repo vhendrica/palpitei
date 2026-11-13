@@ -58,8 +58,9 @@ async function req<T>(
   opts?: { silencioso?: boolean },
 ): Promise<T> {
   let res: Response;
-  // Requisições de fundo (polling) não acendem o overlay global de loading.
-  const silencioso = !!opts?.silencioso;
+  // A tela escura fica só pra gravações: leitura mostra esqueleto na própria tela.
+  // (O admin não tem esqueleto, então as leituras dele mantêm o overlay.)
+  const silencioso = !!opts?.silencioso || (method === 'GET' && !path.startsWith('/admin'));
   if (!silencioso) sinalizaLoading(1);
   try {
     try {

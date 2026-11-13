@@ -51,6 +51,7 @@ export function Bilhete({
   onChange,
   onResumo,
   rail,
+  alturaMax,
 }: {
   draft: Draft;
   opcoes: Record<string, OpcaoBilhete>;
@@ -60,8 +61,10 @@ export function Bilhete({
   offsetMultiplas: number;
   onChange: (d: Draft) => void;
   onResumo: () => void;
-  /** Desktop: bilhete vira coluna fixa à direita em vez de bottom sheet. */
+  /** Desktop: bilhete vira um painel na coluna da direita (sempre aberto) em vez de bottom sheet. */
   rail?: boolean;
+  /** Altura máxima do painel no desktop (pra caber junto do que vem abaixo dele). */
+  alturaMax?: number;
 }) {
   const { palette: C, scheme } = useTheme();
   const [abertoState, setAberto] = useState(true);
@@ -80,6 +83,12 @@ export function Bilhete({
   const paginas: string[][] = [];
   for (const id of draft.itens) paginas.push([id]);
   const pequena = draft.multiplas.some((m) => m.mercados.length === 1);
+  // Retorno bruto se todos os palpites do rascunho baterem (Simples + Múltiplas completas).
+  const retornoMaximo =
+    Object.entries(draft.simples).reduce((s, [id, f]) => s + f * (opcoes[id]?.odd ?? 0), 0) +
+    draft.multiplas
+      .filter((m) => m.mercados.length >= 2 && m.mercados.every((id) => opcoes[id]))
+      .reduce((s, m) => s + m.fichas * oddDaMultipla(m.mercados, opcoes), 0);
   const slots = Math.max(2, draft.multiplas.length);
 
   const mudar = (d: Draft, id: string) => {
@@ -184,27 +193,34 @@ export function Bilhete({
     <View
       className={
         rail
-          ? "absolute right-0 top-0 bottom-0 w-[340px] border-l-2 border-primary px-4 pb-1.5 pt-2"
+          ? "rounded-2xl border border-primary/50 px-3.5 pb-3.5 pt-3"
           : "absolute bottom-0 left-0 right-0 rounded-t-3xl border-t-2 border-primary px-4 pb-1.5 pt-2"
       }
-      style={{
-        backgroundColor: fundo,
-        maxHeight: rail ? "100%" : expandido ? height * 0.75 : height / 3,
-        shadowColor: "#000",
-        shadowOpacity: 0.2,
-        shadowRadius: 12,
-        elevation: 12,
-      }}
+      style={
+        rail
+          ? { backgroundColor: fundo, maxHeight: alturaMax ?? Math.max(320, height - 110) }
+          : {
+              backgroundColor: fundo,
+              maxHeight: expandido ? height * 0.75 : height / 3,
+              shadowColor: "#000",
+              shadowOpacity: 0.2,
+              shadowRadius: 12,
+              elevation: 12,
+            }
+      }
     >
       {rail ? (
         <View className="w-full flex-row items-center justify-between pb-2">
           <T className="font-mont-xb text-sm">
-            Meu bilhete · {draft.itens.length} {draft.itens.length === 1 ? "palpite" : "palpites"}
+            Meu bilhete
+            {draft.itens.length > 0
+              ? ` · ${draft.itens.length} ${draft.itens.length === 1 ? "palpite" : "palpites"}`
+              : ""}
           </T>
           <View className="flex-row items-center">
             <Ficha size={15} />
             <T className="ml-1 font-odds text-sm">{fmtPts(livres)}</T>
-            <T className="ml-1 mr-2 text-xs text-muted">livres</T>
+            <T className="ml-1 text-xs text-muted">livres</T>
           </View>
         </View>
       ) : (
@@ -310,7 +326,32 @@ export function Bilhete({
           })}
         </ScrollView>
       ) : null}
-      <Button title="Ver resumo" onPress={onResumo} disabled={pequena} compact />
+      {rail && draft.itens.length === 0 ? (
+        <View className="items-center px-2 py-5">
+          <T className="font-mont-b text-sm">Nenhum palpite ainda</T>
+          <T className="mt-1 text-center text-xs leading-4 text-muted">
+            Clique em uma opção dos jogos ao lado. Ela aparece aqui para você definir as fichas.
+          </T>
+        </View>
+      ) : null}
+      {rail && draft.itens.length > 0 ? (
+        <View className="mb-2 mt-1 border-t border-line pt-2">
+          <View className="flex-row justify-between py-0.5">
+            <T className="text-xs text-muted">Fichas no bilhete</T>
+            <T className="font-odds text-xs">{fmtPts(fichasNoDraft(draft))}</T>
+          </View>
+          <View className="flex-row justify-between py-0.5">
+            <T className="text-xs text-muted">Se tudo bater</T>
+            <T className="font-odds text-xs text-primary">{fmtPts(Math.round(retornoMaximo * 100) / 100)} pts</T>
+          </View>
+        </View>
+      ) : null}
+      <Button
+        title="Revisar e confirmar"
+        onPress={onResumo}
+        disabled={pequena || draft.itens.length === 0}
+        compact={!rail}
+      />
 
       <Modal visible={!!perguntar} transparent animationType="fade" onRequestClose={() => setPerguntar(null)}>
         <ThemeVars>

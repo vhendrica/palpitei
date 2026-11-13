@@ -6,7 +6,7 @@ import Ionicons from "@expo/vector-icons/Ionicons";
 import { AppHeader } from "../components/AppHeader";
 import { Ficha } from "../components/Ficha";
 import { ErrorBox } from "../components/Form";
-import { Card, EmptyState, T } from "../components/ui";
+import { Card, EmptyState, Esqueleto, T } from "../components/ui";
 import { api } from "../lib/api";
 import { corMultipla } from "../lib/bilhete";
 import { useDesktop } from "../lib/desktop";
@@ -67,6 +67,7 @@ export function RankingDoDia({ voltar }: { voltar?: boolean }) {
       >
         <View style={desktop ? { maxWidth: 980, width: "100%", alignSelf: "center" } : undefined}>
         <ErrorBox erro={erro} />
+        {rows === null && !erro ? <Esqueleto /> : null}
         {rows && rows.length === 0 ? (
           <EmptyState
             icon="people-outline"

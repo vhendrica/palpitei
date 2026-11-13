@@ -5,7 +5,7 @@ import { ScrollView, View } from "react-native";
 import { AppHeader } from "../../components/AppHeader";
 import { ErrorBox } from "../../components/Form";
 import { HistoricoLinha } from "../../components/HistoricoLinha";
-import { Card, EmptyState } from "../../components/ui";
+import { Card, EmptyState, Esqueleto } from "../../components/ui";
 import { api } from "../../lib/api";
 import { useDesktop } from "../../lib/desktop";
 import { errorMessage } from "../../store/AppStore";
@@ -35,6 +35,7 @@ export default function Historico() {
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
         <View style={desktop ? { maxWidth: 720, width: "100%", alignSelf: "center" } : undefined}>
           <ErrorBox erro={erro} />
+          {rows === null && !erro ? <Esqueleto /> : null}
           {rows && rows.length === 0 ? (
             <EmptyState icon="time-outline" title="Você ainda não palpitou" />
           ) : null}

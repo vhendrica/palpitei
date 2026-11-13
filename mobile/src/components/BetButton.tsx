@@ -49,8 +49,9 @@ export function BetButton({
       onPress={onPress}
       disabled={disabled}
       className={`flex-row items-center justify-between rounded-lg border ${border} ${bg} ${
-        compact ? "flex-1 flex-col items-start px-2.5 py-2" : "px-3.5 py-3"
-      } ${disabled ? "" : "active:opacity-80"}`}
+        compact ? "flex-1 flex-col items-start justify-between px-2.5 py-2" : "px-3.5 py-3"
+      } ${disabled ? "" : `active:opacity-80 ${selected ? "" : "hover:border-primary"}`}`}
+      style={compact ? { minHeight: 52 } : undefined}
     >
       <View
         className="flex-row items-center"
@@ -69,8 +70,8 @@ export function BetButton({
           />
         ) : null}
         <T
-          className={`font-mont-sb ${compact ? "text-[10px]" : "text-[13px]"} ${descColor}`}
-          numberOfLines={compact ? 1 : 2}
+          className={`font-mont-sb ${compact ? "text-xs leading-[14px]" : "text-[13px]"} ${descColor}`}
+          numberOfLines={2}
           style={{ flexShrink: 1 }}
         >
           {descricao}

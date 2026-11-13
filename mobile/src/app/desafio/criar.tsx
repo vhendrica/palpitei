@@ -1,15 +1,16 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, TextInput, View } from "react-native";
+import { Pressable, ScrollView, View } from "react-native";
 
 import { AppHeader } from "../../components/AppHeader";
 import { HelpIcon } from "../../components/HelpIcon";
 import { ErrorBox, Field } from "../../components/Form";
 import { Ficha } from "../../components/Ficha";
-import { Button, Card, EmptyState, T } from "../../components/ui";
+import { Button, Card, EmptyState, Esqueleto, T } from "../../components/ui";
 import { api } from "../../lib/api";
-import { fmtData, fmtOdd } from "../../lib/format";
+import { useDesktop } from "../../lib/desktop";
+import { fmtDia, fmtOdd } from "../../lib/format";
 import { ModalModo, type ModoDesafio } from "../../components/ModalModo";
 import { secaoDo } from "../../lib/secoes";
 import { errorMessage } from "../../store/AppStore";
@@ -33,9 +34,10 @@ export default function CriarDesafio() {
   const [modo, setModo] = useState<ModoDesafio>(modoParam === "duelo" ? "duelo" : "grupo");
   const [modalModo, setModalModo] = useState(false);
   const [publico, setPublico] = useState(false);
-  const [dia, setDia] = useState(0);
-  const [dataLivre, setDataLivre] = useState("");
+  // Uma data só: atalho (hoje/amanhã) ou a escolhida no calendário.
+  const [data, setData] = useState(() => di(0));
   const [calendario, setCalendario] = useState(false);
+  const desktop = useDesktop();
   const [fixtures, setFixtures] = useState<Fixture[] | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [selecionados, setSelecionados] = useState<number[]>([]);
@@ -66,16 +68,17 @@ export default function CriarDesafio() {
       try {
         setFixtures(null);
         setErro(null);
-        const data = /^\d{2}\/\d{2}$/.test(dataLivre)
-          ? `${new Date().getFullYear()}-${dataLivre.slice(3)}-${dataLivre.slice(0, 2)}`
-          : di(dia);
+        // Os jogos escolhidos eram de outra data: a seleção recomeça.
+        setSelecionados([]);
+        setMarcados({});
+        setCustom({});
         setFixtures((await api.desafios.fixtures(data)).fixtures);
       } catch (e) {
         setErro(errorMessage(e));
         setFixtures([]);
       }
     })();
-  }, [dia, dataLivre]);
+  }, [data]);
 
   const toggleJogo = useCallback((id: number) => {
     setSelecionados((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
@@ -102,7 +105,10 @@ export default function CriarDesafio() {
     setMarcados((m) => {
       const s = new Set(m[fid] ?? []);
       const todos = grupos.every((g) => s.has(g.grupo));
-      for (const g of grupos) todos ? s.delete(g.grupo) : s.add(g.grupo);
+      for (const g of grupos) {
+        if (todos) s.delete(g.grupo);
+        else s.add(g.grupo);
+      }
       return { ...m, [fid]: s };
     });
   }, []);
@@ -154,12 +160,23 @@ export default function CriarDesafio() {
       setErro(errorMessage(e));
       setSalvando(false);
     }
-  }, [selecionados, marcados, custom, fixtures, titulo, modo, publico]);
+  }, [selecionados, marcados, custom, fixtures, titulo, modo, publico, fichas]);
 
-  return (
-    <View className="flex-1 bg-bg">
-      <AppHeader title="Criar desafio" back />
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 60 }}>
+  const totalMercados = selecionados.reduce(
+    (t, fid) =>
+      t +
+      (marcados[fid]?.size ?? 0) +
+      (custom[fid] ?? []).filter((m) => m.descricao.trim() && Number(m.multiplicador) > 0).length,
+    0,
+  );
+  const atalhos = [
+    { rotulo: "Hoje", valor: di(0) },
+    { rotulo: "Amanhã", valor: di(1) },
+  ];
+  const dataFora = !atalhos.some((a) => a.valor === data);
+
+  const config = (
+    <>
         <T className="mb-3 text-xs text-muted">
           {modo === "duelo" ? "Duelo: você + 1 adversário" : "Desafio em grupo"} —{" "}
           <T className="text-primary" onPress={() => setModalModo(true)}>
@@ -232,41 +249,48 @@ export default function CriarDesafio() {
           </View>
         )}
 
-        <View className="mb-3 flex-row">
-          {["Hoje", "Amanhã", "+2 dias"].map((lbl, i) => (
-            <Pressable
-              key={i}
-              onPress={() => setDia(i)}
-              className={`mr-2 rounded-full border px-3 py-1.5 ${dia === i ? "border-primary bg-primary" : "border-line"}`}
-            >
-              <T className={`text-xs ${dia === i ? "text-onPrimary font-mont-b" : "text-muted"}`}>{lbl}</T>
-            </Pressable>
-          ))}
-          <View className="ml-1 w-[86px]">
-            <Field
-              label=""
-              value={dataLivre}
-              onChangeText={setDataLivre}
-              placeholder="dd/mm"
-              keyboardType="numeric"
-            />
-          </View>
+    </>
+  );
+
+  const jogos = (
+    <>
+        <T className="mb-1.5 font-mont-sb text-xs uppercase tracking-wide text-muted">Quando</T>
+        <View className="mb-3 flex-row flex-wrap" style={{ gap: 6 }}>
+          {[...atalhos, ...(dataFora ? [{ rotulo: fmtDia(data), valor: data }] : [])].map((a) => {
+            const on = a.valor === data;
+            return (
+              <Pressable
+                key={a.rotulo}
+                onPress={() => setData(a.valor)}
+                className={`rounded-full border px-3.5 py-2 ${on ? "border-primary bg-primary" : "border-line"}`}
+              >
+                <T className={`text-xs ${on ? "font-mont-b text-onPrimary" : "text-muted"}`}>{a.rotulo}</T>
+              </Pressable>
+            );
+          })}
           <Pressable
             onPress={() => setCalendario(true)}
-            className="ml-2 h-[46px] w-[46px] items-center justify-center rounded-xl border border-line bg-card"
+            className="flex-row items-center rounded-full border border-line px-3.5 py-2"
           >
-            <Ionicons name="calendar-outline" size={20} color={C.muted} />
+            <Ionicons name="calendar-outline" size={14} color={C.muted} />
+            <T className="ml-1.5 text-xs text-muted">Outra data</T>
           </Pressable>
           <DatePicker
             visivel={calendario}
             onFechar={() => setCalendario(false)}
-            onEscolher={setDataLivre}
+            onEscolher={setData}
           />
         </View>
 
         <ErrorBox erro={erro} />
-        {fixtures && fixtures.length === 0 ? (
-          <EmptyState icon="football-outline" title="Sem jogos no pool" subtitle="O admin ainda não importou os jogos desse dia." />
+        {fixtures === null ? <Esqueleto /> : null}
+        {fixtures && fixtures.length > 0 ? (
+          <T className="mb-2 font-mont-sb text-xs uppercase tracking-wide text-muted">
+            Jogos de {fmtDia(data)} · {fixtures.length} {fixtures.length === 1 ? "disponível" : "disponíveis"}
+          </T>
+        ) : null}
+        {fixtures && fixtures.length === 0 && !erro ? (
+          <EmptyState icon="football-outline" title={`Sem jogos em ${fmtDia(data)}`} subtitle="Não encontramos partidas nessa data. Tente outro dia." />
         ) : null}
         {fixtures?.map((f) => {
           const sel = selecionados.includes(f.fixture_id);
@@ -284,7 +308,7 @@ export default function CriarDesafio() {
                     {f.time_casa} x {f.time_fora}
                   </T>
                   <T className="text-xs text-muted">
-                    {f.campeonato} · {fmtData(f.data)} · {new Date(f.horario).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                    {f.campeonato} · {new Date(f.horario).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
                   </T>
                 </View>
               </Pressable>
@@ -379,16 +403,45 @@ export default function CriarDesafio() {
           );
         })}
 
-        {fixtures && fixtures.length > 0 ? (
-          <Button
-            title={`Criar desafio (${selecionados.length} ${selecionados.length === 1 ? "jogo" : "jogos"})`}
-            onPress={criar}
-            disabled={!podeSalvar}
-            loading={salvando}
-            className="mt-4"
-          />
-        ) : null}
+    </>
+  );
+
+  return (
+    <View className="flex-1 bg-bg">
+      <AppHeader title="Criar desafio" back />
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 24 }}>
+        {desktop ? (
+          <View style={{ maxWidth: 1180, width: "100%", alignSelf: "center", flexDirection: "row", alignItems: "flex-start", gap: 24 }}>
+            <View style={[{ width: 340 }, { position: "sticky", top: 16 } as object]}>{config}</View>
+            <View style={{ flex: 1, minWidth: 0 }}>{jogos}</View>
+          </View>
+        ) : (
+          <>
+            {config}
+            {jogos}
+          </>
+        )}
       </ScrollView>
+      {/* Rodapé fixo: o resumo e o botão ficam sempre à vista, não no fim da lista. */}
+      <View className="border-t border-line bg-card px-4 py-2.5">
+        <View
+          className="flex-row items-center"
+          style={desktop ? { maxWidth: 1180, width: "100%", alignSelf: "center" } : undefined}
+        >
+          <View className="flex-1 pr-3">
+            <T className="font-mont-b text-sm">
+              {selecionados.length === 0
+                ? "Escolha os jogos"
+                : `${selecionados.length} ${selecionados.length === 1 ? "jogo" : "jogos"} · ${totalMercados} ${totalMercados === 1 ? "mercado" : "mercados"}`}
+            </T>
+            <T className="text-[11px] text-muted" numberOfLines={1}>
+              {modo === "duelo" ? "Duelo · privado" : `Em grupo · ${publico ? "público" : "privado"}`} ·{" "}
+              {Number(fichas) || 100} fichas
+            </T>
+          </View>
+          <Button title="Criar desafio" onPress={criar} disabled={!podeSalvar} loading={salvando} compact={!desktop} />
+        </View>
+      </View>
       <ModalModo visivel={modalModo} onFechar={() => setModalModo(false)} onEscolher={(m) => { setModalModo(false); setModo(m); }} />
     </View>
   );

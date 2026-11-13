@@ -3,6 +3,7 @@ import { router } from "expo-router";
 import { Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { useDesktop } from "../lib/desktop";
 import { fmtPts } from "../lib/format";
 import { useApp } from "../store/AppStore";
 import { useTheme } from "../store/Theme";
@@ -40,6 +41,29 @@ export function AppHeader({
   const insets = useSafeAreaInsets();
   const { user } = useApp();
   const { palette: C } = useTheme();
+  const desktop = useDesktop();
+  // Desktop: a barra do topo (DesktopNav) já faz o papel do cabeçalho. Tela interna ganha só o caminho de volta.
+  if (desktop) {
+    if (!back) return null;
+    return (
+      <View className="px-4 pt-4" style={{ maxWidth: 1212, width: "100%", alignSelf: "center" }}>
+        <View className="flex-row items-center">
+          <Pressable
+            onPress={() => (router.canGoBack() ? router.back() : router.replace("/"))}
+            className="flex-row items-center rounded-lg px-1 py-1 hover:bg-cardAlt"
+          >
+            <Ionicons name="chevron-back" size={16} color={C.muted} />
+            <T className="ml-0.5 text-xs text-muted">Voltar</T>
+          </Pressable>
+          {title ? (
+            <T className="ml-3 flex-1 font-mont-xb text-sm" numberOfLines={1}>
+              {title}
+            </T>
+          ) : null}
+        </View>
+      </View>
+    );
+  }
   return (
     <View
       style={{ paddingTop: insets.top + 8 }}

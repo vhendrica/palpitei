@@ -2,7 +2,15 @@ export const fmtOdd = (n: number) => `${n.toFixed(2)}x`;
 
 export const fmtPts = (n: number) => n.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
 
+/** "2026-11-12" → "QUI 12/11" (data sem hora: não passa por fuso). */
+export function fmtDia(iso: string) {
+  const [a, m, d] = iso.slice(0, 10).split('-').map(Number);
+  const sem = new Date(a, m - 1, d, 12).toLocaleDateString('pt-BR', { weekday: 'short' });
+  return `${sem.replace('.', '').toUpperCase()} ${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}`;
+}
+
 export function fmtData(iso: string) {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) return fmtDia(iso);
   const d = new Date(iso);
   const dia = d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit', timeZone: 'America/Fortaleza' });
   const hora = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Fortaleza' });

@@ -4,9 +4,11 @@ import { ScrollView, View } from "react-native";
 
 import { AppHeader } from "../../../components/AppHeader";
 import { ErrorBox } from "../../../components/Form";
-import { Button, Card, StatusBadge, T } from "../../../components/ui";
+import { Button, Card, Esqueleto, StatusBadge, T } from "../../../components/ui";
 import { api } from "../../../lib/api";
+import { useDesktop } from "../../../lib/desktop";
 import { fmtData } from "../../../lib/format";
+import { guardarRetorno } from "../../../lib/retorno";
 import { errorMessage, useApp } from "../../../store/AppStore";
 import type { DesafioResumo } from "../../../types";
 
@@ -17,6 +19,7 @@ export default function Convite() {
   const [d, setD] = useState<DesafioResumo | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [entrando, setEntrando] = useState(false);
+  const desktop = useDesktop();
 
   useEffect(() => {
     (async () => {
@@ -44,8 +47,11 @@ export default function Convite() {
   return (
     <View className="flex-1 bg-bg">
       <AppHeader title="Convite" back />
-      <ScrollView contentContainerStyle={{ padding: 16 }}>
+      <ScrollView
+        contentContainerStyle={[{ padding: 16 }, desktop ? { maxWidth: 520, width: "100%", alignSelf: "center" } : null]}
+      >
         <ErrorBox erro={erro} />
+        {!d && !erro ? <Esqueleto blocos={1} /> : null}
         {d ? (
           <Card>
             <T className="font-mont-xb text-lg">{d.titulo ?? `Desafio de ${d.dono}`}</T>
@@ -75,7 +81,10 @@ export default function Convite() {
               <Button
                 title="Entre na sua conta pra participar"
                 className="mt-4"
-                onPress={() => router.push("/entrar")}
+                onPress={() => {
+                  guardarRetorno(`/desafio/convite?token=${token}`);
+                  router.push("/entrar");
+                }}
               />
             )}
           </Card>
