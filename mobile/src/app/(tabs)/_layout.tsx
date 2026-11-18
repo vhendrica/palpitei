@@ -67,6 +67,13 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="simulador"
+        options={{
+          title: "Simulador",
+          tabBarIcon: icon("cash", "cash-outline"),
+        }}
+      />
+      <Tabs.Screen
         name="perfil"
         options={{
           title: "Perfil",

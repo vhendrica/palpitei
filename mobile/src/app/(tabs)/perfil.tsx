@@ -117,7 +117,7 @@ export default function Perfil() {
           {user.nome}
         </T>
         <T className="text-xs text-muted" numberOfLines={1}>
-          {fmtWhats(user.whatsapp)}
+          {user.email ?? (user.whatsapp ? fmtWhats(user.whatsapp) : "")}
           {user.bairro ? ` · ${user.bairro}` : ""}
         </T>
       </View>

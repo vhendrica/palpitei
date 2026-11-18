@@ -70,7 +70,7 @@ export function Bilhete({
   const [abertoState, setAberto] = useState(true);
   const [largura, setLargura] = useState(0);
   const [pagina, setPagina] = useState(0);
-  const [info, setInfo] = useState(false);
+  const [info, setInfo] = useState<string | null>(null);
   const [expandidoState, setExpandido] = useState(false);
   // No rail (desktop) o bilhete é sempre aberto e expandido — sem recolher nem paginar.
   const aberto = rail ? true : abertoState;
@@ -102,7 +102,11 @@ export function Bilhete({
     const naSimples = id in draft.simples;
     const bloqueada = draft.multiplas.findIndex((_, i) => !cabeNaMultipla(draft, opcoes, id, i));
     return (
-      <View key={id} className="mb-1.5 rounded-xl border border-line bg-card px-3 py-1.5">
+      <View
+        key={id}
+        className="mb-1.5 rounded-xl border border-line bg-card px-3 py-1.5"
+        style={info === id ? { zIndex: 10 } : undefined}
+      >
         <View className="flex-row items-center">
           <View className="flex-1 pr-2">
             <T className="text-[10px] text-muted" numberOfLines={1}>
@@ -157,12 +161,16 @@ export function Bilhete({
             <View className="flex-row items-center">
               <Ionicons name="warning-outline" size={14} color={C.gold} />
               <T className="ml-1 font-mont-b text-[11px]">Evento incompatível</T>
-              <Pressable hitSlop={8} onPress={() => setInfo((v) => !v)} className="ml-1">
+              <Pressable
+                hitSlop={8}
+                onPress={() => setInfo((v) => (v === id ? null : id))}
+                className="ml-1"
+              >
                 <Ionicons name="information-circle-outline" size={16} color={C.primary} />
               </Pressable>
             </View>
-            {info ? (
-              <View className="mt-1 rounded-lg bg-fg p-2">
+            {info === id ? (
+              <View className="absolute left-0 right-0 top-full z-50 mt-1 rounded-lg bg-fg p-2">
                 <T className="text-[11px] leading-4 text-bg">
                   <T className="font-mont-xb text-[11px] text-bg">O que é evento incompatível? </T>
                   São dois palpites do mesmo jogo que não podem ficar na mesma múltipla, porque um anula

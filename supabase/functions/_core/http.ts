@@ -5,6 +5,7 @@ import type { Db } from './db.ts';
 import { ForbiddenError, NotFoundError, RuleError } from './errors.ts';
 import { importarOdds, mercadosDaApi, mercadosDaFixture, type OddsConfig } from './odds.ts';
 import { aplicarPlacar, atualizarResultados } from './resultados.ts';
+import * as sim from './sim.ts';
 import { apostar, type MultiplaInput, entrarNaLiga, finalizarLiga, getLiga, getLigaAtual, reativarLiga } from './rules.ts';
 import { home, historico, jogosComMercados, meuBilhete, palpiteirosDaLiga, palpiteirosDoDia, perfil, rankingDoDia } from './services.ts';
 import { hojeISO } from './validation.ts';
@@ -81,9 +82,14 @@ export function createApi(deps: ApiDeps) {
     // ---- público / usuário
     ['GET', /^\/health$/, async () => ({ ok: true })],
     ['POST', /^\/auth\/cadastro$/, async (c) => auth.cadastrar(authDeps, (await c.body()) as auth.CadastroInput)],
-    ['POST', /^\/auth\/login$/, async (c) => auth.solicitarCodigo(authDeps, { whatsapp: (await c.body()).whatsapp })],
-    ['POST', /^\/auth\/reenviar$/, async (c) => auth.solicitarCodigo(authDeps, { whatsapp: (await c.body()).whatsapp })],
-    ['POST', /^\/auth\/confirmar$/, async (c) => {
+    ['POST', /^\/auth\/login$/, async (c) => {
+      const b = await c.body();
+      return auth.entrar(authDeps, { email: b.email, senha: b.senha });
+    }],
+    // OTP WhatsApp dormente — mantido para reativar quando a verificação voltar.
+    ['POST', /^\/auth\/otp\/login$/, async (c) => auth.solicitarCodigo(authDeps, { whatsapp: (await c.body()).whatsapp })],
+    ['POST', /^\/auth\/otp\/reenviar$/, async (c) => auth.solicitarCodigo(authDeps, { whatsapp: (await c.body()).whatsapp })],
+    ['POST', /^\/auth\/otp\/confirmar$/, async (c) => {
       const b = await c.body();
       return auth.confirmarCodigo(authDeps, { whatsapp: b.whatsapp, codigo: b.codigo });
     }],
@@ -198,6 +204,11 @@ export function createApi(deps: ApiDeps) {
       return aplicarPlacar(sql, c.params[0], Number(b.casa), Number(b.fora));
     }],
     ['GET', /^\/me$/, async (c) => perfil(sql, await c.requireUser())],
+
+    // ---- simulador (dinheiro virtual em mercados reais — modo educativo)
+    ['GET', /^\/sim$/, async (c) => sim.resumo(sql, (await c.requireUser()).id)],
+    ['POST', /^\/sim\/recarga$/, async (c) => sim.recarga(sql, (await c.requireUser()).id, await c.body())],
+    ['POST', /^\/sim\/apostar$/, async (c) => sim.apostar(sql, (await c.requireUser()).id, await c.body())],
     ['PUT', /^\/me$/, async (c) => auth.atualizarPerfil(sql, await c.requireUser(), await c.body())],
 
     // ---- histórico de palpites (o usuário só vê as rodadas que entrou)

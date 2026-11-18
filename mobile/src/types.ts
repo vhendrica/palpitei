@@ -4,7 +4,8 @@ export type LigaStatus = "aberta" | "em_andamento" | "finalizada";
 export type User = {
   id: string;
   nome: string;
-  whatsapp: string;
+  whatsapp: string | null;
+  email: string | null;
   bairro: string;
   saldo_pontos: number;
   is_admin: boolean;
@@ -333,3 +334,51 @@ export type MeuBilhete = {
   palpiteiros: PalpiteiroView[];
   minha: PalpiteiroView | null;
 };
+
+// ---- Simulador (dinheiro virtual em mercados reais) ----
+
+export type SimConta = {
+  /** Todos os valores monetários em centavos. */
+  saldo: number;
+  depositado: number;
+  apostado: number;
+  retornado: number;
+  /** P&L = saldo + abertas − depositado. */
+  pl: number;
+  /** % de retorno sobre o já resolvido. */
+  roi: number;
+  recargas: number;
+  estouros: number;
+  abertas_n: number;
+  abertas_valor: number;
+  /** Dias desde a primeira aposta simulada (0 = nunca apostou). */
+  dias: number;
+  /** projeção do P&L atual pro ano, no ritmo atual. */
+  projecao_anual: number;
+  /** quanto o depositado renderia na poupança no mesmo período. */
+  vs_poupanca: number;
+};
+
+export type SimPerna = {
+  mercado: string;
+  jogo: string;
+  odd: number;
+  status: "aberta" | "ganhou" | "perdeu";
+};
+
+export type SimAposta = {
+  id: string;
+  /** simples = 1 palpite; multipla = acumulada (odd = produto das pernas). */
+  tipo: "simples" | "multipla";
+  valor: number;
+  odd: number;
+  status: "aberta" | "ganhou" | "perdeu" | "anulada";
+  retorno: number;
+  mercado: string;
+  jogo: string;
+  pernas: SimPerna[] | null;
+  created_at: string;
+  resolvida_em: string | null;
+};
+
+export type SimResumo = { conta: SimConta; apostas: SimAposta[] };

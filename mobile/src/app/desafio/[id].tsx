@@ -12,6 +12,7 @@ import { PalpiteiroBilhete } from "../../components/PalpiteiroBilhete";
 import { ErrorBox } from "../../components/Form";
 import { ResumoBilhete } from "../../components/ResumoBilhete";
 import { Button, Card, Esqueleto, StatusBadge, T } from "../../components/ui";
+import { track } from "../../lib/analytics";
 import { api } from "../../lib/api";
 import {
   alternarOdd,
@@ -198,13 +199,15 @@ export default function Detalhe() {
   }, [mensagem, mostrarToast]);
   const copiarLink = useCallback(async () => {
     const ok = await copiar(url);
+    if (ok) track("Copiou convite", { desafio: String(id) });
     mostrarToast(ok ? "Link copiado." : "Não deu pra copiar o link.", ok ? "ok" : "erro");
-  }, [url, mostrarToast]);
+  }, [id, url, mostrarToast]);
 
   const entrar = useCallback(async () => {
     setEntrando(true);
     try {
       await api.desafios.entrar(String(id));
+      track("Entrou no desafio", { desafio: String(id), origem: "pagina" });
       await load();
     } catch (e) {
       setErro(errorMessage(e));
@@ -236,6 +239,12 @@ export default function Detalhe() {
         ),
         multiplas: draft.multiplas.filter((m) => m.mercados.length > 0),
       });
+      track("Confirmou palpites", {
+        origem: "desafio",
+        desafio: String(id),
+        simples: draft.itens.filter((mid) => (draft.simples[mid] ?? 0) > 0).length,
+        multiplas: draft.multiplas.filter((m) => m.mercados.length > 0).length,
+      });
       dirty.current = false;
       setResumo(false);
       await load();
@@ -250,6 +259,7 @@ export default function Detalhe() {
     setFinalizando(true);
     try {
       await api.desafios.finalizar(String(id));
+      track("Finalizou desafio", { desafio: String(id) });
       setConfirmaFim(false);
       await load();
     } catch (e) {
@@ -594,6 +604,7 @@ export default function Detalhe() {
       rail
       alturaMax={Math.max(300, height - 190 - Math.min(d?.ranking.length ?? 0, 5) * 46)}
       onResumo={() => {
+        track("Abriu resumo do bilhete", { origem: "desafio" });
         setErroBilhete(null);
         setResumo(true);
       }}
@@ -713,6 +724,7 @@ export default function Detalhe() {
           offsetMultiplas={travadas.length}
           onChange={marcaDraft}
           onResumo={() => {
+            track("Abriu resumo do bilhete", { origem: "desafio" });
             setErroBilhete(null);
             setResumo(true);
           }}

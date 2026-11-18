@@ -1,3 +1,4 @@
+import { track } from './analytics';
 import type {
   CriarDesafioInput,
   HistoricoItem,
@@ -13,6 +14,7 @@ import type {
   PalpiteiroView,
   Perfil,
   RankingRow,
+  SimResumo,
   User,
 } from '../types';
 
@@ -73,11 +75,14 @@ async function req<T>(
         body: body === undefined ? undefined : JSON.stringify(body),
       });
     } catch {
+      track('Erro na API', { path, status: 0 });
       throw new ApiError('Sem conexão. Verifique sua internet.', 0);
     }
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
       const erro = new ApiError(data.error ?? 'Algo deu errado. Tente novamente.', res.status);
+      // 4xx é erro esperado do usuário (código errado etc.); 5xx é bug/queda — loga.
+      if (res.status >= 500) track('Erro na API', { path, status: res.status });
       if (res.status !== 401) onApiError?.(erro.message);
       throw erro;
     }
@@ -89,7 +94,9 @@ async function req<T>(
 
 export type CadastroInput = {
   nome: string;
-  whatsapp: string;
+  email: string;
+  senha: string;
+  whatsapp?: string;
   cpf: string;
   data_nascimento: string;
   bairro?: string;
@@ -97,17 +104,21 @@ export type CadastroInput = {
   aceita_compartilhamento: boolean;
 };
 
+export type Sessao = { token: string; user: User; nova_conta: boolean };
+
 export type BilheteInput = {
   simples: Record<string, number>;
   multiplas: { mercados: string[]; fichas: number }[];
 };
 
 export const api = {
-  cadastro: (input: CadastroInput) => req<CodigoEnviado>('POST', '/auth/cadastro', input),
-  login: (whatsapp: string) => req<CodigoEnviado>('POST', '/auth/login', { whatsapp }),
-  reenviar: (whatsapp: string) => req<CodigoEnviado>('POST', '/auth/reenviar', { whatsapp }),
-  confirmar: (whatsapp: string, codigo: string) =>
-    req<{ token: string; user: User; nova_conta: boolean }>('POST', '/auth/confirmar', { whatsapp, codigo }),
+  cadastro: (input: CadastroInput) => req<Sessao>('POST', '/auth/cadastro', input),
+  login: (email: string, senha: string) => req<Sessao>('POST', '/auth/login', { email, senha }),
+  // OTP WhatsApp dormente — reativar quando a verificação voltar.
+  otpLogin: (whatsapp: string) => req<CodigoEnviado>('POST', '/auth/otp/login', { whatsapp }),
+  otpReenviar: (whatsapp: string) => req<CodigoEnviado>('POST', '/auth/otp/reenviar', { whatsapp }),
+  otpConfirmar: (whatsapp: string, codigo: string) =>
+    req<Sessao>('POST', '/auth/otp/confirmar', { whatsapp, codigo }),
   logout: () => req<{ ok: true }>('POST', '/auth/logout'),
 
   home: () => req<Home>('GET', '/home'),
@@ -128,6 +139,13 @@ export const api = {
   editarApostas: (bilhete: BilheteInput) =>
     req<{ fichas_distribuidas: number; fichas_livres: number }>('PUT', '/liga/hoje/apostas', bilhete),
   me: () => req<Perfil>('GET', '/me'),
+  sim: {
+    resumo: () => req<SimResumo>('GET', '/sim'),
+    recarga: (valor: number) => req<{ estourou: boolean }>('POST', '/sim/recarga', { valor }),
+    /** mercado_ids com 1 id = aposta simples; 2+ = múltipla (acumulada). */
+    apostar: (mercado_ids: string[], valor: number) =>
+      req<{ ok: true }>('POST', '/sim/apostar', { mercado_ids, valor }),
+  },
   atualizarPerfil: (input: { nome: string; bairro: string }) => req<{ user: User }>('PUT', '/me', input),
 
   desafios: {

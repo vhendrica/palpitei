@@ -1,4 +1,4 @@
-import { gerarOtp, gerarToken, sha256 } from './crypto.ts';
+import { conferirSenha, gerarOtp, gerarToken, hashSenha, sha256 } from './crypto.ts';
 import { type Db, iso, num, type Tx } from './db.ts';
 import { AuthError, RuleError } from './errors.ts';
 import {
@@ -6,9 +6,12 @@ import {
   parseDataNascimento,
   validarBairro,
   validarCpf,
+  validarEmail,
   validarMaioridade,
   validarNome,
+  validarSenha,
   validarWhatsapp,
+  validarWhatsappOpcional,
 } from './validation.ts';
 import type { WhatsappSender } from './whatsapp.ts';
 
@@ -34,7 +37,8 @@ export type AuthDeps = { sql: Db; send: WhatsappSender; otp?: Partial<OtpOptions
 export type UserPublico = {
   id: string;
   nome: string;
-  whatsapp: string;
+  whatsapp: string | null;
+  email: string | null;
   bairro: string;
   saldo_pontos: number;
   is_admin: boolean;
@@ -46,7 +50,8 @@ export type UserPublico = {
 export const mapUser = (u: Record<string, unknown>): UserPublico => ({
   id: u.id as string,
   nome: u.nome as string,
-  whatsapp: u.whatsapp as string,
+  whatsapp: (u.whatsapp as string | null) ?? null,
+  email: (u.email as string | null) ?? null,
   bairro: u.bairro as string,
   saldo_pontos: num(u.saldo_pontos),
   is_admin: !!u.is_admin,
@@ -61,6 +66,8 @@ const mascarar = (w: string) => `(${w.slice(0, 2)}) *****-${w.slice(-4)}`;
 
 export type CadastroInput = {
   nome: unknown;
+  email: unknown;
+  senha: unknown;
   whatsapp: unknown;
   cpf: unknown;
   data_nascimento: unknown;
@@ -69,10 +76,21 @@ export type CadastroInput = {
   aceita_compartilhamento: unknown;
 };
 
-/** Cria (ou recria) o cadastro pendente e envia o código. A conta só é ativada em `confirmarCodigo`. */
+const criarSessao = async (tx: Tx, userId: string, sessaoDias: number) => {
+  const token = gerarToken();
+  const tokenHash = await sha256(token);
+  await tx`
+    insert into sessions (token_hash, user_id, expires_at)
+    values (${tokenHash}, ${userId}, now() + make_interval(days => ${sessaoDias}))`;
+  return token;
+};
+
+/** Cadastro por e-mail + senha: ativa a conta na hora, credita boas-vindas e devolve a sessão. */
 export async function cadastrar(d: AuthDeps, input: CadastroInput) {
   const nome = validarNome(input.nome);
-  const whatsapp = validarWhatsapp(input.whatsapp);
+  const email = validarEmail(input.email);
+  const senha = validarSenha(input.senha);
+  const whatsapp = validarWhatsappOpcional(input.whatsapp);
   const cpf = validarCpf(input.cpf);
   const nascimento = parseDataNascimento(input.data_nascimento);
   validarMaioridade(nascimento, (d.hoje ?? hojeISO)());
@@ -81,26 +99,80 @@ export async function cadastrar(d: AuthDeps, input: CadastroInput) {
   if (input.aceita_compartilhamento !== true) {
     throw new RuleError('Você precisa concordar com o compartilhamento dos seus dados.');
   }
+  const senhaHash = await hashSenha(senha);
+  const o = opts(d);
 
-  await d.sql.begin(async (tx: Tx) => {
+  const res = await d.sql.begin(async (tx: Tx) => {
     const existentes = await tx`
-      select id, whatsapp, cpf, ativado_em from users where whatsapp = ${whatsapp} or cpf = ${cpf} for update`;
+      select id, cpf, whatsapp, email, ativado_em from users
+      where cpf = ${cpf}
+         or lower(email) = ${email}
+         ${whatsapp ? tx`or whatsapp = ${whatsapp}` : tx``}
+      for update`;
     if (existentes.some((u) => u.ativado_em && u.cpf === cpf)) throw new RuleError('CPF já cadastrado.');
-    if (existentes.some((u) => u.ativado_em && u.whatsapp === whatsapp)) {
-      throw new RuleError('WhatsApp já cadastrado. Entre com seu número.');
+    if (existentes.some((u) => u.ativado_em && String(u.email ?? '').toLowerCase() === email)) {
+      throw new RuleError('E-mail já cadastrado. Faça login.');
     }
-    // Cadastros nunca confirmados não seguram CPF/WhatsApp: são substituídos.
-    if (existentes.length) await tx`delete from users where id in ${tx(existentes.map((u) => u.id as string))}`;
+    if (whatsapp && existentes.some((u) => u.ativado_em && u.whatsapp === whatsapp)) {
+      throw new RuleError('WhatsApp já cadastrado.');
+    }
+    // Cadastros nunca ativados não seguram CPF/e-mail/WhatsApp: são substituídos.
+    const pendentes = existentes.filter((u) => !u.ativado_em).map((u) => u.id as string);
+    if (pendentes.length) await tx`delete from users where id in ${tx(pendentes)}`;
 
-    await tx`
-      insert into users (nome, whatsapp, cpf, data_nascimento, bairro,
+    const [u] = await tx`
+      insert into users (nome, email, senha_hash, whatsapp, cpf, data_nascimento, bairro,
+                         ativado_em,
                          terms_accepted_at, terms_version, data_consent_accepted_at, data_consent_version)
-      select ${nome}, ${whatsapp}, ${cpf}, ${nascimento}, ${bairro},
+      select ${nome}, ${email}, ${senhaHash}, ${whatsapp}, ${cpf}, ${nascimento}, ${bairro},
+             clock_timestamp(),
              clock_timestamp(), c.termos_versao, clock_timestamp(), c.consentimento_versao
-      from config c where c.id = 1`;
+      from config c where c.id = 1
+      returning *`;
+    await tx`
+      update users set saldo_pontos = saldo_pontos + (select pontos_boas_vindas from config where id = 1)
+      where id = ${u.id}`;
+    const token = await criarSessao(tx, u.id as string, o.sessaoDias);
+    const [user] = await tx`select * from users where id = ${u.id}`;
+    return { token, user: mapUser(user) };
   });
 
-  return emitirCodigo(d, whatsapp);
+  return { ...res, nova_conta: true };
+}
+
+const LOGIN_MAX_ERROS = 8;
+const LOGIN_BLOQUEIO_MIN = 15;
+
+/** Login por e-mail + senha com bloqueio temporário após erros seguidos. */
+export async function entrar(d: AuthDeps, input: { email: unknown; senha: unknown }) {
+  const email = validarEmail(input.email);
+  const senha = String(input.senha ?? '');
+  const o = opts(d);
+  const generica = 'E-mail ou senha incorretos.';
+
+  const res = await d.sql.begin(async (tx: Tx) => {
+    const [u] = await tx`select * from users where lower(email) = ${email} and ativado_em is not null for update`;
+    if (!u || !u.senha_hash) return { erro: generica } as const;
+    if (u.bloqueado_ate && new Date(u.bloqueado_ate as string) > new Date()) {
+      return { erro: 'Muitas tentativas. Tente novamente em alguns minutos.' } as const;
+    }
+    if (!(await conferirSenha(senha, u.senha_hash as string))) {
+      const erros = num(u.senha_erros) + 1;
+      await tx`
+        update users set senha_erros = ${erros},
+               bloqueado_ate = case when ${erros} >= ${LOGIN_MAX_ERROS}
+                                    then now() + make_interval(mins => ${LOGIN_BLOQUEIO_MIN})
+                                    else bloqueado_ate end
+        where id = ${u.id}`;
+      return { erro: generica } as const;
+    }
+    await tx`update users set senha_erros = 0, bloqueado_ate = null where id = ${u.id}`;
+    const token = await criarSessao(tx, u.id as string, o.sessaoDias);
+    return { token, user: mapUser(u) };
+  });
+
+  if ('erro' in res) throw new RuleError(res.erro as string);
+  return { ...res, nova_conta: false };
 }
 
 /** Login (ou reenvio): manda um novo código para um WhatsApp já cadastrado. */

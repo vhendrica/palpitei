@@ -9,6 +9,7 @@ import {
   type ReactNode,
 } from "react";
 
+import { track } from "../lib/analytics";
 import { api, ApiError, setToken, wireFeedback, type BilheteInput, type CadastroInput } from "../lib/api";
 import type { CodigoEnviado, Home, User } from "../types";
 
@@ -24,7 +25,9 @@ type AppStore = {
   mostrarToast: (texto: string, tipo?: "erro" | "ok") => void;
   refreshHome: () => Promise<void>;
   refreshUser: () => Promise<void>;
-  cadastrar: (input: CadastroInput) => Promise<CodigoEnviado>;
+  cadastrar: (input: CadastroInput) => Promise<void>;
+  entrar: (email: string, senha: string) => Promise<void>;
+  // OTP WhatsApp dormente — reativar quando a verificação voltar.
   pedirCodigo: (whatsapp: string) => Promise<CodigoEnviado>;
   reenviarCodigo: (whatsapp: string) => Promise<CodigoEnviado>;
   confirmarCodigo: (
@@ -111,29 +114,53 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       mostrarToast,
       refreshHome,
       refreshUser,
-      cadastrar: (input) => api.cadastro(input),
-      pedirCodigo: (whatsapp) => api.login(whatsapp),
-      reenviarCodigo: (whatsapp) => api.reenviar(whatsapp),
-      confirmarCodigo: async (whatsapp, codigo) => {
-        const r = await api.confirmar(whatsapp, codigo);
+      cadastrar: async (input) => {
+        const r = await api.cadastro(input);
         setToken(r.token);
         await AsyncStorage.setItem(TOKEN_KEY, r.token).catch(() => {});
         setUser(r.user);
+        track("Criou a conta");
+        await refreshHome();
+      },
+      entrar: async (email, senha) => {
+        const r = await api.login(email, senha);
+        setToken(r.token);
+        await AsyncStorage.setItem(TOKEN_KEY, r.token).catch(() => {});
+        setUser(r.user);
+        track("Fez login");
+        await refreshHome();
+      },
+      pedirCodigo: (whatsapp) => api.otpLogin(whatsapp),
+      reenviarCodigo: (whatsapp) => api.otpReenviar(whatsapp),
+      confirmarCodigo: async (whatsapp, codigo) => {
+        const r = await api.otpConfirmar(whatsapp, codigo);
+        setToken(r.token);
+        await AsyncStorage.setItem(TOKEN_KEY, r.token).catch(() => {});
+        setUser(r.user);
+        track(r.nova_conta ? "Criou a conta" : "Fez login");
         await refreshHome();
         return { nova_conta: r.nova_conta };
       },
       sair: async () => {
+        track("Saiu da conta");
         await api.logout().catch(() => {});
         await limparSessao();
         await refreshHome();
       },
       entrarNaLiga: async () => {
         await api.entrar();
+        track("Entrou na rodada");
         // Não segura o botão esperando a home inteira recarregar.
         refreshHome();
       },
       apostar: async (bilhete, editar) => {
         const r = editar ? await api.editarApostas(bilhete) : await api.apostar(bilhete);
+        track(editar ? "Confirmou edição do bilhete" : "Confirmou palpites", {
+          origem: "liga",
+          simples: Object.keys(bilhete.simples).length,
+          multiplas: bilhete.multiplas.length,
+          fichas: r.fichas_distribuidas,
+        });
         await refreshHome();
         return r.fichas_distribuidas;
       },

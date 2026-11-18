@@ -31,6 +31,32 @@ export function validarWhatsapp(raw: unknown): string {
   return w;
 }
 
+export function validarEmail(raw: unknown): string {
+  const email = String(raw ?? '').trim().toLowerCase();
+  if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
+    throw new RuleError('E-mail inválido.');
+  }
+  return email;
+}
+
+export function validarSenha(raw: unknown): string {
+  const s = String(raw ?? '');
+  if (s.length < 8) throw new RuleError('A senha precisa ter no mínimo 8 caracteres.');
+  if (s.length > 128) throw new RuleError('Senha muito longa (máx. 128).');
+  if (!/[a-zA-Z]/.test(s) || !/\d/.test(s)) throw new RuleError('Use letras e números na senha.');
+  return s;
+}
+
+/** WhatsApp opcional (cadastro por e-mail não exige; OTP fica pra uso futuro). */
+export function validarWhatsappOpcional(raw: unknown): string | null {
+  const w = soDigitos(raw).replace(/^55(?=\d{10,11}$)/, '');
+  if (!w) return null;
+  if (w.length < 10 || w.length > 11 || w.startsWith('0')) {
+    throw new RuleError('WhatsApp inválido. Use DDD + número.');
+  }
+  return w;
+}
+
 /** Aceita YYYY-MM-DD ou DD/MM/AAAA. Retorna YYYY-MM-DD. */
 export function parseDataNascimento(raw: unknown): string {
   const s = String(raw ?? '').trim();

@@ -8,14 +8,16 @@ import {
   Montserrat_800ExtraBold,
   useFonts,
 } from "@expo-google-fonts/montserrat";
-import { DarkTheme, DefaultTheme, ThemeProvider } from "expo-router";
+import Head from "expo-router/head";
+import { DarkTheme, DefaultTheme, ThemeProvider, usePathname } from "expo-router";
 import { Stack } from "expo-router/stack";
 import { ActivityIndicator, Text, View } from "react-native";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 
 import { DesktopNav } from "../components/DesktopNav";
+import { identifyUser, resetAnalytics, trackScreen } from "../lib/analytics";
 import { useDesktop } from "../lib/desktop";
 import { AppStoreProvider, useApp } from "../store/AppStore";
 import { ThemeStoreProvider, useTheme } from "../store/Theme";
@@ -23,7 +25,9 @@ import { ThemeStoreProvider, useTheme } from "../store/Theme";
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
 function RootNavigator() {
-  const { ready, carregando, toast } = useApp();
+  const { ready, carregando, toast, user } = useApp();
+  const pathname = usePathname();
+  const identificado = useRef<string | null>(null);
   const desktop = useDesktop();
   const { ready: themeReady, scheme, palette } = useTheme();
   const [fontsLoaded] = useFonts({
@@ -54,10 +58,42 @@ function RootNavigator() {
     if (loaded) SplashScreen.hideAsync().catch(() => {});
   }, [loaded]);
 
+  // Fluxo de telas pro PostHog (cada mudança de rota vira um $screen).
+  useEffect(() => {
+    if (loaded) trackScreen(pathname);
+  }, [loaded, pathname]);
+
+  // Identifica a pessoa depois do login (e limpa ao sair) sem mandar PII.
+  useEffect(() => {
+    if (user) {
+      if (identificado.current !== user.id) {
+        identifyUser(user);
+        identificado.current = user.id;
+      }
+    } else if (identificado.current) {
+      resetAnalytics();
+      identificado.current = null;
+    }
+  }, [user]);
+
   if (!loaded) return null;
 
   return (
     <ThemeProvider value={navTheme}>
+      {/* Card de preview quando o link é compartilhado (WhatsApp etc.). No nativo é no-op. */}
+      <Head>
+        <title>PALPIT</title>
+        <meta property="og:title" content="PALPIT — Palpites com os amigos" />
+        <meta
+          property="og:description"
+          content="Distribua suas fichas nos jogos do dia e dispute o prêmio."
+        />
+        <meta property="og:type" content="website" />
+        <meta
+          property="og:image"
+          content="https://vhendrica.github.io/palpitei/og.png"
+        />
+      </Head>
       <StatusBar style="light" />
       <View style={{ flex: 1, backgroundColor: palette.bg }}>
         {desktop ? <DesktopNav /> : null}

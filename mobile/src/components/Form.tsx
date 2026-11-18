@@ -11,12 +11,14 @@ export function Field({
   icon,
   iconNode,
   labelExtra,
+  trailing,
   ...props
 }: {
   label: string;
   icon?: keyof typeof Ionicons.glyphMap;
   iconNode?: ReactNode;
   labelExtra?: ReactNode;
+  trailing?: ReactNode;
 } & ComponentProps<typeof TextInput>) {
   const { palette: C } = useTheme();
   return (
@@ -38,6 +40,7 @@ export function Field({
           className="ml-2 flex-1 py-3.5 font-mont-sb text-base text-fg"
           {...props}
         />
+        {trailing}
       </View>
     </View>
   );

@@ -8,6 +8,7 @@ import { HelpIcon } from "../../components/HelpIcon";
 import { ErrorBox, Field } from "../../components/Form";
 import { Ficha } from "../../components/Ficha";
 import { Button, Card, EmptyState, Esqueleto, T } from "../../components/ui";
+import { track } from "../../lib/analytics";
 import { api } from "../../lib/api";
 import { useDesktop } from "../../lib/desktop";
 import { fmtDia, fmtOdd } from "../../lib/format";
@@ -155,6 +156,7 @@ export default function CriarDesafio() {
         fichas: Number(fichas) || undefined,
         jogos,
       });
+      track("Criou desafio", { modo, jogos: jogos.length, publico: modo === "duelo" ? false : publico });
       router.replace(`/desafio/${r.id}`);
     } catch (e) {
       setErro(errorMessage(e));

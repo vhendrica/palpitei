@@ -1,3 +1,4 @@
+import Head from "expo-router/head";
 import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { ScrollView, View } from "react-native";
@@ -5,6 +6,7 @@ import { ScrollView, View } from "react-native";
 import { AppHeader } from "../../../components/AppHeader";
 import { ErrorBox } from "../../../components/Form";
 import { Button, Card, Esqueleto, StatusBadge, T } from "../../../components/ui";
+import { track } from "../../../lib/analytics";
 import { api } from "../../../lib/api";
 import { useDesktop } from "../../../lib/desktop";
 import { fmtData } from "../../../lib/format";
@@ -26,6 +28,7 @@ export default function Convite() {
       try {
         const r = await api.desafios.convite(String(token));
         setD(r.desafio);
+        track("Abriu convite do desafio", { desafio: r.desafio.id });
       } catch (e) {
         setErro(errorMessage(e));
       }
@@ -37,6 +40,7 @@ export default function Convite() {
     setEntrando(true);
     try {
       await api.desafios.entrar(d.id);
+      track("Entrou no desafio", { desafio: d.id, origem: "convite" });
       router.replace(`/desafio/${d.id}`);
     } catch (e) {
       setErro(errorMessage(e));
@@ -46,6 +50,21 @@ export default function Convite() {
 
   return (
     <View className="flex-1 bg-bg">
+      {/* Preview do link de convite no WhatsApp/redes (o token é query param,
+          então o HTML estático dessa rota já carrega essas tags). */}
+      <Head>
+        <title>PALPIT — Você foi desafiado</title>
+        <meta property="og:title" content="Você foi desafiado no PALPIT" />
+        <meta
+          property="og:description"
+          content="Entre no desafio, distribua suas fichas e dispute o prêmio."
+        />
+        <meta property="og:type" content="website" />
+        <meta
+          property="og:image"
+          content="https://vhendrica.github.io/palpitei/og.png"
+        />
+      </Head>
       <AppHeader title="Convite" back />
       <ScrollView
         contentContainerStyle={[{ padding: 16 }, desktop ? { maxWidth: 520, width: "100%", alignSelf: "center" } : null]}

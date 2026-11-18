@@ -4,6 +4,7 @@ import { useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
+  Pressable,
   ScrollView,
   View,
 } from "react-native";
@@ -12,6 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppHeader } from "../components/AppHeader";
 import { Checkbox, ErrorBox, Field } from "../components/Form";
 import { Button, T } from "../components/ui";
+import { track } from "../lib/analytics";
 import { fmtCpf, fmtDataNasc, fmtWhats } from "../lib/format";
 import { errorMessage, useApp } from "../store/AppStore";
 import { useTheme } from "../store/Theme";
@@ -21,6 +23,10 @@ export default function Cadastro() {
   const insets = useSafeAreaInsets();
   const { cadastrar } = useApp();
   const [nome, setNome] = useState("");
+  const [email, setEmail] = useState("");
+  const [senha, setSenha] = useState("");
+  const [senha2, setSenha2] = useState("");
+  const [mostrar, setMostrar] = useState(false);
   const [whats, setWhats] = useState("");
   const [cpf, setCpf] = useState("");
   const [nasc, setNasc] = useState("");
@@ -29,26 +35,29 @@ export default function Cadastro() {
   const [erro, setErro] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const olho = (
+    <Pressable onPress={() => setMostrar((m) => !m)} hitSlop={8}>
+      <Ionicons name={mostrar ? "eye-off-outline" : "eye-outline"} size={20} color={C.muted} />
+    </Pressable>
+  );
+
   const submit = async () => {
     setBusy(true);
     setErro(null);
     try {
-      const r = await cadastrar({
+      if (senha !== senha2) throw new Error("As senhas não são iguais.");
+      await cadastrar({
         nome,
-        whatsapp: whats,
+        email,
+        senha,
+        whatsapp: whats || undefined,
         cpf,
         data_nascimento: nasc,
         aceita_termos: termos,
         aceita_compartilhamento: dados,
       });
-      router.push({
-        pathname: "/codigo",
-        params: {
-          whatsapp: r.whatsapp,
-          destino: r.destino,
-          dev: r.dev_codigo ?? "",
-        },
-      });
+      track("Preencheu cadastro");
+      router.replace("/(tabs)");
     } catch (e) {
       setErro(errorMessage(e));
     } finally {
@@ -74,7 +83,7 @@ export default function Cadastro() {
           <View className="ml-3 flex-1">
             <T className="font-mont-b text-sm">Bônus de boas-vindas</T>
             <T className="text-xs text-fg/70">
-              Ganhe 500 PONTOS ao confirmar sua conta.
+              Ganhe 500 PONTOS ao criar sua conta.
             </T>
           </View>
           <T className="font-odds text-2xl text-primary">+500</T>
@@ -89,12 +98,34 @@ export default function Cadastro() {
           autoCapitalize="words"
         />
         <Field
-          label="WhatsApp"
-          icon="logo-whatsapp"
-          placeholder="(85) 9 9999-9999"
-          keyboardType="phone-pad"
-          value={whats}
-          onChangeText={(t) => setWhats(fmtWhats(t))}
+          label="E-mail"
+          icon="mail-outline"
+          placeholder="voce@email.com"
+          keyboardType="email-address"
+          autoCapitalize="none"
+          autoComplete="email"
+          value={email}
+          onChangeText={setEmail}
+        />
+        <Field
+          label="Senha"
+          icon="lock-closed-outline"
+          placeholder="Mín. 8, com letras e números"
+          secureTextEntry={!mostrar}
+          autoCapitalize="none"
+          value={senha}
+          onChangeText={setSenha}
+          trailing={olho}
+        />
+        <Field
+          label="Repita a senha"
+          icon="lock-closed-outline"
+          placeholder="Confirme sua senha"
+          secureTextEntry={!mostrar}
+          autoCapitalize="none"
+          value={senha2}
+          onChangeText={setSenha2}
+          trailing={olho}
         />
         <Field
           label="CPF"
@@ -112,23 +143,30 @@ export default function Cadastro() {
           value={nasc}
           onChangeText={(t) => setNasc(fmtDataNasc(t))}
         />
-
+        <Field
+          label="WhatsApp (opcional)"
+          icon="logo-whatsapp"
+          placeholder="(85) 9 9999-9999"
+          keyboardType="phone-pad"
+          value={whats}
+          onChangeText={(t) => setWhats(fmtWhats(t))}
+        />
 
         <Checkbox
           checked={termos}
           onChange={setTermos}
-          label="Concordo com os Termos de Uso"
+          label="Concordo com os Termos de Uso e a Política de Privacidade"
         />
         <Checkbox
           checked={dados}
           onChange={setDados}
-          label="Concordo com o compartilhamento dos meus dados"
+          label="Autorizo a coleta e o uso dos meus dados conforme a política"
         />
         <T className="text-[11px] text-muted">Somente maiores de 18 anos.</T>
 
         <ErrorBox erro={erro} />
         <Button
-          title="Receber código no WhatsApp"
+          title="Criar conta"
           onPress={submit}
           loading={busy}
           disabled={!termos || !dados}

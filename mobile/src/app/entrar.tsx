@@ -1,18 +1,22 @@
+import Ionicons from "@expo/vector-icons/Ionicons";
 import { router } from "expo-router";
 import { useState } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView, View } from "react-native";
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppHeader } from "../components/AppHeader";
 import { ErrorBox, Field } from "../components/Form";
 import { Button, T } from "../components/ui";
-import { fmtWhats } from "../lib/format";
 import { errorMessage, useApp } from "../store/AppStore";
+import { useTheme } from "../store/Theme";
 
 export default function Entrar() {
+  const { palette: C } = useTheme();
   const insets = useSafeAreaInsets();
-  const { pedirCodigo } = useApp();
-  const [whats, setWhats] = useState("");
+  const { entrar } = useApp();
+  const [email, setEmail] = useState("");
+  const [senha, setSenha] = useState("");
+  const [mostrar, setMostrar] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -20,15 +24,8 @@ export default function Entrar() {
     setBusy(true);
     setErro(null);
     try {
-      const r = await pedirCodigo(whats);
-      router.push({
-        pathname: "/codigo",
-        params: {
-          whatsapp: r.whatsapp,
-          destino: r.destino,
-          dev: r.dev_codigo ?? "",
-        },
-      });
+      await entrar(email, senha);
+      router.replace("/(tabs)");
     } catch (e) {
       setErro(errorMessage(e));
     } finally {
@@ -51,19 +48,37 @@ export default function Entrar() {
       >
         <T className="mb-6 font-mont-xb text-2xl">Bora palpitar?</T>
         <Field
-          label="WhatsApp"
-          icon="logo-whatsapp"
-          placeholder="(85) 9 9999-9999"
-          keyboardType="phone-pad"
-          value={whats}
-          onChangeText={(t) => setWhats(fmtWhats(t))}
+          label="E-mail"
+          icon="mail-outline"
+          placeholder="voce@email.com"
+          keyboardType="email-address"
+          autoCapitalize="none"
+          autoComplete="email"
+          value={email}
+          onChangeText={setEmail}
         />
-        <T className="text-xs text-muted">
-          Vamos te mandar um código de 6 dígitos no WhatsApp.
-        </T>
+        <Field
+          label="Senha"
+          icon="lock-closed-outline"
+          placeholder="Sua senha"
+          secureTextEntry={!mostrar}
+          autoCapitalize="none"
+          value={senha}
+          onChangeText={setSenha}
+          onSubmitEditing={submit}
+          trailing={
+            <Pressable onPress={() => setMostrar((m) => !m)} hitSlop={8}>
+              <Ionicons
+                name={mostrar ? "eye-off-outline" : "eye-outline"}
+                size={20}
+                color={C.muted}
+              />
+            </Pressable>
+          }
+        />
         <ErrorBox erro={erro} />
         <Button
-          title="Receber código"
+          title="Entrar"
           onPress={submit}
           loading={busy}
           className="mt-6"

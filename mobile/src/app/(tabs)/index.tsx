@@ -31,6 +31,7 @@ import {
   StatusBadge,
   T,
 } from "../../components/ui";
+import { track } from "../../lib/analytics";
 import { alternarOdd, corMultipla, type Draft, DRAFT_VAZIO, fichasNoDraft } from "../../lib/bilhete";
 import { useDesktop } from "../../lib/desktop";
 import { fmtData, fmtPontos, fmtPts } from "../../lib/format";
@@ -136,10 +137,12 @@ export default function HomeMultipla() {
     const itens = [...new Set([...Object.keys(editaveis.simples), ...ms.flatMap((m) => m.mercados)])];
     setDraft({ itens, simples: { ...editaveis.simples }, multiplas: ms });
     setEditandoKey(draftKey);
+    track("Abriu edição do bilhete", { origem: "liga" });
   };
   const cancelarEdicao = () => {
     setDraft(DRAFT_VAZIO);
     setEditandoKey(null);
+    track("Cancelou edição do bilhete", { origem: "liga" });
   };
 
   const fichasLivresBase = (eu?.fichas_livres ?? 0) + (editando ? editaveis.fichas : 0);
@@ -557,6 +560,28 @@ export default function HomeMultipla() {
               />
             </View>
 
+            <Pressable onPress={() => router.push("/simulador")}>
+              <Card className="mt-3 border-[#7C8DA6]">
+                <View className="flex-row items-center justify-between">
+                  <View className="flex-1 pr-3">
+                    <T
+                      className="font-mont-b tracking-widest"
+                      style={{ color: "#7C8DA6", fontSize: 9 }}
+                    >
+                      SIMULADOR
+                    </T>
+                    <T className="mt-1 font-mont-b text-sm">
+                      Quanto você perderia apostando de verdade?
+                    </T>
+                    <T className="mt-1 text-xs text-muted">
+                      Dinheiro virtual, odds reais — acompanhe seu resultado.
+                    </T>
+                  </View>
+                  <Ionicons name="cash-outline" size={26} color="#7C8DA6" />
+                </View>
+              </Card>
+            </Pressable>
+
             <View onLayout={(e) => (jogosY.current = e.nativeEvent.layout.y)}>
               <SectionTitle>Jogos</SectionTitle>
             </View>
@@ -586,6 +611,7 @@ export default function HomeMultipla() {
                 onChange={setDraft}
                 rail
                 onResumo={() => {
+                  track("Abriu resumo do bilhete", { origem: "liga" });
                   setErroBilhete(null);
                   setResumo(true);
                 }}
@@ -636,6 +662,7 @@ export default function HomeMultipla() {
           offsetMultiplas={offsetMultiplas}
           onChange={setDraft}
           onResumo={() => {
+            track("Abriu resumo do bilhete", { origem: "liga" });
             setErroBilhete(null);
             setResumo(true);
           }}
