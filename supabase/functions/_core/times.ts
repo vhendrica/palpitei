@@ -96,10 +96,58 @@ const TIMES_BR: Record<string, string> = {
   'apollon limassol': 'Apollon Limassol',
   'omonia nicosia': 'Omonia Nicósia',
   'sheriff tiraspol': 'Sheriff',
+  // Brasileiros — o feed manda "Sigla Nome UF" ("EC Vitoria BA", "CA Paranaense PR").
+  // Vai antes do cleanup genérico porque alguns clubes fogem do padrão (CA Paranaense, Clube do Remo).
+  'ec vitoria ba': 'Vitória',
+  'ec bahia ba': 'Bahia',
+  'sc corinthians sp': 'Corinthians',
+  'sc internacional rs': 'Internacional',
+  'cr flamengo rj': 'Flamengo',
+  'cr vasco da gama rj': 'Vasco',
+  'se palmeiras sp': 'Palmeiras',
+  'sao paulo fc sp': 'São Paulo',
+  'santos fc sp': 'Santos',
+  'fluminense fc rj': 'Fluminense',
+  'botafogo fr rj': 'Botafogo',
+  'gremio fb porto alegrense rs': 'Grêmio',
+  'cruzeiro ec mg': 'Cruzeiro',
+  'atletico mineiro mg': 'Atlético-MG',
+  'ca paranaense pr': 'Athletico-PR',
+  'chapecoense sc': 'Chapecoense',
+  'clube do remo pa': 'Remo',
+  'coritiba fc pr': 'Coritiba',
+  'red bull bragantino sp': 'RB Bragantino',
+  'mirassol fc sp': 'Mirassol',
 };
 
 const norm = (s: string) =>
   s.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
 
-/** Devolve o nome como o Brasil conhece — ou o original se não tem versão BR. */
-export const nomeBR = (nome: string): string => TIMES_BR[norm(nome)] ?? nome;
+const UFS =
+  'AC|AL|AP|AM|BA|CE|DF|ES|GO|MA|MG|MS|MT|PA|PB|PE|PI|PR|RJ|RN|RO|RR|RS|SC|SE|SP|TO';
+// Siglas de entidade que não carregam o nome do time (Esporte Clube, Sport Club,
+// Clube de Regatas, Sociedade Esportiva, Futebol Clube...). CA/AA/AC ficam — Atlético faz parte do nome.
+const SIGLA = 'EC|SC|CR|SE|FC|CF|FB|FR|CD|GE|IF|RC|XV';
+
+/** Limpa "EC Vitoria BA" → "Vitoria": UF no fim, sigla de clube nas pontas e no meio. */
+const limpaClube = (nome: string) =>
+  nome
+    .trim()
+    .replace(new RegExp(`\\s+(?:${UFS})$`, 'i'), '')
+    .replace(new RegExp(`^(?:${SIGLA})\\s+`, 'i'), '')
+    .replace(new RegExp(`\\s+(?:${SIGLA})$`, 'i'), '')
+    .replace(new RegExp(`\\s+(?:${SIGLA})\\s+`, 'gi'), ' ')
+    .replace(/^Clube (?:do|da|de) /i, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+
+/**
+ * Devolve o nome como o Brasil conhece — o feed traz sigla de clube e UF
+ * ("EC Vitoria BA"), que a gente não exibe. Sem versão BR, aplica a limpeza genérica.
+ */
+export const nomeBR = (nome: string): string => {
+  const br = TIMES_BR[norm(nome)];
+  if (br) return br;
+  const limpo = limpaClube(nome);
+  return TIMES_BR[norm(limpo)] ?? limpo;
+};
