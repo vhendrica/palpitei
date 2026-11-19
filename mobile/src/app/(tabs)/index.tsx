@@ -608,6 +608,10 @@ export default function HomeMultipla() {
                   </Card>
                 </View>
 
+                {/* Jogo do dia logo abaixo do hero: é a decisão principal,
+                    não pode ficar enterrado depois de prêmio e simulador. */}
+                {destaque ? renderJogo(destaque) : null}
+
                 <View className="mt-3">
                   <PremioBar
                     premio={home.premio}
@@ -650,7 +654,6 @@ export default function HomeMultipla() {
                 >
                   <SectionTitle>Jogos</SectionTitle>
                 </View>
-                {destaque ? renderJogo(destaque) : null}
                 {desktop ? (
                   <View
                     style={{
