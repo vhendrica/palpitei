@@ -269,15 +269,27 @@ export async function definirMercados(sql: Db, jogoId: string, mercadosInput: un
     const foraNome = j.time_fora as string;
     const chave = (grupo: string, descricao: string) => `${grupo}|${normDesc(descricao, casaNome, foraNome)}`;
     const porChave = new Map(atuais.map((m) => [chave(((m.grupo as string) ?? '').toUpperCase(), m.descricao as string), m]));
+    // Item com id nunca é descartado; só os novos (sem id) colapsam entre si ou com um existente.
     const vistos = new Set<string>();
+    const usados = new Set(itens.filter((i) => i.id).map((i) => i.id as string));
     const itensFinais = [];
     for (const it of itens) {
+      if (it.id) {
+        itensFinais.push(it);
+        continue;
+      }
       const k = chave(it.grupo, it.descricao);
       if (vistos.has(k)) continue;
       vistos.add(k);
-      const existente = it.id ? null : (porChave.get(k) ?? porChave.get(`|${normDesc(it.descricao, casaNome, foraNome)}`));
+      const cand = porChave.get(k) ?? porChave.get(`|${normDesc(it.descricao, casaNome, foraNome)}`);
+      const existente = cand && !usados.has(cand.id as string) ? cand : null;
+      if (existente) usados.add(existente.id as string);
       itensFinais.push(existente ? { ...it, id: existente.id as string } : it);
     }
+    // Opção nova entra na seção já usada pelo seu grupo.
+    const secaoDoGrupo = new Map(
+      atuais.filter((m) => m.secao).map((m) => [((m.grupo as string) ?? '').toUpperCase(), m.secao as string]),
+    );
 
     const manter = new Set(itensFinais.filter((i) => i.id).map((i) => i.id as string));
     for (const m of atuais) {
@@ -307,7 +319,8 @@ export async function definirMercados(sql: Db, jogoId: string, mercadosInput: un
       } else {
         await tx`
           insert into mercados (jogo_id, grupo, descricao, multiplicador, ordem, secao)
-          values (${jogoId}, ${it.grupo}, ${it.descricao}, ${it.multiplicador}, ${it.ordem}, ${it.secao})`;
+          values (${jogoId}, ${it.grupo}, ${it.descricao}, ${it.multiplicador}, ${it.ordem},
+                  ${it.secao ?? secaoDoGrupo.get(it.grupo) ?? null})`;
       }
     }
     return j.liga_id as string;
@@ -337,10 +350,19 @@ export async function renovarMercadosJogo(sql: Db, cfg: OddsConfig | undefined, 
     await tx`select id from ligas where id = ${j.liga_id} for update`;
     const [{ n: agora }] = await tx`select count(*)::int as n from entradas where liga_id = ${j.liga_id}`;
     if (agora > 0) throw new RuleError('Já tem palpiteiro nessa rodada; os mercados estão travados.');
+    // Seções renomeadas pelo admin sobrevivem à renovação (por grupo).
+    const secoes = new Map(
+      (await tx`select grupo, secao from mercados where jogo_id = ${jogoId} and secao is not null`).map(
+        (m) => [((m.grupo as string) ?? '').toUpperCase(), m.secao as string],
+      ),
+    );
     await tx`delete from mercados where jogo_id = ${jogoId}`;
     await tx`insert into mercados ${tx(
-      dedup.map((m, ordem) => ({ jogo_id: jogoId, grupo: m.grupo, descricao: m.descricao, multiplicador: m.multiplicador, ordem })),
-      'jogo_id', 'grupo', 'descricao', 'multiplicador', 'ordem',
+      dedup.map((m, ordem) => ({
+        jogo_id: jogoId, grupo: m.grupo, descricao: m.descricao, multiplicador: m.multiplicador, ordem,
+        secao: secoes.get((m.grupo ?? '').toUpperCase()) ?? null,
+      })),
+      'jogo_id', 'grupo', 'descricao', 'multiplicador', 'ordem', 'secao',
     )}`;
     return { jogo_id: jogoId, mercados: dedup.length };
   });

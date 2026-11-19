@@ -1,6 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { Redirect, router } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, Pressable, ScrollView, TextInput, View } from "react-native";
 
 import { AppHeader } from "../../components/AppHeader";
@@ -49,8 +49,10 @@ export default function Admin() {
       const msg = await fn();
       if (msg) setOk(msg);
       refreshHome();
+      return true;
     } catch (e) {
       setErro(errorMessage(e));
+      return false;
     }
   };
 
@@ -111,7 +113,7 @@ export default function Admin() {
   );
 }
 
-type Run = (fn: () => Promise<string | void>) => Promise<void>;
+type Run = (fn: () => Promise<string | void>) => Promise<boolean>;
 
 function AbaLiga({ data, run }: { data: string; run: Run }) {
   const [confirmaRemover, setConfirmaRemover] = useState(false);
@@ -359,8 +361,9 @@ function JogoAdmin({
       grupo: string;
       descricao: string;
       multiplicador: number;
+      secao?: string | null;
     }[],
-  ) => void;
+  ) => Promise<boolean>;
 }) {
   const { palette: C } = useTheme();
   const [editando, setEditando] = useState(false);
@@ -394,15 +397,15 @@ function JogoAdmin({
   const temMercado = (grupo: string, descricao: string) =>
     baseItens.some(
       (x) =>
-        ((x.grupo ?? "").trim().toUpperCase() === grupo ||
-          (x.grupo ?? "").trim() === "") &&
+        (x.grupo ?? "").trim().toUpperCase() === grupo &&
         normDescricao(x.descricao) === normDescricao(descricao),
     );
   // Seleção em rascunho: toque marca/desmarca; "Salvar mercados" publica só o marcado.
   const [marcados, setMarcados] = useState<Record<string, boolean>>({});
   const estaMarcado = (g: { grupo: string; opcoes: { descricao: string }[] }) =>
     marcados[g.grupo] ??
-    g.opcoes.every((o) => temMercado(g.grupo, o.descricao));
+    // Já publicado (ou parte do grupo publicada) começa marcado, pra salvar não apagar nada.
+    (g.grupo === "OUTROS" || g.opcoes.some((o) => temMercado(g.grupo, o.descricao)));
   const toggleGrupo = (g: { grupo: string; opcoes: { descricao: string }[] }) =>
     setMarcados((s) => ({ ...s, [g.grupo]: !estaMarcado(g) }));
 
@@ -432,6 +435,8 @@ function JogoAdmin({
                     ),
                 )
                 .map((m) => ({
+                  id: m.id,
+                  grupo: m.grupo ?? "",
                   descricao: m.descricao,
                   multiplicador: m.multiplicador,
                 })),
@@ -446,19 +451,27 @@ function JogoAdmin({
       ...outros,
     ].filter(estaMarcado);
     const itens = grupos.flatMap((g) =>
-      g.opcoes.map((o) => {
-        const existente = jogo.mercados.find(
-          (m) =>
-            ((m.grupo ?? "").trim().toUpperCase() === g.grupo ||
-              (m.grupo ?? "").trim() === "") &&
-            normDescricao(m.descricao) === normDescricao(o.descricao),
-        );
-        return {
-          id: existente?.id,
-          grupo: g.grupo === "OUTROS" ? "" : g.grupo,
-          descricao: o.descricao,
-          multiplicador: o.multiplicador,
-        };
+      g.opcoes.map((o: { id?: string; grupo?: string; descricao: string; multiplicador: number }) => {
+        const existente = o.id
+          ? jogo.mercados.find((m) => m.id === o.id)
+          : jogo.mercados.find(
+              (m) =>
+                (m.grupo ?? "").trim().toUpperCase() === g.grupo &&
+                normDescricao(m.descricao) === normDescricao(o.descricao),
+            );
+        // Mercado já publicado mantém id, grupo e odd; só os novos usam a odd da API.
+        return existente
+          ? {
+              id: existente.id,
+              grupo: existente.grupo ?? "",
+              descricao: existente.descricao,
+              multiplicador: existente.multiplicador,
+            }
+          : {
+              grupo: g.grupo === "OUTROS" ? "" : g.grupo,
+              descricao: o.descricao,
+              multiplicador: o.multiplicador,
+            };
       }),
     );
     onSalvarMercados(itens);
@@ -501,14 +514,18 @@ function JogoAdmin({
   );
   const mercadosVis = ordOverride ?? jogo.mercados;
 
+  const ordemSalvando = useRef(false);
   const moverGrupo = async (gi: number, dir: number) => {
+    // Um movimento por vez: dois salvamentos em paralelo podem chegar invertidos.
+    if (ordemSalvando.current) return;
     const grupos = agruparMercados(mercadosVis);
     const alvo = gi + dir;
     if (alvo < 0 || alvo >= grupos.length) return;
     const ord = [...grupos];
     [ord[gi], ord[alvo]] = [ord[alvo], ord[gi]];
     setOrdOverride(ord.flatMap((g) => g.opcoes));
-    await onSalvarMercados(
+    ordemSalvando.current = true;
+    const ok = await onSalvarMercados(
       ord.flatMap((g) =>
         g.opcoes.map((m) => ({
           id: m.id,
@@ -518,8 +535,9 @@ function JogoAdmin({
         })),
       ),
     );
+    ordemSalvando.current = false;
     setOrdOverride(null);
-    marcarSalvou();
+    if (ok) marcarSalvou();
   };
 
   const abrirEditor = () => {
@@ -551,8 +569,20 @@ function JogoAdmin({
     nome: string,
   ) => {
     const descs = new Set(g.opcoes.map((o) => normDescricao(o.descricao)));
-    await onSalvarMercados(
-      jogo.mercados.map((m) => ({
+    const doGrupo = (m: (typeof jogo.mercados)[number]) =>
+      (m.grupo ?? "").trim().toUpperCase() === g.grupo && descs.has(normDescricao(m.descricao));
+    // O grupo vai pro fim da seção de destino, pra ela ficar num bloco só.
+    const resto = jogo.mercados.filter((m) => !doGrupo(m));
+    let fim = -1;
+    resto.forEach((m, i) => {
+      if ((m.secao ?? secaoDo(m.grupo ?? "")) === nome) fim = i;
+    });
+    const ordem =
+      fim < 0
+        ? [...resto, ...jogo.mercados.filter(doGrupo)]
+        : [...resto.slice(0, fim + 1), ...jogo.mercados.filter(doGrupo), ...resto.slice(fim + 1)];
+    const ok = await onSalvarMercados(
+      ordem.map((m) => ({
         id: m.id,
         grupo: m.grupo,
         descricao: m.descricao,
@@ -564,6 +594,7 @@ function JogoAdmin({
             : (m.secao ?? null),
       })),
     );
+    if (!ok) return;
     setMovendoGrupo(null);
     marcarSalvou();
   };
@@ -571,7 +602,10 @@ function JogoAdmin({
   return (
     <Card className={`mb-3 ${jogo.destaque ? "border-2 border-primary" : ""}`}>
       <Pressable
-        onPress={() => setRecolhido((r) => !r)}
+        onPress={() => {
+          setRecolhido((r) => !r);
+          setEditando(false);
+        }}
         className="flex-row items-start justify-between"
       >
         <View className="flex-1">

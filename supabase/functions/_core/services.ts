@@ -96,6 +96,7 @@ export async function jogosComMercados(db: Db, ligaId: string, userId?: string |
         grupo: (m.grupo as string) ?? '',
         descricao: m.descricao as string,
         multiplicador: num(m.multiplicador),
+        secao: (m.secao as string) ?? null,
         resultado_final: !!m.resultado_final,
         decidido: m.decidido_em != null,
         ...(userId ? { minhas_fichas: num(m.minhas) } : {}),
