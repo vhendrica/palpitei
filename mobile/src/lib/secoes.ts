@@ -1,8 +1,8 @@
 /** Seções de mercado (UI) + explicações (?) em português pros mercados não triviais. */
 
-export const SECOES = ['PRINCIPAL', 'GOLS', 'ESPECIAIS', 'ESCANTEIOS', 'CARTÕES', 'HANDICAP', '1º TEMPO'] as const;
+export const SECOES = ['PRINCIPAL', 'GOLS', 'JOGO', 'JOGADOR', 'ESCANTEIOS', 'CARTÕES', '1º TEMPO', 'HANDICAP'] as const;
 
-/** Grupos de player props que aparecem na seção ESPECIAIS. */
+/** Grupos de player props que aparecem na seção JOGADOR. */
 const PROPS_JOGADOR = [
   'MARCA NO JOGO',
   'PRIMEIRO A MARCAR',
@@ -19,7 +19,11 @@ const PROPS_JOGADOR = [
 /** Mapeia o grupo do mercado pra uma das seções. */
 export function secaoDo(grupo: string): (typeof SECOES)[number] {
   const g = grupo.toUpperCase();
-  const t1 = g.includes('1 TEMPO') || g.includes('PRIMEIRO TEMPO') || g.endsWith(' 1T');
+  const t1 =
+    g.includes('1 TEMPO') ||
+    g.includes('1º TEMPO') ||
+    g.includes('PRIMEIRO TEMPO') ||
+    g.endsWith(' 1T');
   if (t1) return '1º TEMPO';
   // Props de jogador: checa antes de GOLS/CARTÕES ("GOLS DO JOGADOR" começa com GOLS).
   if (
@@ -27,15 +31,21 @@ export function secaoDo(grupo: string): (typeof SECOES)[number] {
     g.endsWith('DO JOGADOR') ||
     g.endsWith('DO GOLEIRO')
   ) {
-    return 'ESPECIAIS';
+    return 'JOGADOR';
   }
-  if (g.startsWith('HANDICAP')) return 'HANDICAP';
   if (g.startsWith('ESCANTEIO')) return 'ESCANTEIOS';
   if (g.startsWith('CART')) return 'CARTÕES';
-  if (g.startsWith('GOLS')) return 'GOLS';
-  if (g.startsWith('ESPECIAL') || g.includes('EXATO') || g.includes('MARCAR') || g.includes('INTERVALO')) {
-    return 'ESPECIAIS';
+  if (g.startsWith('GOLS') || g.startsWith('AMBOS')) return 'GOLS';
+  if (
+    g.startsWith('INTERVALO') ||
+    g.startsWith('VIRA O JOGO') ||
+    g.startsWith('VENCE SEM SOFRER') ||
+    g.startsWith('ESPECIAL') ||
+    g.includes('EXATO')
+  ) {
+    return 'JOGO';
   }
+  if (g.startsWith('HANDICAP')) return 'HANDICAP';
   return 'PRINCIPAL';
 }
 
@@ -117,15 +127,21 @@ export function explicacaoDo(grupo: string): string | null {
     const time = /\b(CASA|FORA)\b/.test(g);
     return `É o total de cartões (amarelos + vermelhos)${time ? ' desse time' : ' do jogo'}.${linhaAjuda(grupo, 'cartões')}`;
   }
-  if (g.includes('1 TEMPO') || g.includes('PRIMEIRO TEMPO')) {
+  if (g.includes('1 TEMPO') || g.includes('1º TEMPO') || g.includes('PRIMEIRO TEMPO')) {
     return `Só conta o que acontece até o intervalo.${linhaAjuda(grupo, 'no primeiro tempo')}`;
   }
-  if (g.startsWith('ESPECIAL') || g.includes('EXATO')) {
+  if (g.includes('EXATO')) {
+    return 'O placar final tem que ser EXATAMENTE o escolhido.\n\nEx.: "2 x 1" só acerta se terminar 2x1 — 2x2 ou 3x1 já perde. Por isso a odd é alta.';
+  }
+  if (g.startsWith('ESPECIAL')) {
     return 'Mercados mais difíceis, por isso pagam mais.\n\nEx.: "Resultado Exato 2x1" — só acerta se o placar final for exatamente 2x1. 2x2 ou 3x1 já perde.';
   }
   if (g.startsWith('GOLS')) {
     const time = /\b(CASA|FORA)\b/.test(g);
     return `É o total de gols${time ? ' desse time' : ' do jogo'}.${linhaAjuda(grupo, 'gols')}`;
+  }
+  if (g.startsWith('RESULTADO')) {
+    return 'O clássico 1X2: quem vence o jogo no tempo regulamentar (90 min + acréscimos).\n\nEx.: palpitou "CASA" e termina 2x1 → acertou. Empate ou vitória do visitante, perde.';
   }
   return null;
 }
