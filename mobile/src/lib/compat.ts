@@ -111,6 +111,9 @@ export function decidido(p: Pred, casa: number, fora: number): boolean | null {
 export function incompativeis(a: OpcaoCompat, b: OpcaoCompat): boolean {
   if (a.jogo_id !== b.jogo_id) return false;
   if (norm(a.grupo) === norm(b.grupo)) return true;
+  // Mesma estatística em linhas diferentes (ESCANTEIOS 8.5 x 9.5): uma garante ou exclui a outra.
+  const familia = (g: string) => norm(g).replace(/\s[+-]?\d+(?:[.,]\d+)?$/, '');
+  if (precisaEx(norm(a.grupo)) && familia(a.grupo) === familia(b.grupo)) return true;
   const pa = predicado(a);
   const pb = predicado(b);
   if (!pa || !pb) return false;
