@@ -281,7 +281,10 @@ export async function definirMercados(sql: Db, jogoId: string, mercadosInput: un
       const k = chave(it.grupo, it.descricao);
       if (vistos.has(k)) continue;
       vistos.add(k);
-      const cand = porChave.get(k) ?? porChave.get(`|${normDesc(it.descricao, casaNome, foraNome)}`);
+      const exato = porChave.get(k);
+      // Já está na lista com o id dele: o item novo é repetido.
+      if (exato && usados.has(exato.id as string)) continue;
+      const cand = exato ?? porChave.get(`|${normDesc(it.descricao, casaNome, foraNome)}`);
       const existente = cand && !usados.has(cand.id as string) ? cand : null;
       if (existente) usados.add(existente.id as string);
       itensFinais.push(existente ? { ...it, id: existente.id as string } : it);

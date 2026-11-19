@@ -369,7 +369,7 @@ async function acertosPorUsuario(db: Db, ligaId: string) {
       select a.user_id, a.odd from apostas a join mercados m on m.id = a.mercado_id join jogos j on j.id = m.jogo_id
       where j.liga_id = ${ligaId} and m.resultado_final and not m.anulado`,
     db`
-      select mu.id, mu.user_id, case when m.anulado then 1 else p.odd end as odd, m.resultado_final
+      select mu.id, mu.user_id, case when m.anulado then 1 else p.odd end as odd, m.resultado_final, m.anulado
       from multiplas mu join multipla_pernas p on p.multipla_id = mu.id join mercados m on m.id = p.mercado_id
       where mu.liga_id = ${ligaId}`,
   ]);
@@ -379,14 +379,16 @@ async function acertosPorUsuario(db: Db, ligaId: string) {
     out.set(u, { maior: Math.max(x.maior, odd), n: x.n + 1 });
   };
   for (const a of simples) soma(a.user_id as string, num(a.odd));
-  const mults = new Map<string, { user: string; odds: number[]; ok: boolean }>();
+  const mults = new Map<string, { user: string; odds: number[]; ok: boolean; viva: boolean }>();
   for (const p of pernas) {
-    const m = mults.get(p.id as string) ?? { user: p.user_id as string, odds: [], ok: true };
+    const m = mults.get(p.id as string) ?? { user: p.user_id as string, odds: [], ok: true, viva: false };
     m.odds.push(num(p.odd));
     m.ok &&= !!p.resultado_final;
+    m.viva ||= !p.anulado;
     mults.set(p.id as string, m);
   }
-  for (const m of mults.values()) if (m.ok) soma(m.user, oddTotal(m.odds));
+  // Múltipla com todas as pernas anuladas só devolve as fichas: não conta como acerto.
+  for (const m of mults.values()) if (m.ok && m.viva) soma(m.user, oddTotal(m.odds));
   return out;
 }
 
@@ -401,7 +403,7 @@ async function potencialPorUsuario(db: Db, ligaId: string, soComecados = true) {
     db`
       select user_id, coalesce(sum(fichas_apostadas * (odd_tot - 1)), 0) as pot from (
         select mu.user_id, mu.fichas_apostadas,
-               exp(sum(ln(p.odd))) as odd_tot,
+               exp(sum(ln(case when m.anulado then 1 else p.odd end))) as odd_tot,
                count(*) filter (where m.decidido_em is not null and m.resultado_final = false) as perdidas,
                count(*) filter (where m.decidido_em is null) as pendentes,
                bool_and(j.horario <= now()) as comecaram

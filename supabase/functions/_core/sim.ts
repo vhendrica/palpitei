@@ -22,7 +22,8 @@ async function liquidar(tx: Tx, userId: string) {
     with r as (
       update sim_aposta a
       set status = case when m.resultado_final then 'ganhou' else 'perdeu' end,
-          retorno = case when m.resultado_final then round(a.valor * a.odd)::int else 0 end,
+          retorno = case when m.resultado_final
+                         then round(a.valor * case when m.anulado then 1 else a.odd end)::int else 0 end,
           resolvida_em = now()
       from mercados m
       where a.mercado_id = m.id and a.user_id = ${userId}
@@ -56,7 +57,11 @@ async function liquidar(tx: Tx, userId: string) {
               join mercados m on m.id = p.mercado_id
               where p.multipla_id = mu.id
                 and m.decidido_em is not null and m.resultado_final = false
-            ) then 0 else round(mu.valor * mu.odd_total)::int end,
+            ) then 0 else round(mu.valor * (
+              -- Perna anulada (empate anula) vale 1.0.
+              select exp(sum(ln(case when m.anulado then 1 else p.odd end)))
+              from sim_multipla_perna p join mercados m on m.id = p.mercado_id
+              where p.multipla_id = mu.id))::int end,
           resolvida_em = now()
       where mu.user_id = ${userId} and mu.status = 'aberta'
         and (
