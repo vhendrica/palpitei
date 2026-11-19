@@ -63,7 +63,14 @@ export type ScoresResp = {
 
 const req = async (cfg: OddsConfig, path: string, notFoundNull = false) => {
   const sep = path.includes('?') ? '&' : '?';
-  const res = await (cfg.fetch ?? fetch)(`${BASE}${path}${sep}apiKey=${encodeURIComponent(cfg.apiKey)}`);
+  const url = `${BASE}${path}${sep}apiKey=${encodeURIComponent(cfg.apiKey)}`;
+  let res = await (cfg.fetch ?? fetch)(url);
+  // A OddsPapi limita a ~1 chamada por segundo por endpoint (não é a cota mensal): espera o retryMs e tenta de novo.
+  for (let i = 0; i < 4 && res.status === 429; i++) {
+    const ms = Number(((await res.json().catch(() => ({}))) as { error?: { retryMs?: number } }).error?.retryMs);
+    await new Promise((r) => setTimeout(r, Math.min(Number.isFinite(ms) ? ms + 150 : 1500, 5000)));
+    res = await (cfg.fetch ?? fetch)(url);
+  }
   if (notFoundNull && res.status === 404) return null;
   if (!res.ok) {
     console.error('[oddspapi] falha', path, res.status, (await res.text().catch(() => '')).slice(0, 200));

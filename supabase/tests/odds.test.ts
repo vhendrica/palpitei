@@ -105,3 +105,15 @@ test('mercadosDaApi busca as odds do jogo e recusa jogo manual', async () => {
   const manual = la.jogos.find((j: any) => j.fixture_id === 999)!;
   await assert.rejects(mercadosDaApi(sql, { apiKey: 'k', fetch: f }, manual.id), /cadastrado na mão/);
 });
+
+test('429 da OddsPapi (limite por segundo) espera o retryMs e tenta de novo', async () => {
+  let n = 0;
+  const f = (async (u: string) => {
+    if (u.includes('tournamentId=390') && n++ === 0)
+      return new Response(JSON.stringify({ error: { code: 'RATE_LIMITED', retryMs: 10 } }), { status: 429 });
+    return fakeFetch(u);
+  }) as typeof fetch;
+  const r = await importarOdds(sql, { apiKey: 'k', torneios: [325, 390], fetch: f }, '2030-03-10');
+  assert.equal(n, 2);
+  assert.ok(r.importados.length >= 2);
+});
