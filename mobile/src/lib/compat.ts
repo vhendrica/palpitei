@@ -109,7 +109,8 @@ export function decidido(p: Pred, casa: number, fora: number): boolean | null {
  */
 function linhasDependentes(a: OpcaoCompat, b: OpcaoCompat): boolean {
   const ga = norm(a.grupo);
-  if (!precisaEx(ga) || ga.includes('JOGADOR')) return false;
+  // Jogador: a descrição começa pelo nome, então só linhas do mesmo jogador se cruzam.
+  if (!precisaEx(ga) && !ga.includes('JOGADOR')) return false;
   const familia = (g: string) => norm(g).replace(/\s[+-]?\d+(?:[.,]\d+)?$/, '');
   if (familia(a.grupo) !== familia(b.grupo)) return false;
   const lin = (d: string) => norm(d).match(/^(.*?)(MAIS|MENOS) DE ([\d.,]+)$/);
