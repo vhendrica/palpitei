@@ -106,10 +106,12 @@ export async function fixturesDoDia(cfg: OddsConfig, data: string): Promise<Fixt
   const { inicio, fim } = janelaDia(data);
   const out: FixtureApi[] = [];
   for (const t of cfg.torneios?.length ? cfg.torneios : TORNEIOS_PADRAO) {
-    const lista = ((await req(cfg, `/fixtures?tournamentId=${t}&from=${data}&to=${diaSeguinte(data)}`)) ?? []) as Record<
-      string,
-      unknown
-    >[];
+    // Sem jogos do campeonato no dia a OddsPapi responde 404 — é "vazio", não falha.
+    const lista = ((await req(
+      cfg,
+      `/fixtures?tournamentId=${t}&from=${data}&to=${diaSeguinte(data)}`,
+      true,
+    )) ?? []) as Record<string, unknown>[];
     for (const f of lista) {
       const ts = Date.parse(String(f.startTime));
       if (!(ts >= inicio && ts < fim)) continue;
@@ -132,6 +134,8 @@ export async function importarOdds(db: Db, cfg: OddsConfig | undefined, dataInpu
   if (!cfg?.apiKey) throw semChave();
   const data = validarDataISO(dataInput);
   const jogos = await fixturesDoDia(cfg, data);
+  if (jogos.length === 0)
+    throw new RuleError('Nenhum jogo da Série A, Série B ou Copa do Brasil nessa data. Tenta outro dia.');
   const importados = [];
   for (const j of jogos) {
     const casa = nomeBR(j.casa);
