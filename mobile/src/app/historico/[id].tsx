@@ -111,7 +111,7 @@ export default function HistoricoDetalhe() {
                 {ab ? (
                   <View className="mt-2 border-t border-line pt-2">
                     {p.palpites.length === 0 && p.multiplas.length === 0 ? (
-                      <T className="text-xs text-muted">Sem palpites ainda.</T>
+                      <T className="text-xs text-muted">{p.eu ? "Sem palpites." : "Palpites aparecem quando os jogos começam."}</T>
                     ) : (
                       <PalpiteiroBilhete p={p} />
                     )}

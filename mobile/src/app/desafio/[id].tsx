@@ -280,14 +280,14 @@ export default function Detalhe() {
             .filter((mid) => (draft.simples[mid] ?? 0) > 0)
             .map((mid) => [mid, draft.simples[mid]]),
         ),
-        multiplas: draft.multiplas.filter((m) => m.mercados.length > 0),
+        multiplas: draft.multiplas.filter((m) => m.mercados.length > 0 && m.fichas > 0),
       });
       track("Confirmou palpites", {
         origem: "desafio",
         desafio: String(id),
         simples: draft.itens.filter((mid) => (draft.simples[mid] ?? 0) > 0)
           .length,
-        multiplas: draft.multiplas.filter((m) => m.mercados.length > 0).length,
+        multiplas: draft.multiplas.filter((m) => m.mercados.length > 0 && m.fichas > 0).length,
       });
       dirty.current = false;
       setResumo(false);
