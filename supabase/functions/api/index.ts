@@ -3,6 +3,7 @@
 import postgres from 'postgres';
 
 import { createApi } from '../_core/http.ts';
+import { createEmailSender } from '../_core/email.ts';
 import { createWhatsappSender, otpMockAtivo } from '../_core/whatsapp.ts';
 
 const env = (k: string) => Deno.env.get(k);
@@ -13,6 +14,8 @@ const sql = postgres(env('SUPABASE_DB_URL')!, { prepare: false, max: 5 });
 const handle = createApi({
   sql,
   send: createWhatsappSender(env),
+  email: createEmailSender(env),
+  appUrl: env('APP_URL'),
   otp: { expor: otpMockAtivo(env) && env('OTP_EXPOR_CODIGO') === 'true' },
   corsOrigin: env('CORS_ORIGIN') ?? '*',
   cronSecret: env('CRON_SECRET'),

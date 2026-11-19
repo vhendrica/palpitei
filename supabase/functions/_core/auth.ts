@@ -12,6 +12,7 @@ import {
   validarSenha,
   validarWhatsapp,
 } from './validation.ts';
+import type { EmailSender } from './email.ts';
 import type { WhatsappSender } from './whatsapp.ts';
 
 export type OtpOptions = {
@@ -31,7 +32,15 @@ export const OTP_PADRAO: OtpOptions = {
   expor: false,
 };
 
-export type AuthDeps = { sql: Db; send: WhatsappSender; otp?: Partial<OtpOptions>; hoje?: () => string };
+export type AuthDeps = {
+  sql: Db;
+  send: WhatsappSender;
+  otp?: Partial<OtpOptions>;
+  hoje?: () => string;
+  /** Recuperação de senha: envio do e-mail e endereço do app (pro link). */
+  email?: EmailSender;
+  appUrl?: string;
+};
 
 export type UserPublico = {
   id: string;
@@ -290,4 +299,59 @@ export async function exigirUsuario(sql: Db, token: string | null | undefined) {
 
 export async function sair(sql: Db, token: string) {
   await sql`delete from sessions where token_hash = ${await sha256(token)}`;
+}
+
+const RESET_MIN = 30;
+
+/** Pede o link de nova senha. Responde igual exista ou não a conta (não revela e-mails cadastrados). */
+export async function pedirRecuperacao(d: AuthDeps, input: { email: unknown }) {
+  const email = validarEmail(input.email);
+  const ok = { ok: true as const, mensagem: 'Se o e-mail estiver cadastrado, enviamos um link pra criar uma senha nova.' };
+  const [u] = await d.sql`select id, nome from users where lower(email) = ${email} and ativado_em is not null`;
+  if (!u) return ok;
+  const token = gerarToken();
+  const criado = await d.sql.begin(async (tx: Tx) => {
+    await tx`select pg_advisory_xact_lock(hashtext(${'reset:' + u.id}))`;
+    const [recente] = await tx`
+      select 1 from senha_resets where user_id = ${u.id} and created_at > now() - interval '1 minute'`;
+    if (recente) return false;
+    await tx`update senha_resets set usado = true where user_id = ${u.id} and not usado`;
+    await tx`
+      insert into senha_resets (token_hash, user_id, expires_at)
+      values (${await sha256(token)}, ${u.id}, now() + make_interval(mins => ${RESET_MIN}))`;
+    return true;
+  });
+  if (!criado) return ok;
+  const base = (d.appUrl ?? 'https://vhendrica.github.io/palpitei/app').replace(/\/$/, '');
+  const link = `${base}/nova-senha?token=${token}`;
+  try {
+    await d.email?.(
+      email,
+      'PALPIT: crie sua senha nova',
+      `<p>Oi, ${String(u.nome).split(' ')[0]}!</p><p>Pra criar uma senha nova, toque no link abaixo. Ele vale por ${RESET_MIN} minutos.</p><p><a href="${link}">Criar senha nova</a></p><p>Se não foi você, é só ignorar este e-mail.</p>`,
+    );
+  } catch (e) {
+    console.error('[reset] falha no envio', e);
+  }
+  return ok;
+}
+
+/** Troca a senha com o token do link; derruba as sessões abertas. */
+export async function redefinirSenha(d: AuthDeps, input: { token: unknown; senha: unknown }) {
+  const token = String(input.token ?? '');
+  const senha = validarSenha(input.senha);
+  if (token.length < 20) throw new RuleError('Link inválido. Peça um novo.');
+  const hash = await sha256(token);
+  const senhaHash = await hashSenha(senha);
+  const res = await d.sql.begin(async (tx: Tx) => {
+    const [r] = await tx`
+      select user_id, usado, expires_at <= now() as expirado from senha_resets where token_hash = ${hash} for update`;
+    if (!r || r.usado || r.expirado) return { erro: 'Link expirado ou já usado. Peça um novo.' } as const;
+    await tx`update senha_resets set usado = true where token_hash = ${hash}`;
+    await tx`update users set senha_hash = ${senhaHash}, senha_erros = 0, bloqueado_ate = null where id = ${r.user_id}`;
+    await tx`delete from sessions where user_id = ${r.user_id}`;
+    return { ok: true as const };
+  });
+  if ('erro' in res) throw new RuleError(res.erro as string);
+  return res;
 }

@@ -1,7 +1,13 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router } from "expo-router";
 import { useState } from "react";
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from "react-native";
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  View,
+} from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppHeader } from "../components/AppHeader";
@@ -45,7 +51,14 @@ export default function Entrar() {
         contentContainerStyle={{
           padding: 20,
           paddingBottom: insets.bottom + 32,
-          ...(desktop ? { width: "100%", maxWidth: 440, alignSelf: "center", paddingTop: 48 } : {}),
+          ...(desktop
+            ? {
+                width: "100%",
+                maxWidth: 440,
+                alignSelf: "center",
+                paddingTop: 48,
+              }
+            : {}),
         }}
         keyboardShouldPersistTaps="handled"
       >
@@ -79,6 +92,15 @@ export default function Entrar() {
             </Pressable>
           }
         />
+        <Pressable
+          onPress={() => router.push("/esqueci" as never)}
+          className="self-end"
+          hitSlop={8}
+        >
+          <T className="font-mont-sb text-xs text-primary">
+            Esqueci minha senha
+          </T>
+        </Pressable>
         <ErrorBox erro={erro} />
         <Button
           title="Entrar"

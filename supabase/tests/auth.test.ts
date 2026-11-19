@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import { after, before, beforeEach, test } from 'node:test';
 
-import { type AuthDeps, cadastrar, confirmarCodigo, entrar, solicitarCodigo, usuarioDaSessao } from '../functions/_core/auth.ts';
+import {
+  type AuthDeps, cadastrar, confirmarCodigo, entrar, pedirRecuperacao, redefinirSenha, solicitarCodigo, usuarioDaSessao,
+} from '../functions/_core/auth.ts';
 import { limpar, setupDb, type Sql } from './helpers.ts';
 
 let sql: Sql;
@@ -134,4 +136,23 @@ test('falha no envio do WhatsApp invalida o código e avisa o usuário', async (
     message: 'Não conseguimos enviar o código pelo WhatsApp. Tente novamente.',
   });
   assert.equal((await sql`select count(*)::int as n from otp_codes where not usado`)[0].n, 0);
+});
+
+test('recuperação de senha por e-mail: link único troca a senha e derruba as sessões', async () => {
+  const emails: { para: string; html: string }[] = [];
+  deps.email = async (para, _assunto, html) => void emails.push({ para, html });
+  const r = await cadastrar(deps, input());
+  const nada = await pedirRecuperacao(deps, { email: 'ninguem@exemplo.com' });
+  assert.equal(nada.ok, true);
+  assert.equal(emails.length, 0);
+  await pedirRecuperacao(deps, { email: 'vitoria@exemplo.com' });
+  assert.equal(emails.length, 1);
+  const token = /token=([A-Za-z0-9_-]+)/.exec(emails[0].html)![1];
+  await assert.rejects(redefinirSenha(deps, { token, senha: 'fraca' }));
+  await redefinirSenha(deps, { token, senha: 'novaSenha123' });
+  assert.equal(await usuarioDaSessao(sql, r.token), null);
+  await assert.rejects(entrar(deps, { email: 'vitoria@exemplo.com', senha: 'senha1234' }));
+  const ok = await entrar(deps, { email: 'vitoria@exemplo.com', senha: 'novaSenha123' });
+  assert.equal(ok.user.id, r.user.id);
+  await assert.rejects(redefinirSenha(deps, { token, senha: 'outraSenha123' }), { message: 'Link expirado ou já usado. Peça um novo.' });
 });

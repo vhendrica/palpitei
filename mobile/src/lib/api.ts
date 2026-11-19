@@ -122,6 +122,10 @@ export const api = {
   otpConfirmar: (whatsapp: string, codigo: string) =>
     req<Sessao>('POST', '/auth/otp/confirmar', { whatsapp, codigo }),
   logout: () => req<{ ok: true }>('POST', '/auth/logout'),
+  esqueciSenha: (email: string) =>
+    req<{ ok: true; mensagem: string }>('POST', '/auth/senha/esqueci', { email }, { semToast: true }),
+  redefinirSenha: (token: string, senha: string) =>
+    req<{ ok: true }>('POST', '/auth/senha/redefinir', { token, senha }, { semToast: true }),
 
   home: () => req<Home>('GET', '/home'),
   ranking: () => req<{ data: string; liga: { id: string; status: string } | null; ranking: RankingRow[] }>(

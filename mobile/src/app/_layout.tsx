@@ -107,6 +107,8 @@ function RootNavigator() {
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="entrar" />
             <Stack.Screen name="cadastro" />
+            <Stack.Screen name="esqueci" />
+            <Stack.Screen name="nova-senha" />
             <Stack.Screen name="codigo" />
             <Stack.Screen name="palpiteiros" />
           </Stack>

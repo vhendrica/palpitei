@@ -9,11 +9,14 @@ import * as sim from './sim.ts';
 import { apostar, type MultiplaInput, entrarNaLiga, finalizarLiga, getLiga, getLigaAtual, reativarLiga } from './rules.ts';
 import { home, historico, jogosComMercados, meuBilhete, palpiteirosDaLiga, palpiteirosDoDia, perfil, rankingDoDia } from './services.ts';
 import { hojeISO } from './validation.ts';
+import type { EmailSender } from './email.ts';
 import type { WhatsappSender } from './whatsapp.ts';
 
 export type ApiDeps = {
   sql: Db;
   send: WhatsappSender;
+  email?: EmailSender;
+  appUrl?: string;
   otp?: Partial<auth.OtpOptions>;
   /** Data "de hoje" (YYYY-MM-DD). Injetável para testes. */
   hoje?: () => string;
@@ -50,7 +53,9 @@ type Route = [method: string, pattern: RegExp, handler: (c: Ctx) => Promise<unkn
 
 export function createApi(deps: ApiDeps) {
   const { sql } = deps;
-  const authDeps: auth.AuthDeps = { sql, send: deps.send, otp: deps.otp, hoje: deps.hoje };
+  const authDeps: auth.AuthDeps = {
+    sql, send: deps.send, otp: deps.otp, hoje: deps.hoje, email: deps.email, appUrl: deps.appUrl,
+  };
   const hoje = () => (deps.hoje ?? hojeISO)();
 
   const ligaDeHoje = async () => {
@@ -87,6 +92,11 @@ export function createApi(deps: ApiDeps) {
       return auth.entrar(authDeps, { email: b.email, senha: b.senha });
     }],
     // OTP WhatsApp dormente — mantido para reativar quando a verificação voltar.
+    ['POST', /^\/auth\/senha\/esqueci$/, async (c) => auth.pedirRecuperacao(authDeps, { email: (await c.body()).email })],
+    ['POST', /^\/auth\/senha\/redefinir$/, async (c) => {
+      const b = await c.body();
+      return auth.redefinirSenha(authDeps, { token: b.token, senha: b.senha });
+    }],
     ['POST', /^\/auth\/otp\/login$/, async (c) => auth.solicitarCodigo(authDeps, { whatsapp: (await c.body()).whatsapp })],
     ['POST', /^\/auth\/otp\/reenviar$/, async (c) => auth.solicitarCodigo(authDeps, { whatsapp: (await c.body()).whatsapp })],
     ['POST', /^\/auth\/otp\/confirmar$/, async (c) => {
