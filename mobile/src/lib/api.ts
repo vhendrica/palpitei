@@ -204,6 +204,7 @@ export const api = {
     atualizarLiga: (id: string, body: { status?: string; premio_desc?: string | null }) =>
       req<LigaAdmin>('PATCH', `/admin/liga/${id}`, body),
     destaque: (jogoId: string) => req<LigaAdmin>('POST', `/admin/jogos/${jogoId}/destaque`),
+    especial: (mercadoId: string) => req<LigaAdmin>('POST', `/admin/mercados/${mercadoId}/especial`),
     mercadosApi: (jogoId: string) =>
       req<{
         mercados: { grupo: string; descricao: string; multiplicador: number; casas: number }[];

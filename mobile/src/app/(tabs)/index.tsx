@@ -40,7 +40,7 @@ import {
   fichasNoDraft,
 } from "../../lib/bilhete";
 import { useDesktop } from "../../lib/desktop";
-import { fmtData, fmtPontos, fmtPts } from "../../lib/format";
+import { fmtData, fmtOdd, fmtPontos, fmtPts } from "../../lib/format";
 import { errorMessage, useApp } from "../../store/AppStore";
 import { useTheme } from "../../store/Theme";
 import { agruparMercados } from "../../types";
@@ -611,6 +611,60 @@ export default function HomeMultipla() {
                     <ErrorBox erro={erro} />
                   </Card>
                 </View>
+
+                {/* Especiais do dia: até 10 mercados que o admin destaca —
+                    só pra quem ainda não palpitou (empurra pro 1º palpite). */}
+                {!palpitou && (home.especiais?.length ?? 0) > 0 ? (
+                  <View className="mt-4">
+                    <SectionTitle>Especiais do dia</SectionTitle>
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={{ gap: 8 }}
+                    >
+                      {home.especiais!.map((e) => {
+                        const selecionado = draft.itens.includes(e.id);
+                        const pode = !!eu && aberta && !e.comecou;
+                        const rotulo = /^(SIM|NÃO|NAO|EMPATE)$/i.test(
+                          e.descricao,
+                        )
+                          ? `${e.grupo} — ${e.descricao}`
+                          : e.descricao;
+                        return (
+                          <Pressable
+                            key={e.id}
+                            onPress={() =>
+                              pode
+                                ? setDraft((d) => alternarOdd(d, e.id))
+                                : chamarPalpitar()
+                            }
+                            className={`w-36 rounded-xl border p-3 ${
+                              selecionado
+                                ? "border-primary bg-cardAlt"
+                                : "border-line bg-card"
+                            }`}
+                          >
+                            <T
+                              className="font-mont-xb text-[9px] uppercase tracking-widest text-muted"
+                              numberOfLines={1}
+                            >
+                              {e.time_casa} x {e.time_fora}
+                            </T>
+                            <T
+                              className="mt-1 font-mont-b text-xs"
+                              numberOfLines={2}
+                            >
+                              {rotulo}
+                            </T>
+                            <T className="mt-1 font-odds text-base text-primary">
+                              {fmtOdd(e.multiplicador)}
+                            </T>
+                          </Pressable>
+                        );
+                      })}
+                    </ScrollView>
+                  </View>
+                ) : null}
 
                 <View className="mt-3">
                   <PremioBar

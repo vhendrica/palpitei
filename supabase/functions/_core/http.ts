@@ -272,6 +272,7 @@ export function createApi(deps: ApiDeps) {
       return finalizarLiga(sql, c.params[0], ((await c.body()).mercados_vencedores ?? []) as string[]);
     }],
     ['POST', /^\/admin\/jogos\/([^/]+)\/destaque$/, async (c) => (await c.requireAdmin(), admin.marcarDestaque(sql, c.params[0]))],
+    ['POST', /^\/admin\/mercados\/([^/]+)\/especial$/, async (c) => (await c.requireAdmin(), admin.alternarEspecial(sql, c.params[0]))],
     ['GET', /^\/admin\/jogos\/([^/]+)\/mercados-api$/, async (c) => (await c.requireAdmin(), mercadosDaApi(sql, deps.odds, c.params[0]))],
     ['PUT', /^\/admin\/jogos\/([^/]+)\/mercados$/, async (c) => {
       await c.requireAdmin();

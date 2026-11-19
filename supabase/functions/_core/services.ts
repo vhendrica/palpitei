@@ -99,6 +99,7 @@ export async function jogosComMercados(db: Db, ligaId: string, userId?: string |
         secao: (m.secao as string) ?? null,
         resultado_final: !!m.resultado_final,
         decidido: m.decidido_em != null,
+        especial: !!m.especial,
         ...(userId ? { minhas_fichas: num(m.minhas) } : {}),
       })),
   }));
@@ -233,13 +234,36 @@ export async function home(db: Db, user: UserPublico | null, data = hojeISO()) {
       : null,
     bonus_login: bonus,
   };
-  if (!liga) return { ...base, liga: null, jogos: [], premio: progressoPremio(await getEscada(db), 0, null, config.premio_inicial), eu: null };
-  const [jogos, premio, eu] = await Promise.all([
+  if (!liga) return { ...base, liga: null, jogos: [], especiais: [], premio: progressoPremio(await getEscada(db), 0, null, config.premio_inicial), eu: null };
+  const [jogos, premio, eu, especiais] = await Promise.all([
     jogosComMercados(db, liga.id, user?.id),
     premioDaLiga(db, liga),
     user ? minhaSituacao(db, user.id, liga) : Promise.resolve(null),
+    db`
+      select m.id, m.grupo, m.descricao, m.multiplicador, j.time_casa, j.time_fora, j.campeonato,
+             j.horario <= now() as comecou
+      from mercados m join jogos j on j.id = m.jogo_id
+      where j.liga_id = ${liga.id} and m.especial and m.oculto = false
+      order by j.destaque desc, j.horario, j.ordem, m.ordem
+      limit 10`,
   ]);
-  return { ...base, liga, jogos, premio, eu };
+  return {
+    ...base,
+    liga,
+    jogos,
+    premio,
+    eu,
+    especiais: especiais.map((e) => ({
+      id: e.id as string,
+      grupo: (e.grupo as string) ?? '',
+      descricao: e.descricao as string,
+      multiplicador: num(e.multiplicador),
+      time_casa: e.time_casa as string,
+      time_fora: e.time_fora as string,
+      campeonato: e.campeonato as string,
+      comecou: !!e.comecou,
+    })),
+  };
 }
 
 export async function rankingDoDia(db: Db, user: UserPublico | null, data = hojeISO()) {

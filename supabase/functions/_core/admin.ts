@@ -232,6 +232,26 @@ export async function marcarDestaque(sql: Db, jogoId: string) {
   return ligaAdmin(sql, ligaId);
 }
 
+/** Marca/desmarca um mercado como especial da rodada (faixa "ESPECIAIS DO DIA" na home). Máx. 10 por liga. */
+export async function alternarEspecial(sql: Db, mercadoId: string) {
+  if (!isUuid(mercadoId)) throw new NotFoundError('Mercado não encontrado.');
+  const ligaId = await sql.begin(async (tx: Tx) => {
+    const [m] = await tx`
+      select m.especial, j.liga_id from mercados m join jogos j on j.id = m.jogo_id
+      where m.id = ${mercadoId} for update of m`;
+    if (!m) throw new NotFoundError('Mercado não encontrado.');
+    if (!m.especial) {
+      const [{ n }] = await tx`
+        select count(*)::int as n from mercados m join jogos j on j.id = m.jogo_id
+        where j.liga_id = ${m.liga_id} and m.especial`;
+      if (num(n) >= 10) throw new RuleError('Máximo de 10 especiais por rodada.');
+    }
+    await tx`update mercados set especial = not especial where id = ${mercadoId}`;
+    return m.liga_id as string;
+  });
+  return ligaAdmin(sql, ligaId);
+}
+
 /**
  * Define os mercados de um jogo (lista completa). Itens com `id` são atualizados, sem `id` são criados e os
  * omitidos são removidos. Mercados que já receberam fichas não podem ser alterados nem removidos.

@@ -34,6 +34,18 @@ export type Mercado = {
   resultado_final: boolean;
   decidido?: boolean;
   minhas_fichas?: number;
+  especial?: boolean;
+};
+
+export type Especial = {
+  id: string;
+  grupo: string;
+  descricao: string;
+  multiplicador: number;
+  time_casa: string;
+  time_fora: string;
+  campeonato: string;
+  comecou: boolean;
 };
 
 export type Jogo = {
@@ -104,6 +116,7 @@ export type Home = {
   bonus_login?: { dia: number; pontos: number; quebrou: boolean } | null;
   liga: Liga | null;
   jogos: Jogo[];
+  especiais?: Especial[];
   premio: Premio;
   eu: MinhaSituacao | null;
 };

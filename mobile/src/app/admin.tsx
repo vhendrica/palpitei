@@ -276,6 +276,12 @@ function AbaLiga({ data, run }: { data: string; run: Run }) {
               return "Jogo do dia marcado.";
             })
           }
+          onEspecial={(mercadoId) =>
+            run(async () => {
+              setLa(await api.admin.especial(mercadoId));
+              return "Especial da rodada atualizado.";
+            })
+          }
           onSalvarMercados={(ms) =>
             run(async () => {
               try {
@@ -359,6 +365,7 @@ function JogoAdmin({
   vencedores,
   setVencedor,
   onDestaque,
+  onEspecial,
   onSalvarMercados,
   onRenovarMercados,
 }: {
@@ -367,6 +374,7 @@ function JogoAdmin({
   vencedores: Record<string, boolean>;
   setVencedor: (id: string, v: boolean) => void;
   onDestaque: () => void;
+  onEspecial: (mercadoId: string) => void;
   onRenovarMercados: () => void;
   onSalvarMercados: (
     ms: {
@@ -777,6 +785,17 @@ function JogoAdmin({
                         />
                       </View>
                     )}
+                    <Pressable
+                      onPress={() => onEspecial(m.id)}
+                      className="p-1"
+                      accessibilityLabel="Marcar mercado como especial do dia"
+                    >
+                      <Ionicons
+                        name={m.especial ? "star" : "star-outline"}
+                        size={16}
+                        color={m.especial ? C.gold ?? C.primary : C.muted}
+                      />
+                    </Pressable>
                     <T className="ml-2 font-odds text-base text-primary">
                       {fmtOdd(m.multiplicador)}
                     </T>
