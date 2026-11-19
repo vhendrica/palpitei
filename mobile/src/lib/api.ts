@@ -205,6 +205,8 @@ export const api = {
       req<LigaAdmin>('PATCH', `/admin/liga/${id}`, body),
     destaque: (jogoId: string) => req<LigaAdmin>('POST', `/admin/jogos/${jogoId}/destaque`),
     especial: (mercadoId: string) => req<LigaAdmin>('POST', `/admin/mercados/${mercadoId}/especial`),
+    ordenarEspeciais: (ligaId: string, mercadoIds: string[]) =>
+      req<LigaAdmin>('POST', `/admin/ligas/${ligaId}/especiais-ordem`, { mercado_ids: mercadoIds }),
     resultadoMercado: (mercadoId: string, resultado: 'certo' | 'errado' | 'pendente') =>
       req<LigaAdmin>('POST', `/admin/mercados/${mercadoId}/resultado`, { resultado }),
     mercadosApi: (jogoId: string) =>

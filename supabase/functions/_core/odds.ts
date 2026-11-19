@@ -100,6 +100,9 @@ const janelaDia = (data: string) => {
   return { inicio, fim: inicio + 86400_000 };
 };
 const diaSeguinte = (data: string) => new Date(Date.parse(`${data}T12:00:00Z`) + 86400_000).toISOString().slice(0, 10);
+// A OddsPapi filtra por data UTC e `to` é exclusivo. O "dia" da rodada vai até 03:00Z do dia
+// seguinte, então pedimos +2 pra cobrir jogos 00:00–03:00Z (ex.: 21:30 em Fortaleza).
+const diaDepoisDeAmanha = (data: string) => new Date(Date.parse(`${data}T12:00:00Z`) + 2 * 86400_000).toISOString().slice(0, 10);
 
 /** Jogos do dia nos campeonatos configurados — 1 request por campeonato. */
 export async function fixturesDoDia(cfg: OddsConfig, data: string): Promise<FixtureApi[]> {
@@ -109,7 +112,7 @@ export async function fixturesDoDia(cfg: OddsConfig, data: string): Promise<Fixt
     // Sem jogos do campeonato no dia a OddsPapi responde 404 — é "vazio", não falha.
     const lista = ((await req(
       cfg,
-      `/fixtures?tournamentId=${t}&from=${data}&to=${diaSeguinte(data)}`,
+      `/fixtures?tournamentId=${t}&from=${data}&to=${diaDepoisDeAmanha(data)}`,
       true,
     )) ?? []) as Record<string, unknown>[];
     for (const f of lista) {
@@ -163,12 +166,21 @@ export async function importarOdds(db: Db, cfg: OddsConfig | undefined, dataInpu
 const NOMES_TORNEIO: Record<number, string> = { 325: 'Brasileirão Série A', 390: 'Brasileirão Série B', 373: 'Copa do Brasil' };
 const nomeTorneio = (j: FixtureApi) => NOMES_TORNEIO[j.tournamentId] ?? j.tournamentName;
 
-// Catálogo de mercados do futebol: muda raramente, fica no isolate.
+// Catálogo de mercados do futebol: muda raramente. Cache em memória (isolate) + banco
+// (odds_catalogo, 7 dias) — sem o banco, cada isolate novo gastaria 1 request em /markets.
 let catalogo: Map<number, Market> | null = null;
-async function catalogoMercados(cfg: OddsConfig): Promise<Map<number, Market>> {
+async function catalogoMercados(db: Db, cfg: OddsConfig): Promise<Map<number, Market>> {
   if (catalogo) return catalogo;
+  const [salvo] = await db`select mercados from odds_catalogo
+    where sport_id = 10 and atualizado_em > now() - interval '7 days'`;
+  if (salvo) {
+    catalogo = new Map((salvo.mercados as Market[]).map((m) => [m.marketId, m]));
+    return catalogo;
+  }
   const lista = ((await req(cfg, '/markets?sportId=10')) ?? []) as Market[];
   catalogo = new Map(lista.map((m) => [m.marketId, m]));
+  await db`insert into odds_catalogo (sport_id, mercados) values (10, ${db.json(lista)})
+           on conflict (sport_id) do update set mercados = excluded.mercados, atualizado_em = now()`;
   return catalogo;
 }
 /** Só para testes. */
@@ -386,28 +398,38 @@ function ordenar(ms: MercadoApi[]): MercadoApi[] {
   );
 }
 
-async function buscarMercados(cfg: OddsConfig, externoId: string, casa: string, fora: string) {
+async function buscarMercados(db: Db, cfg: OddsConfig, externoId: string, casa: string, fora: string) {
   const bookmaker = cfg.bookmaker ?? CASA_PADRAO;
   const [resp, cat] = await Promise.all([
     req(cfg, `/odds?fixtureId=${encodeURIComponent(externoId)}&bookmakers=${bookmaker}`, true) as Promise<OddsResp | null>,
-    catalogoMercados(cfg),
+    catalogoMercados(db, cfg),
   ]);
   return resp ? mercadosDasOdds(resp, cat, casa, fora, bookmaker) : [];
 }
 
-/** Odds de um jogo da rodada — 1 request por jogo, cacheado em mercados_sugeridos. */
-export async function mercadosDaApi(db: Db, cfg: OddsConfig | undefined, jogoId: string) {
+/**
+ * Odds de um jogo da rodada. Serve o cache de mercados_sugeridos quando tem menos de 6h —
+ * o pool já pré-busca odds ao listar os fixtures, então reutilizar aqui corta o consumo pela metade.
+ * `forcar` refaz a chamada (botão "Renovar odds").
+ */
+export async function mercadosDaApi(db: Db, cfg: OddsConfig | undefined, jogoId: string, forcar = false) {
   if (!cfg?.apiKey) throw semChave();
   const [j] = await db`
-    select f.externo_id, f.fonte, j.time_casa, j.time_fora from jogos j
+    select f.externo_id, f.fonte, f.mercados_sugeridos, f.odds_atualizadas_em,
+           j.time_casa, j.time_fora from jogos j
     left join fixtures_dia f on f.fixture_id = j.fixture_id
     where j.id = ${jogoId}`;
   if (!j) throw new RuleError('Jogo não encontrado.');
   if (!j.externo_id || j.fonte !== 'oddspapi') throw new RuleError('Esse jogo foi cadastrado na mão; não há odds da API para ele.');
-  const mercados = await buscarMercados(cfg, j.externo_id as string, j.time_casa as string, j.time_fora as string);
+  const cache = (j.mercados_sugeridos as MercadoApi[] | null) ?? [];
+  const fresco = j.odds_atualizadas_em != null && Date.parse(String(j.odds_atualizadas_em)) > Date.now() - 6 * 3600_000;
+  if (!forcar && cache.length && fresco) return { mercados: cache, cacheado: true };
+  const mercados = await buscarMercados(db, cfg, j.externo_id as string, j.time_casa as string, j.time_fora as string);
+  // Feed vazio (jogo suspenso/casa sem odds): mantém o cache que já existia.
+  if (!mercados.length && cache.length) return { mercados: cache, cacheado: true };
   await db`update fixtures_dia set mercados_sugeridos = ${db.json(mercados)}, odds_atualizadas_em = now()
            where externo_id = ${j.externo_id}`;
-  return { mercados };
+  return { mercados, cacheado: false };
 }
 
 /**
@@ -425,12 +447,13 @@ export async function mercadosDaFixture(db: Db, cfg: OddsConfig | undefined, fix
   const cache = f.mercados_sugeridos as MercadoApi[] | null;
   // Cache com mais de 6h é refeito (odds atualizadas).
   if (cache?.length && !f.velho) return principais(cache);
-  const mercados = principais(await buscarMercados(cfg, externoId, f.time_casa as string, f.time_fora as string));
+  const mercados = await buscarMercados(db, cfg, externoId, f.time_casa as string, f.time_fora as string);
   // Feed sem mercados agora: mantém as sugestões que já tinham vindo.
   if (!mercados.length && cache?.length) return principais(cache);
+  // Cacheia a lista COMPLETA: o admin (mercadosDaApi) reaproveita o mesmo cache sem nova request.
   await db`update fixtures_dia set mercados_sugeridos = ${db.json(mercados)}, odds_atualizadas_em = now()
            where externo_id = ${externoId}`;
-  return mercados;
+  return principais(mercados);
 }
 
 export type Placar = {

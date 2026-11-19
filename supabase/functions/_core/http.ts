@@ -273,6 +273,8 @@ export function createApi(deps: ApiDeps) {
     }],
     ['POST', /^\/admin\/jogos\/([^/]+)\/destaque$/, async (c) => (await c.requireAdmin(), admin.marcarDestaque(sql, c.params[0]))],
     ['POST', /^\/admin\/mercados\/([^/]+)\/especial$/, async (c) => (await c.requireAdmin(), admin.alternarEspecial(sql, c.params[0]))],
+    ['POST', /^\/admin\/ligas\/([^/]+)\/especiais-ordem$/, async (c) =>
+      (await c.requireAdmin(), admin.ordenarEspeciais(sql, c.params[0], (await c.body()).mercado_ids))],
     ['POST', /^\/admin\/mercados\/([^/]+)\/resultado$/, async (c) =>
       (await c.requireAdmin(), admin.definirResultadoMercado(sql, c.params[0], (await c.body()).resultado))],
     ['GET', /^\/admin\/jogos\/([^/]+)\/mercados-api$/, async (c) => (await c.requireAdmin(), mercadosDaApi(sql, deps.odds, c.params[0]))],
@@ -287,7 +289,7 @@ export function createApi(deps: ApiDeps) {
     }],
     ['POST', /^\/admin\/jogos\/([^/]+)\/mercados-renovar$/, async (c) => {
       await c.requireAdmin();
-      return admin.renovarMercadosJogo(sql, deps.odds, c.params[0]);
+      return admin.renovarMercadosJogo(sql, deps.odds, c.params[0], true);
     }],
   ];
 

@@ -131,6 +131,7 @@ export default function Admin() {
 type Run = (fn: () => Promise<string | void>) => Promise<boolean>;
 
 function AbaLiga({ data, run }: { data: string; run: Run }) {
+  const { palette: C } = useTheme();
   const [confirmaRemover, setConfirmaRemover] = useState(false);
   const [la, setLa] = useState<LigaAdmin | null>(null);
   const [vencedores, setVencedores] = useState<Record<string, boolean>>({});
@@ -263,6 +264,76 @@ function AbaLiga({ data, run }: { data: string; run: Run }) {
           </T>
         ) : null}
       </Card>
+
+      {/* Especiais do dia: ordem de exibição na home, ajustável com ↑↓. */}
+      {(() => {
+        const especiaisDaLiga = la.jogos
+          .flatMap((j) =>
+            j.mercados
+              .filter((m) => m.especial)
+              .map((m) => ({ ...m, jogo: `${j.time_casa} x ${j.time_fora}` })),
+          )
+          .sort((a, b) => (a.especial_ordem ?? 99) - (b.especial_ordem ?? 99));
+        if (!especiaisDaLiga.length) return null;
+        const mover = (i: number, dir: number) => {
+          const alvo = i + dir;
+          if (alvo < 0 || alvo >= especiaisDaLiga.length) return;
+          const ids = especiaisDaLiga.map((e) => e.id);
+          [ids[i], ids[alvo]] = [ids[alvo], ids[i]];
+          run(async () => {
+            setLa(await api.admin.ordenarEspeciais(liga.id, ids));
+            return "Ordem dos especiais salva.";
+          });
+        };
+        return (
+          <Card className="mb-3">
+            <T className="text-[11px] uppercase tracking-widest text-muted">
+              Especiais do dia — ordem na home ({especiaisDaLiga.length}/10)
+            </T>
+            {especiaisDaLiga.map((e, i) => (
+              <View
+                key={e.id}
+                className="flex-row items-center justify-between border-b border-line py-1.5"
+              >
+                <View className="flex-1 pr-2">
+                  <T className="text-[10px] uppercase tracking-widest text-muted" numberOfLines={1}>
+                    {e.jogo}
+                  </T>
+                  <T className="font-mont-b text-xs" numberOfLines={1}>
+                    {e.grupo ? `${e.grupo} — ` : ""}
+                    {e.descricao}
+                  </T>
+                </View>
+                <T className="mr-2 font-odds text-sm text-primary">
+                  {fmtOdd(e.multiplicador)}
+                </T>
+                {!fechada ? (
+                  <View className="flex-row">
+                    <Pressable hitSlop={8} onPress={() => mover(i, -1)} style={{ padding: 4 }}>
+                      <Ionicons
+                        name="arrow-up"
+                        size={16}
+                        color={i === 0 ? C.muted : C.primary}
+                      />
+                    </Pressable>
+                    <Pressable
+                      hitSlop={8}
+                      onPress={() => mover(i, 1)}
+                      style={{ padding: 4, marginLeft: 6 }}
+                    >
+                      <Ionicons
+                        name="arrow-down"
+                        size={16}
+                        color={i === especiaisDaLiga.length - 1 ? C.muted : C.primary}
+                      />
+                    </Pressable>
+                  </View>
+                ) : null}
+              </View>
+            ))}
+          </Card>
+        );
+      })()}
 
       <SectionTitle>Jogos</SectionTitle>
       {la.jogos.map((j) => (
@@ -408,6 +479,7 @@ function JogoAdmin({
   ) => Promise<boolean>;
 }) {
   const { palette: C } = useTheme();
+  const [agora] = useState(() => Date.now());
   const [editando, setEditando] = useState(false);
   const [ms, setMs] = useState<MercadoDraft[]>([]);
   const [daApi, setDaApi] = useState<Awaited<
@@ -691,7 +763,7 @@ function JogoAdmin({
         </View>
       </Pressable>
 
-      {jogo.comecou && !fechada && (jogo.finalizado || Date.now() > Date.parse(jogo.horario) + 105 * 60000) ? <PlacarAdmin key={`${jogo.id}-${jogo.placar?.casa ?? ''}`} jogo={jogo} onSalvar={onPlacar} /> : null}
+      {jogo.comecou && !fechada && (jogo.finalizado || agora > Date.parse(jogo.horario) + 105 * 60000) ? <PlacarAdmin key={`${jogo.id}-${jogo.placar?.casa ?? ''}`} jogo={jogo} onSalvar={onPlacar} /> : null}
       {!editando ? (
         recolhido ? null : (
           <View className="mt-2">
@@ -972,7 +1044,7 @@ function JogoAdmin({
           {!daApi ? (
             <Button
               title={
-                buscando ? "Buscando…" : "Buscar mercados da 1xBet"
+                buscando ? "Buscando…" : "Buscar mercados da OddsPapi"
               }
               variant="outline"
               icon="cloud-download-outline"
@@ -982,10 +1054,7 @@ function JogoAdmin({
           ) : (
             <View className="mt-2 rounded-lg border border-line p-2">
               <T className="mb-1 text-[11px] uppercase tracking-widest text-muted">
-                Mercados da 1xBet — marque os que vão pro ar e salve
-                {daApi.creditos_restantes != null
-                  ? ` • ${daApi.creditos_restantes} créditos`
-                  : ""}
+                Mercados da OddsPapi — marque os que vão pro ar e salve
               </T>
               {daApi.mercados.length === 0 ? (
                 <T className="text-sm text-muted">
@@ -996,8 +1065,8 @@ function JogoAdmin({
                 grupos={[...agruparMercados(daApi.mercados), ...outros]}
                 marcado={estaMarcado}
                 onToggle={toggleGrupo}
-                onMarcar={(gs) =>
-                  setMarcados((st) => ({ ...st, ...Object.fromEntries(gs.map((g) => [g.grupo, true])) }))
+                onMarcar={(gs, marcar) =>
+                  setMarcados((st) => ({ ...st, ...Object.fromEntries(gs.map((g) => [g.grupo, marcar])) }))
                 }
               />
               <Button
