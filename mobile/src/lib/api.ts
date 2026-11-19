@@ -160,9 +160,10 @@ export const api = {
     criar: (input: CriarDesafioInput) => req<{ id: string; convite: string }>('POST', '/desafios', input),
     convite: (token: string) => req<{ desafio: DesafioResumo }>('GET', `/desafios/convite/${encodeURIComponent(token)}`),
     detalhe: (id: string) => req<DesafioDetalhe>('GET', `/desafios/${id}`),
-    entrar: (id: string) => req<{ entrada_id: string; fichas_total: number; saldo_pontos: number }>(
+    entrar: (id: string, convite?: string) => req<{ entrada_id: string; fichas_total: number; saldo_pontos: number }>(
       'POST',
       `/desafios/${id}/entrar`,
+      { convite },
     ),
         placar: (id: string, jogoId: string, casa: number, fora: number) =>
       req<{ jogo_id: string; placar: [number, number]; mercados_certos: number }>(

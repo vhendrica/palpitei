@@ -226,6 +226,10 @@ export async function detalhe(db: Db, user: UserPublico | null, ligaId: string, 
 /** Bilhetes de todo mundo (mesma visão da aba Ranking, por liga). */
 export async function palpiteiros(db: Db, user: UserPublico | null, ligaId: string) {
   const liga = await porId(db, ligaId);
+  if (!liga.publico && liga.owner_id !== user?.id) {
+    const entrou = user ? await db`select 1 from entradas where liga_id = ${liga.id} and user_id = ${user.id}` : [];
+    if (entrou.length === 0) throw new ForbiddenError('Esse desafio é privado. Entre pelo link de convite.');
+  }
   return palpiteirosDaLiga(db, user, liga);
 }
 
@@ -248,8 +252,12 @@ export async function finalizar(sql: Db, user: UserPublico, ligaId: string) {
 export async function placarDono(db: Db, user: UserPublico, ligaId: string, jogoId: string, casa: number, fora: number) {
   const liga = await porId(db, ligaId);
   if (liga.owner_id !== user.id) throw new ForbiddenError('Só o dono do desafio pode lançar placar.');
-  const [j] = await db`select id from jogos where id = ${jogoId} and liga_id = ${liga.id}`;
+  const [j] = isUuid(jogoId)
+    ? await db`select horario <= now() as comecou, finalizado_em from jogos where id = ${jogoId} and liga_id = ${liga.id}`
+    : [];
   if (!j) throw new NotFoundError('Jogo não encontrado nesse desafio.');
+  if (!j.comecou) throw new RuleError('Esse jogo ainda não começou.');
+  if (j.finalizado_em) throw new RuleError('Esse jogo já tem placar final.');
   const r = await aplicarPlacar(db, jogoId, casa, fora);
   await db`
     update ligas set status = 'finalizada', finalizada_em = coalesce(finalizada_em, now())

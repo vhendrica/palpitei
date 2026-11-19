@@ -18,8 +18,8 @@ const handle = createApi({
   send: createWhatsappSender(env),
   otp: { expor: otpMockAtivo(env) && env('OTP_EXPOR_CODIGO') !== 'false' },
   cronSecret: env('CRON_SECRET'),
-  odds: env('THE_ODDS_API_KEY')
-    ? { apiKey: env('THE_ODDS_API_KEY')!, esportes: env('THE_ODDS_API_SPORTS')?.split(',').map((s) => s.trim()) }
+  odds: env('FOOTBALL_API_KEY')
+    ? { apiKey: env('FOOTBALL_API_KEY')!, ligas: env('FOOTBALL_LIGAS')?.split(',').map((s) => s.trim()) }
     : undefined,
 });
 const port = Number(env('PORT') ?? 8787);

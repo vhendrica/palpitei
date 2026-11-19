@@ -30,6 +30,7 @@ export type LigaRow = {
   titulo: string | null;
   convite: string | null;
   publico: boolean;
+  modo?: string | null;
 };
 
 export type RankingRow = {
@@ -395,21 +396,23 @@ async function potencialPorUsuario(db: Db, ligaId: string) {
     db`
       select a.user_id, coalesce(sum(a.fichas_apostadas * (a.odd - 1)), 0) as pot
       from apostas a join mercados m on m.id = a.mercado_id join jogos j on j.id = m.jogo_id
-      where j.liga_id = ${ligaId} and m.decidido_em is null
+      where j.liga_id = ${ligaId} and m.decidido_em is null and j.horario <= now()
       group by a.user_id`,
     db`
       select user_id, coalesce(sum(fichas_apostadas * (odd_tot - 1)), 0) as pot from (
         select mu.user_id, mu.fichas_apostadas,
                exp(sum(ln(p.odd))) as odd_tot,
                count(*) filter (where m.decidido_em is not null and m.resultado_final = false) as perdidas,
-               count(*) filter (where m.decidido_em is null) as pendentes
+               count(*) filter (where m.decidido_em is null) as pendentes,
+               bool_and(j.horario <= now()) as comecaram
         from multiplas mu
         join multipla_pernas p on p.multipla_id = mu.id
         join mercados m on m.id = p.mercado_id
+        join jogos j on j.id = m.jogo_id
         where mu.liga_id = ${ligaId}
         group by mu.id, mu.user_id, mu.fichas_apostadas
       ) x
-      where perdidas = 0 and pendentes > 0
+      where perdidas = 0 and pendentes > 0 and comecaram
       group by user_id`,
   ]);
   const out = new Map<string, number>();
@@ -453,17 +456,14 @@ export async function calcularRanking(db: Db, ligaId: string): Promise<RankingRo
   }));
   type L = (typeof lista)[number];
   const criterio = (a: L, b: L): string | null =>
-    a.pot !== b.pot
-      ? `maior potencial: ${round2(a.pontos + a.pot)} pts`
-      : a.maior !== b.maior
-        ? `maior multiplicador acertado: ${a.maior.toFixed(2)}`
-        : a.n !== b.n
-          ? `${a.n} ${a.n === 1 ? 'acerto' : 'acertos'}`
-          : null;
+    a.maior !== b.maior
+      ? `maior multiplicador acertado: ${a.maior.toFixed(2)}`
+      : a.n !== b.n
+        ? `${a.n} ${a.n === 1 ? 'acerto' : 'acertos'}`
+        : null;
   lista.sort(
     (a, b) =>
       b.pontos - a.pontos ||
-      b.pot - a.pot ||
       b.maior - a.maior ||
       b.n - a.n ||
       String(a.r.id).localeCompare(String(b.r.id)),

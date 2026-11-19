@@ -41,7 +41,7 @@ export type FixtureApi = {
 };
 
 type OddsLinha = { line?: number; home?: number; draw?: number; away?: number; over?: number; under?: number; yes?: number; no?: number };
-type OddsBloco = { opening?: OddsLinha | null; closing?: OddsLinha | null; inplay?: OddsLinha | null };
+type OddsBloco = { opening?: OddsLinha | null; closing?: OddsLinha | null; inplay?: OddsLinha | null; line?: number | string | null };
 type OddsResp = { fixture_id: number; bookmakers: { slug: string; odds: Record<string, OddsBloco | OddsBloco[] | undefined> }[] };
 
 const req = async (cfg: OddsConfig, path: string) => {

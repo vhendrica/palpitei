@@ -39,7 +39,7 @@ export default function Convite() {
     if (!d) return;
     setEntrando(true);
     try {
-      await api.desafios.entrar(d.id);
+      await api.desafios.entrar(d.id, String(token));
       track("Entrou no desafio", { desafio: d.id, origem: "convite" });
       router.replace(`/desafio/${d.id}`);
     } catch (e) {

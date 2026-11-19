@@ -169,7 +169,11 @@ export function createApi(deps: ApiDeps) {
     ['GET', /^\/desafios\/([^/]+)$/, async (c) => desafios.detalhe(sql, await c.user(), c.params[0], deps.odds)],
     ['POST', /^\/desafios\/([^/]+)\/entrar$/, async (c) => {
       const u = await c.requireUser();
-      return entrarNaLiga(sql, u.id, (await desafios.porId(sql, c.params[0])).id);
+      const liga = await desafios.porId(sql, c.params[0]);
+      if (!liga.publico && liga.convite !== String((await c.body()).convite ?? '')) {
+        throw new ForbiddenError('Esse desafio é privado. Entre pelo link de convite.');
+      }
+      return entrarNaLiga(sql, u.id, liga.id);
     }],
     ['PUT', /^\/desafios\/([^/]+)\/apostas$/, async (c) => {
       const u = await c.requireUser();
