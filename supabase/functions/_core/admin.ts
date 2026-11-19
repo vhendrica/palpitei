@@ -154,6 +154,18 @@ export async function selecionarJogos(sql: Db, input: { data: unknown; fixture_i
         on conflict (liga_id, fixture_id) do update set
           time_casa = excluded.time_casa, time_fora = excluded.time_fora, horario = excluded.horario,
           campeonato = excluded.campeonato`;
+      // Jogo novo com sugestões em cache já nasce com os mercados (a rodada nunca abre vazia).
+      const sug = (f.mercados_sugeridos as { grupo: string; descricao: string; multiplicador: number }[] | null) ?? [];
+      if (sug.length) {
+        await tx`
+          insert into mercados (jogo_id, grupo, descricao, multiplicador, ordem)
+          select j.id, m.grupo, m.descricao, m.multiplicador, m.ordem
+          from jogos j,
+               jsonb_to_recordset(${tx.json(sug.map((m, ordem) => ({ grupo: m.grupo, descricao: m.descricao, multiplicador: m.multiplicador, ordem })))})
+                 as m(grupo text, descricao text, multiplicador numeric, ordem int)
+          where j.liga_id = ${liga.id} and j.fixture_id = ${f.fixture_id}
+            and not exists (select 1 from mercados x where x.jogo_id = j.id)`;
+      }
     }
     await tx`update fixtures_dia set selecionado = (fixture_id = any(${ids}::bigint[])) where data = ${data}`;
     return liga.id as string;

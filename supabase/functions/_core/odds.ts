@@ -90,7 +90,12 @@ export async function importarOdds(db: Db, cfg: OddsConfig | undefined, dataInpu
       on conflict (externo_id) do update set
         data = excluded.data, time_casa = excluded.time_casa, time_fora = excluded.time_fora,
         horario = excluded.horario, campeonato = excluded.campeonato,
-        externo_esporte = excluded.externo_esporte
+        externo_esporte = excluded.externo_esporte,
+        -- Nome do time mudou: as sugestões em cache citam o nome antigo e são refeitas.
+        mercados_sugeridos = case
+          when fixtures_dia.time_casa is distinct from excluded.time_casa
+            or fixtures_dia.time_fora is distinct from excluded.time_fora then '[]'::jsonb
+          else fixtures_dia.mercados_sugeridos end
       returning fixture_id`;
     importados.push({ fixture_id: Number(row.fixture_id), time_casa: nomeBR(j.teams.home.name), time_fora: nomeBR(j.teams.away.name) });
   }
@@ -277,14 +282,20 @@ export async function mercadosDaApi(db: Db, cfg: OddsConfig | undefined, jogoId:
 /** Versão por fixture do pool (para o criador de desafio ver os sugeridos). */
 export async function mercadosDaFixture(db: Db, cfg: OddsConfig | undefined, externoId: string) {
   if (!cfg?.apiKey) return [];
-  const [f] = await db`select time_casa, time_fora, mercados_sugeridos from fixtures_dia where externo_id = ${externoId}`;
+  const [f] = await db`
+    select time_casa, time_fora, mercados_sugeridos,
+           coalesce(odds_atualizadas_em < now() - interval '6 hours', true) as velho
+    from fixtures_dia where externo_id = ${externoId}`;
   if (!f) return [];
   const cache = f.mercados_sugeridos as MercadoApi[] | null;
   // Cache no formato antigo (família sem linha, ex.: "ESCANTEIOS") é refeito uma vez.
   const legado = (m: MercadoApi) => /^(ESCANTEIOS|CARTÕES|ESCANTEIOS 1º TEMPO)$/.test(m.grupo);
-  if (cache?.length && !cache.some(legado)) return cache;
+  // Cache com mais de 6h é refeito (ordem/filtros novos do cardápio e odds atualizadas).
+  if (cache?.length && !cache.some(legado) && !f.velho) return cache;
   const resp = (await req(cfg, `/fixtures/${externoId}/odds`)) as OddsResp;
   const mercados = mercadosDasOdds(resp, f.time_casa as string, f.time_fora as string);
+  // Feed sem mercados agora: mantém as sugestões que já tinham vindo.
+  if (!mercados.length && cache?.length) return cache;
   await db`update fixtures_dia set mercados_sugeridos = ${db.json(mercados)}, odds_atualizadas_em = now()
            where externo_id = ${externoId}`;
   return mercados;
