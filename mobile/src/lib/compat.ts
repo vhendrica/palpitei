@@ -104,6 +104,25 @@ export function decidido(p: Pred, casa: number, fora: number): boolean | null {
 }
 
 /**
+ * Mesma contagem (escanteios/cartões/1º tempo, mesmo time) em linhas diferentes: dependentes quando
+ * vão no mesmo sentido (mais de 9.5 garante mais de 8.5) ou quando nenhum número faz as duas baterem.
+ */
+function linhasDependentes(a: OpcaoCompat, b: OpcaoCompat): boolean {
+  const ga = norm(a.grupo);
+  if (!precisaEx(ga) || ga.includes('JOGADOR')) return false;
+  const familia = (g: string) => norm(g).replace(/\s[+-]?\d+(?:[.,]\d+)?$/, '');
+  if (familia(a.grupo) !== familia(b.grupo)) return false;
+  const lin = (d: string) => norm(d).match(/^(.*?)(MAIS|MENOS) DE ([\d.,]+)$/);
+  const la = lin(a.descricao);
+  const lb = lin(b.descricao);
+  if (!la || !lb || la[1].trim() !== lb[1].trim()) return false;
+  if (la[2] === lb[2]) return true;
+  const mais = Number((la[2] === 'MAIS' ? la : lb)[3].replace(',', '.'));
+  const menos = Number((la[2] === 'MAIS' ? lb : la)[3].replace(',', '.'));
+  return Math.floor(mais) + 1 >= Math.ceil(menos);
+}
+
+/**
  * Dois palpites do mesmo jogo não podem ficar na mesma múltipla quando nenhum placar faz os dois
  * baterem, ou quando um garante o outro (ex.: "casa vence" + "mais de 0.5 gols").
  * Opções da mesma pergunta (grupo) são sempre incompatíveis entre si.
@@ -111,9 +130,7 @@ export function decidido(p: Pred, casa: number, fora: number): boolean | null {
 export function incompativeis(a: OpcaoCompat, b: OpcaoCompat): boolean {
   if (a.jogo_id !== b.jogo_id) return false;
   if (norm(a.grupo) === norm(b.grupo)) return true;
-  // Mesma estatística em linhas diferentes (ESCANTEIOS 8.5 x 9.5): uma garante ou exclui a outra.
-  const familia = (g: string) => norm(g).replace(/\s[+-]?\d+(?:[.,]\d+)?$/, '');
-  if (precisaEx(norm(a.grupo)) && familia(a.grupo) === familia(b.grupo)) return true;
+  if (linhasDependentes(a, b)) return true;
   const pa = predicado(a);
   const pb = predicado(b);
   if (!pa || !pb) return false;
