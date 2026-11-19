@@ -452,7 +452,7 @@ export async function calcularRanking(db: Db, ligaId: string, quem?: string): Pr
     // menos o que foi reapostado além das fichas da entrada — mesmo número do card.
     db`
       select a.user_id,
-        coalesce(sum(a.fichas_apostadas * a.multiplicador) filter (where m.decidido_em is null or m.resultado_final), 0) as gross
+        coalesce(sum(a.fichas_apostadas * a.odd) filter (where m.decidido_em is null or m.resultado_final), 0) as gross
       from apostas a join mercados m on m.id = a.mercado_id join jogos j on j.id = m.jogo_id
       where j.liga_id = ${ligaId}
       group by a.user_id`,
