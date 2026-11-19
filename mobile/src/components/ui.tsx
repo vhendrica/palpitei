@@ -13,7 +13,7 @@ import type { LigaStatus } from "../types";
 import { useTheme } from "../store/Theme";
 
 const TEXT_COLOR =
-  /(^|\s)text-(white|black|fg|muted|primary|onPrimary|danger|gold|onHeader|headerAccent|bg)(\/|\s|$)/;
+  /(^|\s)text-(white|black|fg|muted|primary|onPrimary|danger|gold|onHeader|headerAccent|logoText|bg)(\/|\s|$)/;
 
 export function T({
   className = "",
@@ -43,6 +43,8 @@ export function Card({
 }
 
 type ButtonProps = {
+  /** Botão mais baixo. */
+  compact?: boolean;
   title: string;
   onPress?: () => void;
   variant?: "primary" | "outline" | "ghost" | "danger";
@@ -60,23 +62,25 @@ export function Button({
   loading,
   icon,
   className = "",
+  compact,
 }: ButtonProps) {
   const { palette: C } = useTheme();
-  const base = "flex-row items-center justify-center rounded-xl px-4 py-3.5";
+  const base = `flex-row items-center justify-center rounded-xl px-4 ${compact ? "py-2" : "py-3.5"}`;
+  // Disabled: cinza neutro — o verde apagado continuava parecendo clicável.
   const styles = {
-    primary: "bg-primary",
+    primary: disabled ? "bg-cardAlt" : "bg-primary",
     outline: "border border-primary bg-transparent",
     ghost: "bg-cardAlt",
     danger: "border border-danger bg-transparent",
   }[variant];
   const textColor = {
-    primary: "text-onPrimary",
+    primary: disabled ? "text-muted" : "text-onPrimary",
     outline: "text-primary",
     ghost: "text-fg",
     danger: "text-danger",
   }[variant];
   const iconColor = {
-    primary: C.onPrimary,
+    primary: disabled ? C.muted : C.onPrimary,
     outline: C.primary,
     ghost: C.fg,
     danger: C.danger,
@@ -85,7 +89,7 @@ export function Button({
     <Pressable
       onPress={onPress}
       disabled={disabled || loading}
-      className={`${base} ${styles} ${disabled ? "opacity-40" : "active:opacity-80"} ${className}`}
+      className={`${base} ${styles} ${disabled ? "opacity-60" : "active:opacity-80"} ${className}`}
     >
       {loading ? (
         <ActivityIndicator color={iconColor} />
@@ -132,6 +136,21 @@ export function StatusBadge({ status }: { status: LigaStatus }) {
   );
 }
 
+/** Esqueleto de carregamento: ocupa o lugar do conteúdo em vez de escurecer a tela. */
+export function Esqueleto({ blocos = 3 }: { blocos?: number }) {
+  return (
+    <View>
+      {Array.from({ length: blocos }, (_, i) => (
+        <View key={i} className="mb-2 rounded-2xl border border-line bg-card p-4 opacity-70">
+          <View className="h-3 w-2/3 rounded-full bg-cardAlt" />
+          <View className="mt-3 h-3 w-full rounded-full bg-cardAlt" />
+          <View className="mt-3 h-3 w-1/2 rounded-full bg-cardAlt" />
+        </View>
+      ))}
+    </View>
+  );
+}
+
 export function SectionTitle({
   children,
   right,
@@ -156,10 +175,15 @@ export function EmptyState({
   icon,
   title,
   subtitle,
+  cta,
+  onCta,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   title: string;
   subtitle?: string;
+  /** Rótulo do botão de ação no estado vazio (sem ação, o vazio é beco sem saída). */
+  cta?: string;
+  onCta?: () => void;
 }) {
   const { palette: C } = useTheme();
   return (
@@ -168,6 +192,9 @@ export function EmptyState({
       <T className="mt-3 text-center font-mont-b text-base">{title}</T>
       {subtitle ? (
         <T className="mt-1 text-center text-sm text-muted">{subtitle}</T>
+      ) : null}
+      {cta && onCta ? (
+        <Button title={cta} onPress={onCta} className="mt-4 self-stretch" />
       ) : null}
     </Card>
   );

@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Palpitei — Criar c/ API + Explorar</title>
+<style>
+  :root {
+    --bg:#121212; --card:#1E1E1E; --cardAlt:#262626; --line:#2E2E2E;
+    --fg:#FFFFFF; --muted:#9A9A9A; --primary:#00C447; --danger:#FF4D5E;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; font-family: system-ui,-apple-system,sans-serif; }
+  body { background:#0a0a0a; color:var(--fg); padding:40px 16px; display:flex; flex-wrap:wrap; gap:28px; justify-content:center; }
+  .screen { width:340px; }
+  .label { color:var(--muted); font-size:11px; letter-spacing:2px; text-transform:uppercase; margin-bottom:10px; }
+  .phone { background:var(--bg); border:1px solid var(--line); border-radius:20px; padding:14px; min-height:560px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px 14px; margin-bottom:10px; }
+  .row { display:flex; align-items:center; justify-content:space-between; }
+  .muted { color:var(--muted); font-size:11px; }
+  .big { font-weight:700; font-size:13px; }
+  .pts { color:var(--primary); font-weight:800; font-family:ui-monospace,monospace; }
+
+  .pills { display:flex; gap:8px; margin-bottom:10px; }
+  .pill { border:1px solid var(--line); border-radius:999px; padding:6px 14px; font-size:12px; color:var(--muted); }
+  .pill.on { background:var(--primary); border-color:var(--primary); color:#fff; font-weight:700; }
+  .inp { background:var(--cardAlt); border:1px solid var(--line); border-radius:12px; padding:11px 14px; font-size:13px; color:var(--fg); width:100%; }
+  .inp.sm { width:130px; }
+  .sec { font-size:11px; font-weight:800; color:var(--muted); letter-spacing:1px; margin:14px 0 8px; }
+
+  .jogo { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px 14px; margin-bottom:10px; }
+  .jogo .head { display:flex; align-items:center; gap:10px; }
+  .cb { width:20px; height:20px; border-radius:5px; border:1.5px solid var(--line); display:flex; align-items:center; justify-content:center; font-size:12px; }
+  .cb.on { background:var(--primary); border-color:var(--primary); color:#fff; }
+  .chev { color:var(--muted); font-size:13px; }
+  .merc { display:flex; align-items:center; justify-content:space-between; padding:8px 0; border-top:1px solid var(--line); font-size:11px; }
+  .merc .opts { display:flex; gap:5px; }
+  .opt { border:1px solid var(--line); border-radius:8px; padding:3px 8px; font-size:10px; font-family:ui-monospace,monospace; }
+  .opt.b { border-color:var(--primary); color:var(--primary); font-weight:700; }
+  .spin { color:var(--muted); font-size:11px; text-align:center; padding:8px 0; }
+
+  .searchrow { display:flex; gap:8px; margin-bottom:12px; }
+  .ditem { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px 14px; margin-bottom:10px; }
+  .btn { background:var(--primary); color:#fff; border:none; border-radius:10px; padding:8px 16px; font-weight:700; font-size:12px; }
+</style>
+</head>
+<body>
+
+<!-- 1. Criar desafio — data + jogos da API -->
+<div class="screen">
+  <div class="label">1 · Criar — data + jogos da API</div>
+  <div class="phone">
+    <div class="sec" style="margin-top:0">MODIFICAR JOGO E DATA</div>
+    <div class="pills">
+      <span class="pill">Hoje</span>
+      <span class="pill on">Amanhã</span>
+      <span class="pill">+2 dias</span>
+      <input class="inp sm" placeholder="11/11" />
+    </div>
+    <div class="sec">JOGOS (3 marcados)</div>
+    <div class="jogo">
+      <div class="head"><div class="cb on">✓</div><div style="flex:1"><div class="big">Bayern de Munique × B. Dortmund</div><div class="muted">Bundesliga · 18:30</div></div><span class="chev">›</span></div>
+      <div class="merc"><span>RESULTADO</span><div class="opts"><span class="opt">Casa</span><span class="opt">Empate</span><span class="opt">Fora</span></div></div>
+      <div class="merc"><span>AMBOS MARCAM</span><div class="opts"><span class="opt b">Sim 1.70</span><span class="opt">Não 2.10</span></div></div>
+      <div class="spin">ver todos os mercados ›</div>
+    </div>
+    <div class="jogo">
+      <div class="head"><div class="cb"></div><div style="flex:1"><div class="big">Palmeiras × Remo</div><div class="muted">Brasileirão · 19:00</div></div><span class="chev">›</span></div>
+    </div>
+    <div class="jogo">
+      <div class="head"><div class="cb on">✓</div><div style="flex:1"><div class="big">Real Madrid × Barcelona</div><div class="muted">La Liga · 21:00</div></div><span class="chev">›</span></div>
+      <div class="spin">buscando odds da API…</div>
+    </div>
+    <div class="muted" style="text-align:center">Jogos puxados da API · odds só do jogo aberto (economiza crédito)</div>
+  </div>
+</div>
+
+<!-- 2. Explorar desafios públicos -->
+<div class="screen">
+  <div class="label">2 · Explorar — públicos + busca</div>
+  <div class="phone">
+    <div class="searchrow">
+      <input class="inp" placeholder="Buscar por nome ou ID…" />
+    </div>
+    <div class="ditem">
+      <div class="row"><b class="big">Desafio dos Brothers</b><span class="pts">100 fichas</span></div>
+      <div class="muted">de Marcos · grupo · 3 jogos · hoje</div>
+      <div class="row" style="margin-top:8px"><span class="muted">7 palpiteiros</span><button class="btn">Entrar</button></div>
+    </div>
+    <div class="ditem">
+      <div class="row"><b class="big">Copa do Escritório</b><span class="pts">150 fichas</span></div>
+      <div class="muted">de Rafa · grupo · 5 jogos · amanhã</div>
+      <div class="row" style="margin-top:8px"><span class="muted">12 palpiteiros</span><button class="btn">Entrar</button></div>
+    </div>
+    <div class="ditem">
+      <div class="row"><b class="big">Rodada da Sexta</b><span class="pts">50 fichas</span></div>
+      <div class="muted">de Ana · grupo · 1 jogo · hoje</div>
+      <div class="row" style="margin-top:8px"><span class="muted">4 palpiteiros</span><button class="btn">Entrar</button></div>
+    </div>
+    <div class="muted" style="text-align:center">Desafio privado entra só pelo link de convite</div>
+  </div>
+</div>
+
+<!-- 3. Busca preenchida -->
+<div class="screen">
+  <div class="label">3 · Busca — resultado</div>
+  <div class="phone">
+    <div class="searchrow">
+      <input class="inp" value="brothers" readonly />
+    </div>
+    <div class="ditem">
+      <div class="row"><b class="big">Desafio dos Brothers</b><span class="pts">100 fichas</span></div>
+      <div class="muted">de Marcos · grupo · 3 jogos · hoje</div>
+      <div class="row" style="margin-top:8px"><span class="muted">7 palpiteiros</span><button class="btn">Entrar</button></div>
+    </div>
+    <div class="muted" style="text-align:center">1 resultado para “brothers”</div>
+    <div style="margin-top:14px">
+      <div class="sec">ID direto</div>
+      <div class="muted">Colar o ID ou link do desafio abre direto o convite.</div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Palpitei — Proposta de melhorias</title>
+<style>
+  :root { --bg:#0F0F0F; --card:#1A1A1A; --alt:#232323; --line:#2E2E2E; --fg:#FFF; --muted:#8E8E8E; --primary:#00C447; --gold:#F2B01E; --danger:#FF4D5E; --blue:#4C8DFF; }
+  * { margin:0; padding:0; box-sizing:border-box; font-family:system-ui,-apple-system,"Segoe UI",sans-serif; }
+  body { background:#000; color:var(--fg); padding:28px; }
+  h1 { font-size:20px; font-weight:800; }
+  h1 + p { color:var(--muted); font-size:13px; margin-top:6px; max-width:760px; line-height:1.5; }
+  h2 { font-size:13px; letter-spacing:2px; text-transform:uppercase; color:var(--primary); margin:44px 0 4px; }
+  h2 + p { color:var(--muted); font-size:13px; margin-bottom:18px; }
+  .row { display:flex; gap:26px; flex-wrap:wrap; align-items:flex-start; }
+  .item { display:flex; flex-direction:column; gap:10px; }
+  .cap { font-size:12px; font-weight:800; }
+  .cap span { color:var(--muted); font-weight:400; display:block; margin-top:3px; max-width:340px; line-height:1.45; }
+  .num { font-family:ui-monospace,Menlo,Consolas,monospace; font-weight:800; }
+  .muted { color:var(--muted); }
+  .g { color:var(--primary); }
+
+  .phone { width:340px; border:1px solid var(--line); border-radius:26px; background:var(--bg); overflow:hidden; position:relative; }
+  .hdr { background:#0B3B22; padding:13px 14px; font-weight:800; font-size:14px; display:flex; align-items:center; gap:10px; }
+  .hdr .pill { margin-left:auto; border:1px solid rgba(255,255,255,.25); border-radius:20px; padding:4px 10px; font-size:11px; }
+  .pad { padding:14px; display:flex; flex-direction:column; gap:10px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px; }
+  .sec { font-size:10px; font-weight:800; color:var(--muted); letter-spacing:1px; text-transform:uppercase; }
+  .btn { background:var(--primary); color:#04210F; font-weight:800; font-size:12px; text-transform:uppercase; letter-spacing:.5px; border-radius:11px; padding:12px; text-align:center; }
+  .btn.ghost { background:var(--alt); color:var(--fg); }
+  .btn.out { background:transparent; border:1px solid var(--primary); color:var(--primary); }
+  .btn.red { background:transparent; border:1px solid var(--danger); color:var(--danger); }
+  .tag { font-size:9px; font-weight:800; letter-spacing:.5px; padding:2px 6px; border-radius:4px; border:1px solid var(--line); color:var(--muted); }
+  .tag.live { color:var(--primary); border-color:rgba(0,196,71,.4); }
+
+  /* desafio */
+  .resumo { display:flex; align-items:center; gap:10px; }
+  .resumo h3 { font-size:15px; font-weight:800; }
+  .resumo p { font-size:11px; color:var(--muted); margin-top:2px; }
+  .kpis { display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; }
+  .kpi { background:var(--alt); border-radius:10px; padding:8px 10px; }
+  .kpi b { font-size:16px; display:block; }
+  .kpi i { font-style:normal; font-size:10px; color:var(--muted); }
+  .seg { display:flex; background:var(--alt); border-radius:11px; padding:3px; }
+  .seg div { flex:1; text-align:center; font-size:12px; font-weight:700; padding:8px; border-radius:9px; color:var(--muted); }
+  .seg div.on { background:var(--card); color:var(--fg); box-shadow:0 0 0 1px var(--line); }
+  .jogo h4 { font-size:13px; font-weight:800; }
+  .jogo .m { font-size:11px; color:var(--muted); margin-top:2px; }
+  .grupo { font-size:10px; font-weight:800; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; margin:10px 0 6px; }
+  .opts { display:flex; gap:6px; }
+  .opt { flex:1; background:var(--alt); border:1px solid var(--line); border-radius:9px; padding:8px 9px; min-height:48px; }
+  .opt span { font-size:12px; font-weight:600; display:block; line-height:1.2; }
+  .opt b { font-size:15px; color:var(--primary); display:block; margin-top:3px; }
+  .opt.on { background:var(--primary); border-color:var(--primary); }
+  .opt.on span, .opt.on b { color:#04210F; }
+  .mais { text-align:center; font-size:12px; font-weight:700; color:var(--primary); margin-top:10px; }
+  .rk { display:flex; align-items:center; gap:10px; padding:9px 0; border-top:1px solid var(--line); }
+  .rk:first-child { border-top:0; padding-top:0; }
+  .pos { width:30px; height:30px; border-radius:50%; background:var(--alt); display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:800; flex-shrink:0; }
+  .rk .n { flex:1; font-size:13px; font-weight:700; }
+  .rk .v { text-align:right; font-size:13px; }
+  .rk .v i { display:block; font-style:normal; font-family:system-ui; font-weight:400; font-size:10px; color:var(--muted); }
+  .eu { color:var(--primary); }
+  .sheet { background:#102A1B; border-top:2px solid var(--primary); border-radius:20px 20px 0 0; padding:10px 14px 12px; }
+  .sheet .t { display:flex; justify-content:space-between; font-size:12px; font-weight:800; margin-bottom:8px; }
+  .wait { border:1px dashed var(--line); border-radius:14px; padding:16px; text-align:center; }
+  .wait b { font-size:14px; display:block; }
+  .wait p { font-size:12px; color:var(--muted); margin:6px 0 12px; line-height:1.4; }
+  .link { display:flex; gap:6px; }
+  .link div:first-child { flex:1; background:var(--alt); border:1px solid var(--line); border-radius:9px; padding:9px 10px; font-size:11px; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .link div:last-child { background:var(--alt); border:1px solid var(--line); border-radius:9px; padding:9px 12px; font-size:11px; font-weight:800; }
+
+  /* modal */
+  .dim { background:rgba(0,0,0,.6); padding:60px 16px; }
+  .modal { background:var(--card); border-radius:16px; padding:18px; }
+  .modal h3 { font-size:16px; font-weight:800; }
+  .modal p { font-size:12px; color:var(--muted); margin-top:6px; line-height:1.45; }
+  .ln { display:flex; justify-content:space-between; font-size:12px; padding:8px 0; border-top:1px solid var(--line); }
+  .ln:first-of-type { border-top:0; }
+  .way { display:flex; align-items:center; gap:10px; padding:10px; background:var(--alt); border-radius:10px; margin-top:8px; }
+  .way b { font-size:12px; display:block; }
+  .way i { font-style:normal; font-size:11px; color:var(--muted); }
+  .way .num { margin-left:auto; color:var(--primary); font-size:13px; }
+
+  /* criar */
+  .chips { display:flex; gap:6px; }
+  .chip { border:1px solid var(--line); border-radius:20px; padding:7px 12px; font-size:12px; color:var(--muted); font-weight:600; }
+  .chip.on { background:var(--primary); border-color:var(--primary); color:#04210F; font-weight:800; }
+  .pick { display:flex; align-items:center; gap:10px; }
+  .ck { width:20px; height:20px; border-radius:50%; border:2px solid var(--line); flex-shrink:0; }
+  .ck.on { background:var(--primary); border-color:var(--primary); }
+  .foot { border-top:1px solid var(--line); background:var(--card); padding:10px 14px; display:flex; align-items:center; gap:10px; }
+  .foot div:first-child { flex:1; font-size:11px; color:var(--muted); }
+  .foot div:first-child b { color:var(--fg); font-size:13px; display:block; }
+  .foot .btn { padding:11px 16px; }
+
+  /* comparativos */
+  .ba { display:flex; gap:14px; }
+  .ba > div { width:163px; }
+  .ba .lbl { font-size:10px; font-weight:800; letter-spacing:1px; text-transform:uppercase; color:var(--muted); margin-bottom:6px; }
+  .old { background:var(--alt); border:1px solid var(--line); border-radius:8px; padding:7px 8px; }
+  .old span { font-size:9px; font-weight:600; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .old b { font-size:13px; color:var(--primary); }
+  .sk { background:linear-gradient(90deg,#1c1c1c,#262626,#1c1c1c); border-radius:8px; height:12px; }
+  .ov { height:150px; border-radius:14px; background:rgba(0,0,0,.55); border:1px solid var(--line); display:flex; align-items:center; justify-content:center; }
+  .spin { width:26px; height:26px; border-radius:50%; border:3px solid var(--line); border-top-color:var(--primary); }
+
+  /* desktop */
+  .frame { border:1px solid var(--line); border-radius:12px; background:var(--bg); overflow:hidden; width:1120px; max-width:100%; }
+  .nav { background:var(--card); border-bottom:1px solid var(--line); padding:0 24px; height:52px; display:flex; align-items:center; gap:26px; }
+  .logo { font-weight:900; font-size:15px; }
+  .logo span { color:var(--primary); }
+  .tabs { display:flex; height:100%; }
+  .tab { display:flex; align-items:center; padding:0 14px; font-size:12px; font-weight:600; color:var(--muted); border-bottom:2px solid transparent; }
+  .tab.on { color:var(--fg); border-bottom-color:var(--primary); }
+  .nav .right { margin-left:auto; display:flex; align-items:center; gap:14px; font-size:12px; }
+  .av { width:28px; height:28px; border-radius:50%; background:var(--primary); color:#04210F; display:flex; align-items:center; justify-content:center; font-weight:800; font-size:12px; }
+  .crumb { padding:14px 24px 0; font-size:12px; color:var(--muted); }
+  .crumb b { color:var(--fg); }
+  .dbody { display:grid; grid-template-columns:1fr 340px; gap:20px; padding:16px 24px 24px; align-items:start; }
+  .col { display:flex; flex-direction:column; gap:12px; }
+  .top { display:flex; align-items:center; gap:14px; }
+  .top h3 { font-size:18px; font-weight:800; }
+  .top p { font-size:12px; color:var(--muted); margin-top:3px; }
+  .top .acts { margin-left:auto; display:flex; gap:8px; }
+  .top .btn { padding:9px 14px; }
+  .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .rail { position:sticky; top:0; }
+  .slip { background:#102A1B; border:1px solid rgba(0,196,71,.45); border-radius:14px; padding:14px; }
+  .slip .t { display:flex; justify-content:space-between; font-size:13px; font-weight:800; margin-bottom:10px; }
+  .pk { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:9px 10px; margin-bottom:8px; }
+  .pk .a { display:flex; justify-content:space-between; font-size:12px; font-weight:700; }
+  .pk .b { font-size:10px; color:var(--muted); margin-top:2px; }
+  .pk .c { display:flex; align-items:center; justify-content:space-between; margin-top:8px; font-size:11px; color:var(--muted); }
+  .step { display:flex; align-items:center; gap:8px; }
+  .step span { width:24px; height:24px; border-radius:6px; background:var(--alt); display:flex; align-items:center; justify-content:center; font-weight:800; color:var(--fg); }
+  .tot { display:flex; justify-content:space-between; font-size:12px; padding:6px 0; }
+  .empty { text-align:center; padding:22px 10px; font-size:12px; color:var(--muted); line-height:1.5; }
+  .empty b { color:var(--fg); display:block; font-size:13px; margin-bottom:4px; }
+  .cgrid { display:grid; grid-template-columns:320px 1fr; gap:20px; padding:16px 24px 0; align-items:start; }
+  .field { background:var(--alt); border:1px solid var(--line); border-radius:10px; padding:10px 12px; font-size:13px; }
+  .lab { font-size:10px; font-weight:800; color:var(--muted); letter-spacing:1px; text-transform:uppercase; margin:10px 0 6px; }
+  .lab:first-child { margin-top:0; }
+  .two { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .optc { border:1px solid var(--line); border-radius:10px; padding:10px; font-size:12px; font-weight:700; }
+  .optc.on { border-color:var(--primary); color:var(--primary); }
+  .optc i { display:block; font-style:normal; font-weight:400; font-size:10px; color:var(--muted); margin-top:3px; }
+  .bar { margin-top:16px; border-top:1px solid var(--line); background:var(--card); padding:12px 24px; display:flex; align-items:center; gap:14px; font-size:12px; color:var(--muted); }
+  .bar b { color:var(--fg); }
+  .bar .btn { margin-left:auto; padding:11px 22px; }
+  .hov { outline:2px solid rgba(0,196,71,.5); outline-offset:1px; }
+</style>
+</head>
+<body>
+
+<h1>Proposta visual de melhorias</h1>
+<p>Cadastro e código do WhatsApp ficaram de fora, como combinado. Números e nomes são ilustrativos. Cada bloco traz a tela proposta e, ao lado, o que muda em relação a hoje.</p>
+
+<h2>Mobile — tela do desafio</h2>
+<p>Hoje: todos os mercados de todos os jogos abertos e o ranking só no fim da página.</p>
+<div class="row">
+
+  <div class="item">
+    <div class="phone">
+      <div class="hdr">‹ Desafio da firma <div class="pill num">1.240 PONTOS</div></div>
+      <div class="pad">
+        <div class="card">
+          <div class="resumo">
+            <div style="flex:1"><h3>Desafio da firma</h3><p>de Rafa S. · qui 12/11 · 8 palpiteiros</p></div>
+            <span class="tag live">ABERTO</span>
+          </div>
+          <div class="kpis" style="margin-top:10px">
+            <div class="kpi"><b class="num g">60</b><i>fichas livres</i></div>
+            <div class="kpi"><b class="num">2º</b><i>sua posição</i></div>
+            <div class="kpi"><b class="num">640</b><i>potencial</i></div>
+          </div>
+          <div class="btn out" style="margin-top:10px">Convidar amigos</div>
+        </div>
+        <div class="seg"><div class="on">Jogos</div><div>Ranking (8)</div></div>
+        <div class="card jogo">
+          <h4>Flamengo x Palmeiras</h4><div class="m">Brasileirão · 21:30</div>
+          <div class="grupo">Resultado</div>
+          <div class="opts">
+            <div class="opt on"><span>Flamengo</span><b class="num">2.10x</b></div>
+            <div class="opt"><span>Empate</span><b class="num">3.20x</b></div>
+            <div class="opt"><span>Palmeiras</span><b class="num">3.40x</b></div>
+          </div>
+          <div class="grupo">Gols</div>
+          <div class="opts">
+            <div class="opt"><span>Mais de 2.5</span><b class="num">1.95x</b></div>
+            <div class="opt"><span>Menos de 2.5</span><b class="num">1.85x</b></div>
+          </div>
+          <div class="mais">Ver mais mercados (6)</div>
+        </div>
+        <div class="card jogo"><h4>Bahia x Grêmio</h4><div class="m">Brasileirão · 19:00 · 8 mercados</div></div>
+      </div>
+      <div class="sheet">
+        <div class="t"><span>Meu bilhete · 1 palpite</span><span class="num">60 livres</span></div>
+        <div class="btn">Revisar e confirmar</div>
+      </div>
+    </div>
+    <div class="cap">1. Aba Jogos<span>Resumo no topo com fichas livres, posição e potencial. Convite vira botão. Mercados recolhidos como na home. O bilhete passa a abrir a revisão antes de gravar.</span></div>
+  </div>
+
+  <div class="item">
+    <div class="phone">
+      <div class="hdr">‹ Desafio da firma <div class="pill num">1.240 PONTOS</div></div>
+      <div class="pad">
+        <div class="seg"><div>Jogos</div><div class="on">Ranking (8)</div></div>
+        <div class="card">
+          <div class="rk"><div class="pos" style="color:var(--gold)">1º</div><div class="n">Rafa S.</div><div class="v num g">820<i>potencial</i></div></div>
+          <div class="rk"><div class="pos">2º</div><div class="n eu">Vitória H. (você)</div><div class="v num g">640<i>potencial</i></div></div>
+          <div class="rk"><div class="pos">3º</div><div class="n">Bia M.</div><div class="v num g">410<i>potencial</i></div></div>
+          <div class="rk"><div class="pos">4º</div><div class="n">Caio L.</div><div class="v num muted">0<i>sem palpites</i></div></div>
+        </div>
+        <div class="sec">Depois que os jogos começam</div>
+        <div class="card">
+          <div class="rk"><div class="pos" style="color:var(--gold)">1º</div><div class="n eu">Vitória H. (você)</div><div class="v num g">420<i>pode chegar a 640</i></div></div>
+          <div class="rk"><div class="pos">2º</div><div class="n">Rafa S.</div><div class="v num g">210<i>pode chegar a 820</i></div></div>
+        </div>
+        <div class="btn red">Finalizar desafio</div>
+      </div>
+    </div>
+    <div class="cap">2. Aba Ranking<span>Ranking a um toque, sem rolar pelos mercados. Antes do início ordena pelo potencial; com jogo rolando mostra pontos e até onde pode chegar. Tocar no nome abre o bilhete.</span></div>
+  </div>
+
+  <div class="item">
+    <div class="phone">
+      <div class="hdr">‹ Duelo <div class="pill num">1.240 PONTOS</div></div>
+      <div class="pad">
+        <div class="wait">
+          <b>Aguardando adversário</b>
+          <p>Mande o link. Quem entrar primeiro te enfrenta. Você já pode montar seu bilhete.</p>
+          <div class="link"><div>palpitei.app/desafio/convite?token=8Kd2…</div><div>Copiar</div></div>
+          <div class="btn" style="margin-top:8px">Enviar pelo WhatsApp</div>
+        </div>
+        <div class="card jogo"><h4>Flamengo x Palmeiras</h4><div class="m">Brasileirão · 21:30 · 8 mercados</div></div>
+      </div>
+      <div class="dim" style="padding:26px 16px">
+        <div class="modal">
+          <h3>Finalizar desafio?</h3>
+          <p>2 jogos ainda não terminaram. Os palpites sem resultado contam como perdidos e o ranking é congelado.</p>
+          <div class="btn red" style="margin-top:14px">Finalizar mesmo assim</div>
+          <div class="btn ghost" style="margin-top:8px">Voltar</div>
+        </div>
+      </div>
+    </div>
+    <div class="cap">3. Convite e confirmações<span>Duelo sem adversário mostra o estado e o link, com "Copiar" funcionando em qualquer navegador. Finalizar pede confirmação dentro do app (hoje não acontece nada na web).</span></div>
+  </div>
+</div>
+
+<h2>Mobile — criar desafio, saldo e detalhes</h2>
+<p>Hoje: atalhos de data conflitam com a data digitada, o botão de criar fica no fim da lista e saldo insuficiente não aponta saída.</p>
+<div class="row">
+
+  <div class="item">
+    <div class="phone">
+      <div class="hdr">‹ Criar desafio</div>
+      <div class="pad">
+        <div class="sec">Quando</div>
+        <div class="chips"><div class="chip">Hoje</div><div class="chip">Amanhã</div><div class="chip on">Sáb 14/11</div><div class="chip">Outra data</div></div>
+        <div class="sec" style="margin-top:4px">Jogos de sáb 14/11 · 12 disponíveis</div>
+        <div class="card pick"><div class="ck on"></div><div style="flex:1"><b style="font-size:13px">Flamengo x Palmeiras</b><div class="muted" style="font-size:11px">Brasileirão · 21:30 · 8 mercados</div></div><span class="g" style="font-size:11px;font-weight:700">editar</span></div>
+        <div class="card pick"><div class="ck on"></div><div style="flex:1"><b style="font-size:13px">Bahia x Grêmio</b><div class="muted" style="font-size:11px">Brasileirão · 19:00 · 8 mercados</div></div><span class="g" style="font-size:11px;font-weight:700">editar</span></div>
+        <div class="card pick"><div class="ck"></div><div style="flex:1"><b style="font-size:13px">Arsenal x Chelsea</b><div class="muted" style="font-size:11px">Premier League · 13:30</div></div></div>
+        <div class="card pick"><div class="ck"></div><div style="flex:1"><b style="font-size:13px">Barcelona x Sevilla</b><div class="muted" style="font-size:11px">La Liga · 17:00</div></div></div>
+      </div>
+      <div class="foot"><div><b>2 jogos · 16 mercados</b>Em grupo · privado · 100 fichas</div><div class="btn">Criar</div></div>
+    </div>
+    <div class="cap">4. Data única e rodapé fixo<span>A data escolhida no calendário vira o atalho marcado, sem campo paralelo. O resumo e o botão Criar ficam sempre visíveis no rodapé.</span></div>
+  </div>
+
+  <div class="item">
+    <div class="phone">
+      <div class="dim">
+        <div class="modal">
+          <h3>Faltam 40 PONTOS</h3>
+          <p>A entrada custa 100 PONTOS e você tem 60. Dá para completar assim:</p>
+          <div class="way"><div><b>Sequência diária</b><i>Abra o app amanhã (dia 4 de 7)</i></div><div class="num">+70</div></div>
+          <div class="way"><div><b>Desafios entre amigos</b><i>Entrada grátis, não usa PONTOS</i></div><div class="num">grátis</div></div>
+          <div class="btn" style="margin-top:14px">Ver desafios</div>
+          <div class="btn ghost" style="margin-top:8px">Agora não</div>
+        </div>
+      </div>
+    </div>
+    <div class="cap">5. Saldo insuficiente com saída<span>Em vez de só bloquear, diz quanto falta e os dois caminhos que já existem no app.</span></div>
+  </div>
+
+  <div class="item">
+    <div class="card" style="width:360px">
+      <div class="sec" style="margin-bottom:10px">Botão de mercado</div>
+      <div class="ba">
+        <div><div class="lbl">Hoje</div><div class="old"><span>Ambos marcam e mais de 2.5 gols</span><b class="num">3.85x</b></div></div>
+        <div><div class="lbl">Proposta</div><div class="opt"><span>Ambos marcam e mais de 2.5 gols</span><b class="num">3.85x</b></div></div>
+      </div>
+      <div class="sec" style="margin:16px 0 10px">Carregamento ao trocar de aba</div>
+      <div class="ba">
+        <div><div class="lbl">Hoje</div><div class="ov"><div class="spin"></div></div></div>
+        <div><div class="lbl">Proposta</div><div class="card" style="height:150px;display:flex;flex-direction:column;gap:12px;justify-content:center"><div class="sk" style="width:70%"></div><div class="sk"></div><div class="sk" style="width:85%"></div><div class="sk" style="width:55%"></div></div></div>
+      </div>
+    </div>
+    <div class="cap">6. Legibilidade e carregamento<span>Texto mínimo de 12px, nome do mercado em até duas linhas e área de toque de 48px. A tela escura com spinner fica só para ações de gravar; leitura usa esqueleto no lugar do conteúdo.</span></div>
+  </div>
+</div>
+
+<h2>Desktop — desafio</h2>
+<p>Hoje: sem barra de navegação nessa tela, largura total e o bilhete como folha de baixo do celular.</p>
+<div class="frame">
+  <div class="nav">
+    <div class="logo">PALP<span>IT</span></div>
+    <div class="tabs"><div class="tab">Palpite</div><div class="tab on">Desafio</div><div class="tab">Ranking</div><div class="tab">Perfil</div></div>
+    <div class="right"><span class="muted">sequência <b class="num" style="color:var(--fg)">5 dias</b></span><span class="num g">1.240 PONTOS</span><div class="av">V</div></div>
+  </div>
+  <div class="crumb">Desafios › <b>Desafio da firma</b></div>
+  <div class="dbody">
+    <div class="col">
+      <div class="top">
+        <div><h3>Desafio da firma</h3><p>de Rafa S. · qui 12/11 · 8 palpiteiros · 3 jogos</p></div>
+        <div class="acts"><div class="btn ghost">Copiar link</div><div class="btn out">Convidar</div></div>
+      </div>
+      <div class="grid2">
+        <div class="card jogo">
+          <h4>Flamengo x Palmeiras</h4><div class="m">Brasileirão · 21:30</div>
+          <div class="grupo">Resultado</div>
+          <div class="opts"><div class="opt on"><span>Flamengo</span><b class="num">2.10x</b></div><div class="opt hov"><span>Empate</span><b class="num">3.20x</b></div><div class="opt"><span>Palmeiras</span><b class="num">3.40x</b></div></div>
+          <div class="grupo">Gols</div>
+          <div class="opts"><div class="opt"><span>Mais de 2.5</span><b class="num">1.95x</b></div><div class="opt on"><span>Menos de 2.5</span><b class="num">1.85x</b></div></div>
+          <div class="mais">Ver mais mercados (6)</div>
+        </div>
+        <div class="card jogo">
+          <h4>Bahia x Grêmio</h4><div class="m">Brasileirão · 19:00</div>
+          <div class="grupo">Resultado</div>
+          <div class="opts"><div class="opt"><span>Bahia</span><b class="num">2.45x</b></div><div class="opt"><span>Empate</span><b class="num">3.10x</b></div><div class="opt"><span>Grêmio</span><b class="num">2.90x</b></div></div>
+          <div class="grupo">Gols</div>
+          <div class="opts"><div class="opt"><span>Mais de 2.5</span><b class="num">2.05x</b></div><div class="opt"><span>Menos de 2.5</span><b class="num">1.75x</b></div></div>
+          <div class="mais">Ver mais mercados (6)</div>
+        </div>
+      </div>
+    </div>
+    <div class="col rail">
+      <div class="slip">
+        <div class="t"><span>Meu bilhete · 2 palpites</span><span class="num">40 livres</span></div>
+        <div class="pk"><div class="a"><span>Flamengo vence</span><span class="num g">2.10x</span></div><div class="b">Flamengo x Palmeiras · Simples</div><div class="c"><span>Fichas</span><div class="step"><span>−</span><b class="num" style="color:var(--fg)">40</b><span>+</span></div></div></div>
+        <div class="pk"><div class="a"><span>Menos de 2.5 gols</span><span class="num g">1.85x</span></div><div class="b">Flamengo x Palmeiras · Simples</div><div class="c"><span>Fichas</span><div class="step"><span>−</span><b class="num" style="color:var(--fg)">20</b><span>+</span></div></div></div>
+        <div class="tot"><span class="muted">Fichas no bilhete</span><b class="num">60</b></div>
+        <div class="tot"><span class="muted">Se tudo bater</span><b class="num g">121 pts</b></div>
+        <div class="btn" style="margin-top:8px">Revisar e confirmar</div>
+      </div>
+      <div class="card">
+        <div class="sec" style="margin-bottom:10px">Ranking · potencial</div>
+        <div class="rk"><div class="pos" style="color:var(--gold)">1º</div><div class="n">Rafa S.</div><div class="v num g">820</div></div>
+        <div class="rk"><div class="pos">2º</div><div class="n eu">Vitória H. (você)</div><div class="v num g">640</div></div>
+        <div class="rk"><div class="pos">3º</div><div class="n">Bia M.</div><div class="v num g">410</div></div>
+        <div class="mais">Ver ranking completo (8)</div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="cap" style="margin-top:10px">7. Desafio no desktop<span style="max-width:900px">Um cabeçalho só, presente em todas as telas, com caminho de volta. Jogos em duas colunas. Coluna da direita acompanha a rolagem, alinhada ao conteúdo e abaixo da barra: bilhete sempre aberto com totais, e o ranking logo abaixo. Opções ganham destaque ao passar o mouse.</span></div>
+
+<h2>Desktop — bilhete vazio e criar desafio</h2>
+<p>Hoje: a coluna do bilhete vazia não orienta, e a criação usa a coluna única do celular.</p>
+<div class="row">
+  <div class="item">
+    <div class="slip" style="width:340px">
+      <div class="t"><span>Meu bilhete</span><span class="num">100 livres</span></div>
+      <div class="empty"><b>Nenhum palpite ainda</b>Clique em uma opção dos jogos ao lado. Ela aparece aqui para você definir as fichas.</div>
+      <div class="btn" style="opacity:.4">Revisar e confirmar</div>
+    </div>
+    <div class="cap">8. Bilhete vazio<span>Vale para a rodada do dia e para o desafio.</span></div>
+  </div>
+
+  <div class="item">
+    <div class="frame" style="width:740px">
+      <div class="nav">
+        <div class="logo">PALP<span>IT</span></div>
+        <div class="tabs"><div class="tab">Palpite</div><div class="tab on">Desafio</div><div class="tab">Ranking</div><div class="tab">Perfil</div></div>
+        <div class="right"><span class="num g">1.240 PONTOS</span><div class="av">V</div></div>
+      </div>
+      <div class="crumb">Desafios › <b>Criar desafio</b></div>
+      <div class="cgrid" style="grid-template-columns:250px 1fr">
+        <div>
+          <div class="lab">Modo</div>
+          <div class="two"><div class="optc on">Em grupo</div><div class="optc">Duelo</div></div>
+          <div class="lab">Nome</div><div class="field">Desafio da firma</div>
+          <div class="lab">Fichas por pessoa</div><div class="field num">100</div>
+          <div class="lab">Quem pode entrar</div>
+          <div class="two"><div class="optc on">Privado<i>só com o link</i></div><div class="optc">Público<i>aparece na busca</i></div></div>
+        </div>
+        <div>
+          <div class="chips" style="margin-bottom:10px"><div class="chip">Hoje</div><div class="chip">Amanhã</div><div class="chip on">Sáb 14/11</div><div class="chip">Outra data</div></div>
+          <div class="col" style="gap:8px">
+            <div class="card pick"><div class="ck on"></div><div style="flex:1"><b style="font-size:13px">Flamengo x Palmeiras</b><div class="muted" style="font-size:11px">Brasileirão · 21:30 · 8 mercados</div></div><span class="g" style="font-size:11px;font-weight:700">editar mercados</span></div>
+            <div class="card pick"><div class="ck on"></div><div style="flex:1"><b style="font-size:13px">Bahia x Grêmio</b><div class="muted" style="font-size:11px">Brasileirão · 19:00 · 8 mercados</div></div><span class="g" style="font-size:11px;font-weight:700">editar mercados</span></div>
+            <div class="card pick"><div class="ck"></div><div style="flex:1"><b style="font-size:13px">Arsenal x Chelsea</b><div class="muted" style="font-size:11px">Premier League · 13:30</div></div></div>
+          </div>
+        </div>
+      </div>
+      <div class="bar"><span><b>2 jogos · 16 mercados</b> · em grupo · privado · 100 fichas</span><div class="btn">Criar desafio</div></div>
+    </div>
+    <div class="cap">9. Criar desafio no desktop<span style="max-width:700px">Configuração à esquerda, jogos à direita, resumo e botão fixos embaixo.</span></div>
+  </div>
+</div>
+
+</body>
+</html>

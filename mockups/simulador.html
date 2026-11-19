@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Palpitei — Simulador (modo análise)</title>
+<style>
+  :root {
+    --bg:#121212; --card:#1E1E1E; --cardAlt:#262626; --line:#2E2E2E;
+    --fg:#FFFFFF; --muted:#9A9A9A; --primary:#00C447; --danger:#FF4D5E;
+    --gold:#F2B01E; --sim:#7C8DA6;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; font-family:system-ui,-apple-system,sans-serif; }
+  body { background:#0a0a0a; color:var(--fg); padding:40px 16px; display:flex; flex-wrap:wrap; gap:28px; justify-content:center; }
+  .screen { width:340px; }
+  .label { color:var(--muted); font-size:11px; letter-spacing:2px; text-transform:uppercase; margin-bottom:10px; }
+  .phone { background:var(--bg); border:1px solid var(--line); border-radius:20px; padding:14px; min-height:640px; position:relative; overflow:hidden; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px 14px; margin-bottom:10px; }
+  .row { display:flex; align-items:center; justify-content:space-between; }
+  .muted { color:var(--muted); font-size:11px; }
+  .tiny { color:var(--muted); font-size:10px; }
+  .mono { font-family:ui-monospace,monospace; font-weight:800; }
+
+  .tabbar { position:absolute; bottom:0; left:0; right:0; display:flex; border-top:1px solid var(--line); background:var(--card); }
+  .tabbar div { flex:1; text-align:center; padding:10px 0 12px; font-size:9px; color:var(--muted); }
+  .tabbar .on { color:var(--primary); font-weight:700; }
+  .tabbar .on-sim { color:var(--sim); font-weight:700; }
+
+  .balance { padding:16px 14px 12px; }
+  .balance .saldo { font-family:ui-monospace,monospace; font-weight:800; font-size:30px; letter-spacing:-.5px; }
+  .pl { font-family:ui-monospace,monospace; font-weight:800; font-size:14px; margin-top:2px; }
+  .pl.neg { color:var(--danger); }
+  .pl.pos { color:var(--muted); } /* ganho: neutro de propósito — sem celebração */
+  .spark { margin-top:10px; }
+
+  .stats { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .stat { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:10px 12px; }
+  .stat .v { font-family:ui-monospace,monospace; font-weight:800; font-size:14px; }
+  .stat .k { color:var(--muted); font-size:10px; margin-top:2px; }
+
+  .proj { border-left:3px solid var(--danger); background:var(--card); border-radius:10px; padding:10px 12px; margin-top:10px; }
+  .proj .big { font-family:ui-monospace,monospace; font-weight:800; font-size:16px; color:var(--danger); }
+
+  .recarga { display:flex; gap:8px; margin-top:10px; }
+  .chip { flex:1; border:1px solid var(--line); border-radius:10px; background:var(--cardAlt); text-align:center; padding:9px 0; font-family:ui-monospace,monospace; font-weight:700; font-size:12px; color:var(--fg); }
+
+  .sec { color:var(--muted); font-size:10px; letter-spacing:2px; text-transform:uppercase; margin:14px 2px 8px; }
+
+  .jogo { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:12px 14px; margin-bottom:10px; }
+  .jogo .times { font-weight:700; font-size:13px; }
+  .jogo .liga { color:var(--muted); font-size:10px; margin-top:2px; }
+  .odds { display:flex; gap:6px; margin-top:10px; }
+  .odd { flex:1; border:1px solid var(--line); border-radius:10px; padding:8px 0; text-align:center; background:var(--cardAlt); }
+  .odd .o { font-family:ui-monospace,monospace; font-weight:800; font-size:13px; }
+  .odd .n { font-size:9px; color:var(--muted); margin-top:2px; }
+  .odd.sel { border-color:var(--sim); }
+
+  .ap { display:flex; justify-content:space-between; align-items:center; padding:8px 2px; border-top:1px solid var(--line); font-size:11px; }
+  .ap .st { font-size:10px; font-family:ui-monospace,monospace; }
+  .st.aberta { color:var(--muted); }
+  .st.ganhou { color:var(--muted); }
+  .st.perdeu { color:var(--danger); }
+
+  /* modal de valor */
+  .overlay { position:absolute; inset:0; background:rgba(0,0,0,.6); display:flex; align-items:flex-end; }
+  .sheet { width:100%; background:var(--card); border-radius:18px 18px 0 0; padding:16px; }
+  .sheet .handle { width:36px; height:4px; border-radius:2px; background:var(--line); margin:0 auto 12px; }
+  .valor { text-align:center; font-family:ui-monospace,monospace; font-weight:800; font-size:34px; margin:8px 0; }
+  .chips { display:flex; gap:8px; margin:10px 0; }
+  .cta { background:var(--sim); color:#fff; text-align:center; border-radius:12px; padding:13px; font-weight:800; font-size:14px; margin-top:10px; }
+  .warn { text-align:center; color:var(--muted); font-size:10px; margin-top:8px; }
+
+  /* banca zerada */
+  .broke { text-align:center; padding:20px 14px; }
+  .broke .icon { font-size:34px; }
+  .broke h2 { font-size:17px; margin:10px 0 8px; }
+  .broke p { color:var(--muted); font-size:12px; line-height:1.5; }
+  .broke .ja { margin-top:14px; font-size:11px; color:var(--sim); text-decoration:underline; }
+
+  .btn-ghost { border:1px solid var(--line); border-radius:12px; text-align:center; padding:12px; font-weight:700; font-size:13px; color:var(--fg); background:var(--cardAlt); margin-top:10px; }
+
+  .result-row { display:flex; align-items:center; gap:10px; }
+  .badge-sim { background:var(--cardAlt); color:var(--sim); border:1px solid var(--line); font-size:9px; padding:2px 7px; border-radius:6px; font-weight:700; letter-spacing:1px; }
+</style>
+</head>
+<body>
+
+<!-- ═══════════ TELA 0 — descoberta: card na home ═══════════ -->
+<div class="screen">
+  <div class="label">Descoberta — card na home</div>
+  <div class="phone">
+    <div class="row" style="margin-bottom:10px">
+      <b style="font-size:15px">PALPIT</b>
+      <span class="muted" style="font-size:10px">hoje</span>
+    </div>
+
+    <div class="card" style="opacity:.5">
+      <div class="muted">Liga do dia</div>
+      <b style="font-size:14px">Rodada 12 · Brasileirão</b>
+      <div class="tiny" style="margin-top:4px">6 jogos · prêmio R$200 · 847 palpiteiros</div>
+    </div>
+
+    <!-- card de entrada do simulador -->
+    <div class="card" style="border-color:var(--sim);border-width:1.5px">
+      <div class="row">
+        <div>
+          <span class="badge-sim">SIMULADOR</span>
+          <b style="font-size:13px;display:block;margin-top:6px">
+            Quanto você perderia apostando de verdade?
+          </b>
+          <div class="tiny" style="margin-top:4px;line-height:1.5">
+            Aposte com dinheiro virtual nas odds reais de hoje
+            e acompanhe seu resultado ao longo do tempo.
+          </div>
+        </div>
+      </div>
+      <div class="btn-ghost" style="border-color:var(--sim);color:var(--sim)">Testar simulador</div>
+    </div>
+
+    <div class="card" style="opacity:.5">
+      <div class="muted">Seu bilhete</div>
+      <div class="tiny">6/12 fichas distribuídas</div>
+    </div>
+
+    <div class="tabbar"><div class="on">Início</div><div>Desafios</div><div><svg style="display:block;margin:0 auto 2px" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg>Simulador</div><div>Ranking</div><div>Perfil</div></div>
+  </div>
+</div>
+
+<!-- ═══════════ TELA 0.5 — primeiro acesso: definir banca ═══════════ -->
+<div class="screen">
+  <div class="label">Primeiro acesso — define a banca</div>
+  <div class="phone">
+    <div class="row" style="margin-bottom:10px">
+      <b style="font-size:15px">Simulador</b>
+      <span class="badge-sim">SEM VALOR</span>
+    </div>
+
+    <div class="card" style="padding:18px 14px">
+      <b style="font-size:15px">Como funciona</b>
+      <p class="muted" style="font-size:12px;line-height:1.6;margin-top:8px">
+        Você aposta <b style="color:var(--fg)">dinheiro virtual</b> nos jogos
+        de verdade, com as <b style="color:var(--fg)">odds reais</b> das casas.
+        No fim, o app mostra quanto você teria ganho — ou perdido.
+      </p>
+      <p class="muted" style="font-size:12px;line-height:1.6;margin-top:8px">
+        Nenhum valor real entra ou sai. Os dados ficam guardados pra você
+        acompanhar a evolução.
+      </p>
+    </div>
+
+    <div class="card">
+      <div class="muted">Com quanto você "depositaria" pra começar?</div>
+      <div class="muted" style="font-size:10px;margin-top:2px">Escolha o valor que costuma colocar em app de aposta</div>
+      <div class="chips" style="margin-top:12px">
+        <div class="chip">R$100</div>
+        <div class="chip" style="border-color:var(--sim)">R$500</div>
+        <div class="chip">R$1.000</div>
+      </div>
+      <div class="btn-ghost" style="font-size:12px;color:var(--muted)">outro valor…</div>
+    </div>
+
+    <div class="cta" style="background:var(--sim)">Começar com R$ 500</div>
+    <div class="warn">Simulação educativa — sem dinheiro real, sem prêmio.</div>
+
+    <div class="tabbar"><div>Início</div><div>Desafios</div><div class="on-sim"><svg style="display:block;margin:0 auto 2px" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg>Simulador</div><div>Ranking</div><div>Perfil</div></div>
+  </div>
+</div>
+
+<!-- ═══════════ TELA 1 — visão geral (perdendo) ═══════════ -->
+<div class="screen">
+  <div class="label">Simulador — visão geral</div>
+  <div class="phone">
+    <div class="row" style="margin-bottom:10px">
+      <b style="font-size:15px">Simulador</b>
+      <span class="badge-sim">SEM VALOR</span>
+    </div>
+
+    <div class="card balance">
+      <div class="muted">Banca virtual</div>
+      <div class="saldo">R$ 1.240</div>
+      <div class="pl neg">−R$ 760 acumulado</div>
+      <svg class="spark" width="100%" height="46" viewBox="0 0 280 46" preserveAspectRatio="none">
+        <polyline fill="none" stroke="#FF4D5E" stroke-width="1.5"
+          points="0,8 20,6 40,14 60,10 80,22 100,18 120,28 140,26 160,34 180,32 200,38 220,36 240,42 260,40 280,44"/>
+        <line x1="0" y1="8" x2="280" y2="8" stroke="#2E2E2E" stroke-dasharray="3 3"/>
+      </svg>
+      <div class="tiny">saldo — últimos 30 dias</div>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="v">R$ 2.000</div><div class="k">total "depositado"</div></div>
+      <div class="stat"><div class="v">R$ 1.860</div><div class="k">total apostado</div></div>
+      <div class="stat"><div class="v" style="color:var(--danger)">−41%</div><div class="k">seu ROI</div></div>
+      <div class="stat"><div class="v">18</div><div class="k">apostas feitas</div></div>
+    </div>
+
+    <div class="proj">
+      <div class="muted">Nesse ritmo, em 1 ano</div>
+      <div class="big">−R$ 3.900</div>
+      <div class="tiny" style="margin-top:4px">Na poupança, os mesmos R$ 2.000 renderiam <b style="color:var(--fg)">+R$ 214</b></div>
+    </div>
+
+    <div class="sec">Recarregar banca</div>
+    <div class="recarga">
+      <div class="chip">+R$50</div><div class="chip">+R$200</div><div class="chip">+R$500</div>
+    </div>
+
+    <div class="sec">Jogos de hoje</div>
+    <div class="jogo">
+      <div class="times">Flamengo × Palmeiras</div>
+      <div class="liga">Brasileirão · 21:30</div>
+      <div class="odds">
+        <div class="odd"><div class="o">1.85</div><div class="n">CASA</div></div>
+        <div class="odd"><div class="o">3.40</div><div class="n">EMPATE</div></div>
+        <div class="odd"><div class="o">4.20</div><div class="n">FORA</div></div>
+      </div>
+    </div>
+    <div class="jogo">
+      <div class="times">Fortaleza × Ceará</div>
+      <div class="liga">Brasileirão · 19:00</div>
+      <div class="odds">
+        <div class="odd"><div class="o">2.10</div><div class="n">CASA</div></div>
+        <div class="odd"><div class="o">3.10</div><div class="n">EMPATE</div></div>
+        <div class="odd"><div class="o">3.60</div><div class="n">FORA</div></div>
+      </div>
+    </div>
+
+    <div class="tabbar"><div>Início</div><div>Desafios</div><div class="on-sim"><svg style="display:block;margin:0 auto 2px" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg>Simulador</div><div>Ranking</div><div>Perfil</div></div>
+  </div>
+</div>
+
+<!-- ═══════════ TELA 2 — modal "apostar quanto" ═══════════ -->
+<div class="screen">
+  <div class="label">Apostar — escolher valor</div>
+  <div class="phone">
+    <div class="row" style="margin-bottom:10px">
+      <b style="font-size:15px">Simulador</b>
+      <span class="badge-sim">SEM VALOR</span>
+    </div>
+    <div class="card balance" style="opacity:.35">
+      <div class="muted">Banca virtual</div>
+      <div class="saldo">R$ 1.240</div>
+      <div class="pl neg">−R$ 760 acumulado</div>
+    </div>
+    <div class="jogo" style="opacity:.35">
+      <div class="times">Flamengo × Palmeiras</div>
+      <div class="odds">
+        <div class="odd sel"><div class="o">1.85</div><div class="n">CASA</div></div>
+        <div class="odd"><div class="o">3.40</div><div class="n">EMPATE</div></div>
+        <div class="odd"><div class="o">4.20</div><div class="n">FORA</div></div>
+      </div>
+    </div>
+
+    <div class="overlay">
+      <div class="sheet">
+        <div class="handle"></div>
+        <div class="muted" style="text-align:center">Flamengo vence · odd <span class="mono">1.85</span></div>
+        <div class="valor">R$ 100</div>
+        <div class="chips">
+          <div class="chip">R$10</div><div class="chip">R$25</div><div class="chip" style="border-color:var(--sim)">R$100</div><div class="chip">R$250</div>
+        </div>
+        <div class="muted" style="text-align:center;font-size:11px">
+          Se ganhar: retorna R$ 185 &nbsp;·&nbsp; Se perder: −R$ 100
+        </div>
+        <div class="cta">Simular aposta</div>
+        <div class="warn">Aposta simulada — nenhum valor real envolvido.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ TELA 3 — resultado de aposta (ganho neutro) ═══════════ -->
+<div class="screen">
+  <div class="label">Minhas apostas — resultado neutro</div>
+  <div class="phone">
+    <div class="row" style="margin-bottom:10px">
+      <b style="font-size:15px">Simulador</b>
+      <span class="badge-sim">SEM VALOR</span>
+    </div>
+
+    <div class="card balance">
+      <div class="muted">Banca virtual</div>
+      <div class="saldo">R$ 1.325</div>
+      <div class="pl neg">−R$ 675 acumulado</div>
+      <div class="tiny" style="margin-top:6px">Flamengo venceu: sua aposta retornou R$ 185. Mesmo assim, o acumulado segue negativo.</div>
+    </div>
+
+    <div class="sec">Minhas apostas</div>
+    <div class="card" style="padding:6px 14px">
+      <div class="ap"><div><b>Casa</b> · Fla × Pal</div><div class="mono">R$100 @ 1.85</div><div class="st ganhou">RETORNOU<br>+R$185</div></div>
+      <div class="ap"><div><b>Over 2.5</b> · For × Cea</div><div class="mono">R$80 @ 2.10</div><div class="st perdeu">PERDEU<br>−R$80</div></div>
+      <div class="ap"><div><b>Empate</b> · São × Cor</div><div class="mono">R$50 @ 3.20</div><div class="st perdeu">PERDEU<br>−R$50</div></div>
+      <div class="ap"><div><b>Casa</b> · Bot × Vas</div><div class="mono">R$60 @ 1.95</div><div class="st perdeu">PERDEU<br>−R$60</div></div>
+      <div class="ap"><div><b>Under 3.5</b> · Grê × Int</div><div class="mono">R$40 @ 1.70</div><div class="st aberta">ABERTA</div></div>
+    </div>
+
+    <div class="tiny" style="margin-top:10px;text-align:center">Resumo: 5 apostas · 1 retorno · 4 perdas</div>
+
+    <div class="tabbar"><div>Início</div><div>Desafios</div><div class="on-sim"><svg style="display:block;margin:0 auto 2px" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg>Simulador</div><div>Ranking</div><div>Perfil</div></div>
+  </div>
+</div>
+
+<!-- ═══════════ TELA 4 — banca zerada (momento educativo) ═══════════ -->
+<div class="screen">
+  <div class="label">Banca zerada — o insight</div>
+  <div class="phone">
+    <div class="row" style="margin-bottom:10px">
+      <b style="font-size:15px">Simulador</b>
+      <span class="badge-sim">SEM VALOR</span>
+    </div>
+
+    <div class="card broke">
+      <div class="icon">💸</div>
+      <h2>Sua banca zerou em 18 dias</h2>
+      <p>
+        Você "depositou" <b class="mono" style="color:var(--fg)">R$ 2.000</b> e perdeu tudo.
+        É a <b class="mono" style="color:var(--fg)">3ª vez</b> que isso acontece.
+      </p>
+      <p style="margin-top:10px">
+        Apostadores reais recarregam exatamente aqui —
+        é nesse momento que vira ciclo.
+      </p>
+      <div class="btn-ghost">Recarregar mesmo assim</div>
+      <a class="ja" href="#">Precisa de ajuda? jogadoresanonimos.com.br</a>
+    </div>
+
+    <div class="proj" style="margin-top:12px">
+      <div class="muted">Se isso fosse dinheiro real</div>
+      <div class="big">−R$ 6.000 perdidos</div>
+      <div class="tiny" style="margin-top:4px">em 3 bancas · 54 dias de simulação</div>
+    </div>
+
+    <div class="tabbar"><div>Início</div><div>Desafios</div><div class="on-sim"><svg style="display:block;margin:0 auto 2px" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg>Simulador</div><div>Ranking</div><div>Perfil</div></div>
+  </div>
+</div>
+
+<!-- ═══════════ TELA 5 — acumulado positivo (raro, sem celebração) ═══════════ -->
+<div class="screen">
+  <div class="label">Se ganhar de verdade (caso raro)</div>
+  <div class="phone">
+    <div class="row" style="margin-bottom:10px">
+      <b style="font-size:15px">Simulador</b>
+      <span class="badge-sim">SEM VALOR</span>
+    </div>
+
+    <div class="card balance">
+      <div class="muted">Banca virtual</div>
+      <div class="saldo">R$ 2.310</div>
+      <div class="pl pos">+R$ 310 acumulado</div>
+      <svg class="spark" width="100%" height="46" viewBox="0 0 280 46" preserveAspectRatio="none">
+        <polyline fill="none" stroke="#9A9A9A" stroke-width="1.5"
+          points="0,30 20,34 40,28 60,36 80,32 100,38 120,30 140,26 160,30 180,22 200,18 220,20 240,14 260,16 280,10"/>
+        <line x1="0" y1="30" x2="280" y2="30" stroke="#2E2E2E" stroke-dasharray="3 3"/>
+      </svg>
+      <div class="tiny">saldo — últimos 30 dias</div>
+    </div>
+
+    <div class="card" style="border-left:3px solid var(--muted)">
+      <p style="font-size:12px;line-height:1.55;color:var(--muted)">
+        Você está no positivo depois de 18 apostas — isso acontece com
+        <b style="color:var(--fg)">~1 em cada 10</b> apostadores nesse volume.
+      </p>
+      <p style="font-size:12px;line-height:1.55;color:var(--muted);margin-top:8px">
+        A margem embutida na odd (~7%) faz o resultado reverter pra perda
+        conforme o volume cresce. Apostadores que param aqui são a exceção —
+        os que continuam devolvem o ganho.
+      </p>
+    </div>
+
+    <div class="proj" style="border-left-color:var(--muted)">
+      <div class="muted">E se você tivesse parado?</div>
+      <div class="big" style="color:var(--fg)">+R$ 310 no bolso</div>
+      <div class="tiny" style="margin-top:4px">o único jeito garantido de ganhar no longo prazo</div>
+    </div>
+
+    <div class="tabbar"><div>Início</div><div>Desafios</div><div class="on-sim"><svg style="display:block;margin:0 auto 2px" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/></svg>Simulador</div><div>Ranking</div><div>Perfil</div></div>
+  </div>
+</div>
+
+</body>
+</html>
