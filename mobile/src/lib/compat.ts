@@ -140,7 +140,7 @@ const handicap = (d: string, o: OpcaoCompat): Pred | null => {
  * Predicado para mercados decididos com placar + estatísticas extras.
  * Escanteios/cartões/1º tempo só fecham no placar final (não entram no decidido parcial).
  */
-export function predicadoEx(o: OpcaoCompat): ((d: ExDados) => boolean) | null {
+export function predicadoEx(o: OpcaoCompat): ((d: ExDados) => boolean | null) | null {
   const g = norm(o.grupo);
   const d = norm(o.descricao);
   const t1 = g.includes('TEMPO') || g.endsWith(' 1T');
@@ -151,28 +151,28 @@ export function predicadoEx(o: OpcaoCompat): ((d: ExDados) => boolean) | null {
       const p = over(l.tipo, l.x);
       return (x) => {
         const v = t1 ? x.escanteios1t : x.escanteios;
-        return v != null && p(v[0], v[1]);
+        return v == null ? null : p(v[0], v[1]);
       };
     }
-    if (hc) return (x) => x.escanteios != null && hc(x.escanteios[0], x.escanteios[1]);
+    if (hc) return (x) => x.escanteios == null ? null : hc(x.escanteios[0], x.escanteios[1]);
     return null;
   }
   if (g.startsWith('CART')) {
     if (l) {
       const p = over(l.tipo, l.x);
-      return (x) => x.cartoes != null && p(x.cartoes[0], x.cartoes[1]);
+      return (x) => x.cartoes == null ? null : p(x.cartoes[0], x.cartoes[1]);
     }
-    if (hc) return (x) => x.cartoes != null && hc(x.cartoes[0], x.cartoes[1]);
+    if (hc) return (x) => x.cartoes == null ? null : hc(x.cartoes[0], x.cartoes[1]);
     return null;
   }
   if (t1) {
     if (l) {
       const p = over(l.tipo, l.x);
-      return (x) => x.gols1t != null && p(x.gols1t[0], x.gols1t[1]);
+      return (x) => x.gols1t == null ? null : p(x.gols1t[0], x.gols1t[1]);
     }
-    if (hc) return (x) => x.gols1t != null && hc(x.gols1t[0], x.gols1t[1]);
+    if (hc) return (x) => x.gols1t == null ? null : hc(x.gols1t[0], x.gols1t[1]);
     const s = lado(d, o);
-    if (s) return (x) => x.gols1t != null && RESULTADO[s](x.gols1t[0], x.gols1t[1]);
+    if (s) return (x) => x.gols1t == null ? null : RESULTADO[s](x.gols1t[0], x.gols1t[1]);
   }
   return null;
 }

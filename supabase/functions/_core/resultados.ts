@@ -33,6 +33,7 @@ export async function aplicarPlacar(sql: Db, jogoId: string, casa: number, fora:
       if (!p && !px) continue;
       if (!p && !extra) continue; // mercado de escanteios/cartões/1º tempo sem dado: fica pra finalização manual
       const bateu = p ? p(casa, fora) : px!(extra!);
+      if (bateu == null) continue; // a API não mandou a estatística: fica pra finalização manual
       if (bateu) marcados++;
       await tx`update mercados set resultado_final = ${bateu}, decidido_em = coalesce(decidido_em, now()) where id = ${m.id}`;
     }

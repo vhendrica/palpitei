@@ -16,7 +16,8 @@ export function secaoDo(grupo: string): (typeof SECOES)[number] {
 }
 
 const numeroDo = (grupo: string): { n: number; s: string } | null => {
-  const m = grupo.match(/(\d+(?:[.,]\d+)?)/);
+  // Ignora o "1º"/"2º" de "1º TEMPO": a linha do mercado é o número sem "º".
+  const m = grupo.match(/(\d+(?:[.,]\d+)?)(?!\d|[.,]\d|º)/);
   if (!m) return null;
   const s = m[1].replace(',', '.');
   return { n: parseFloat(s), s };

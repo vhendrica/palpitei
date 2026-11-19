@@ -114,6 +114,7 @@ export default function Admin() {
 type Run = (fn: () => Promise<string | void>) => Promise<void>;
 
 function AbaLiga({ data, run }: { data: string; run: Run }) {
+  const [confirmaRemover, setConfirmaRemover] = useState(false);
   const [la, setLa] = useState<LigaAdmin | null>(null);
   const [vencedores, setVencedores] = useState<Record<string, boolean>>({});
   const [premioDesc, setPremioDesc] = useState("");
@@ -222,7 +223,9 @@ function AbaLiga({ data, run }: { data: string; run: Run }) {
                     if (removendo !== p.user_id) return setRemovendo(p.user_id);
                     setRemovendo(null);
                     run(async () => {
-                      setLa(await api.admin.removerPalpiteiro(liga.id, p.user_id));
+                      setLa(
+                        await api.admin.removerPalpiteiro(liga.id, p.user_id),
+                      );
                       return `${p.nome} removido: fichas apagadas e ${liga.custo_entrada} PONTOS devolvidos.`;
                     });
                   }}
@@ -287,17 +290,23 @@ function AbaLiga({ data, run }: { data: string; run: Run }) {
             gravado pela escada (limitado à meta) e o voucher vai pro 1º lugar.
           </T>
           <Button
-            title="Remover rodada"
+            title={
+              confirmaRemover
+                ? "Toque de novo pra remover a rodada"
+                : "Remover rodada"
+            }
             variant="ghost"
             icon="trash-outline"
             className="mt-3"
-            onPress={() =>
+            onPress={() => {
+              if (!confirmaRemover) return setConfirmaRemover(true);
+              setConfirmaRemover(false);
               run(async () => {
                 await api.admin.removerLiga(liga.id);
                 setLa(await api.admin.liga(data));
                 return "Rodada removida.";
-              })
-            }
+              });
+            }}
           />
           <Button
             title="Finalizar múltipla"
@@ -375,9 +384,9 @@ function JogoAdmin({
   };
 
   const normDescricao = (d: string) => {
-    const n = (d ?? '').trim().toUpperCase();
-    if (n === jogo.time_casa.trim().toUpperCase()) return 'CASA';
-    if (n === jogo.time_fora.trim().toUpperCase()) return 'FORA';
+    const n = (d ?? "").trim().toUpperCase();
+    if (n === jogo.time_casa.trim().toUpperCase()) return "CASA";
+    if (n === jogo.time_fora.trim().toUpperCase()) return "FORA";
     return n;
   };
   const baseItens = editando ? ms : jogo.mercados;
@@ -385,52 +394,71 @@ function JogoAdmin({
   const temMercado = (grupo: string, descricao: string) =>
     baseItens.some(
       (x) =>
-        ((x.grupo ?? '').trim().toUpperCase() === grupo || (x.grupo ?? '').trim() === '') &&
+        ((x.grupo ?? "").trim().toUpperCase() === grupo ||
+          (x.grupo ?? "").trim() === "") &&
         normDescricao(x.descricao) === normDescricao(descricao),
     );
   // Seleção em rascunho: toque marca/desmarca; "Salvar mercados" publica só o marcado.
   const [marcados, setMarcados] = useState<Record<string, boolean>>({});
   const estaMarcado = (g: { grupo: string; opcoes: { descricao: string }[] }) =>
-    marcados[g.grupo] ?? g.opcoes.every((o) => temMercado(g.grupo, o.descricao));
+    marcados[g.grupo] ??
+    g.opcoes.every((o) => temMercado(g.grupo, o.descricao));
   const toggleGrupo = (g: { grupo: string; opcoes: { descricao: string }[] }) =>
     setMarcados((s) => ({ ...s, [g.grupo]: !estaMarcado(g) }));
 
-
-
   // Mercados existentes que não batem com nenhum grupo da API ficam visíveis em OUTROS.
   const chavesApi = new Set(
-    (daApi?.mercados ?? []).map((m) => `${m.grupo.toUpperCase()}|${normDescricao(m.descricao)}`),
+    (daApi?.mercados ?? []).map(
+      (m) => `${m.grupo.toUpperCase()}|${normDescricao(m.descricao)}`,
+    ),
   );
   const outros =
     daApi == null
       ? []
       : jogo.mercados.some(
-            (m) => !chavesApi.has(`${(m.grupo ?? '').trim().toUpperCase()}|${normDescricao(m.descricao)}`),
+            (m) =>
+              !chavesApi.has(
+                `${(m.grupo ?? "").trim().toUpperCase()}|${normDescricao(m.descricao)}`,
+              ),
           )
         ? [
             {
-              grupo: 'OUTROS',
+              grupo: "OUTROS",
               opcoes: jogo.mercados
                 .filter(
                   (m) =>
-                    !chavesApi.has(`${(m.grupo ?? '').trim().toUpperCase()}|${normDescricao(m.descricao)}`),
+                    !chavesApi.has(
+                      `${(m.grupo ?? "").trim().toUpperCase()}|${normDescricao(m.descricao)}`,
+                    ),
                 )
-                .map((m) => ({ descricao: m.descricao, multiplicador: m.multiplicador })),
+                .map((m) => ({
+                  descricao: m.descricao,
+                  multiplicador: m.multiplicador,
+                })),
             },
           ]
         : [];
 
   // Publica exatamente os grupos marcados (o resto é apagado no backend).
   const salvarSelecionados = () => {
-    const grupos = [...agruparMercados(daApi?.mercados ?? []), ...outros].filter(estaMarcado);
+    const grupos = [
+      ...agruparMercados(daApi?.mercados ?? []),
+      ...outros,
+    ].filter(estaMarcado);
     const itens = grupos.flatMap((g) =>
       g.opcoes.map((o) => {
         const existente = jogo.mercados.find(
           (m) =>
-            ((m.grupo ?? '').trim().toUpperCase() === g.grupo || (m.grupo ?? '').trim() === '') &&
+            ((m.grupo ?? "").trim().toUpperCase() === g.grupo ||
+              (m.grupo ?? "").trim() === "") &&
             normDescricao(m.descricao) === normDescricao(o.descricao),
         );
-        return { id: existente?.id, grupo: g.grupo === 'OUTROS' ? '' : g.grupo, descricao: o.descricao, multiplicador: o.multiplicador };
+        return {
+          id: existente?.id,
+          grupo: g.grupo === "OUTROS" ? "" : g.grupo,
+          descricao: o.descricao,
+          multiplicador: o.multiplicador,
+        };
       }),
     );
     onSalvarMercados(itens);
@@ -440,10 +468,15 @@ function JogoAdmin({
   // Reordena grupos publicados: a lista enviada define a ordem no banco.
   // Seção de cada grupo: editável pelo admin; default = mapa fixo.
   const [secaoDraft, setSecaoDraft] = useState<Record<string, string>>({});
-  const secaoAtual = (g: { grupo: string; opcoes: { secao?: string | null }[] }) =>
-    g.opcoes[0]?.secao ?? secaoDo(g.grupo);
+  const secaoAtual = (g: {
+    grupo: string;
+    opcoes: { secao?: string | null }[];
+  }) => g.opcoes[0]?.secao ?? secaoDo(g.grupo);
   // Renomeia a seção inteira: todo mercado cuja seção efetiva for a atual entra na nova.
-  const salvarSecao = (g: { grupo: string; opcoes: { secao?: string | null }[] }) => {
+  const salvarSecao = (g: {
+    grupo: string;
+    opcoes: { secao?: string | null }[];
+  }) => {
     const nome = (secaoDraft[g.grupo] ?? secaoAtual(g)).trim().toUpperCase();
     const atual = secaoAtual(g);
     setSecaoDraft((s) => ({ ...s, [g.grupo]: nome }));
@@ -454,13 +487,18 @@ function JogoAdmin({
         grupo: m.grupo,
         descricao: m.descricao,
         multiplicador: m.multiplicador,
-        secao: (m.secao ?? secaoDo(m.grupo ?? '')) === atual ? nome : (m.secao ?? null),
+        secao:
+          (m.secao ?? secaoDo(m.grupo ?? "")) === atual
+            ? nome
+            : (m.secao ?? null),
       })),
     );
   };
 
   // Ordem otimista: muda na hora; quando a API confirma, volta ao estado real.
-  const [ordOverride, setOrdOverride] = useState<typeof jogo.mercados | null>(null);
+  const [ordOverride, setOrdOverride] = useState<typeof jogo.mercados | null>(
+    null,
+  );
   const mercadosVis = ordOverride ?? jogo.mercados;
 
   const moverGrupo = async (gi: number, dir: number) => {
@@ -503,7 +541,9 @@ function JogoAdmin({
     setSalvou(true);
     setTimeout(() => setSalvou(false), 2500);
   };
-  const secoesDoJogo = [...new Set(agruparMercados(mercadosVis).map(secaoAtual))];
+  const secoesDoJogo = [
+    ...new Set(agruparMercados(mercadosVis).map(secaoAtual)),
+  ];
 
   // Move um grupo inteiro pra uma seção existente (o "arrastar" da versão click).
   const moverPraSecao = async (
@@ -518,7 +558,8 @@ function JogoAdmin({
         descricao: m.descricao,
         multiplicador: m.multiplicador,
         secao:
-          (m.grupo ?? '').trim().toUpperCase() === g.grupo && descs.has(normDescricao(m.descricao))
+          (m.grupo ?? "").trim().toUpperCase() === g.grupo &&
+          descs.has(normDescricao(m.descricao))
             ? nome
             : (m.secao ?? null),
       })),
@@ -542,7 +583,12 @@ function JogoAdmin({
               {jogo.time_casa} x {jogo.time_fora}
             </T>
             {salvou ? (
-              <Ionicons name="checkmark-circle" size={16} color={C.primary} style={{ marginLeft: 6 }} />
+              <Ionicons
+                name="checkmark-circle"
+                size={16}
+                color={C.primary}
+                style={{ marginLeft: 6 }}
+              />
             ) : null}
           </View>
         </View>
@@ -571,108 +617,143 @@ function JogoAdmin({
 
       {!editando ? (
         recolhido ? null : (
-        <View className="mt-2">
-          {agruparMercados(mercadosVis).map((g, gi, arr) => (
-            <View key={g.grupo} className="mt-1">
-              {gi === 0 || secaoAtual(arr[gi - 1]) !== secaoAtual(g) ? (
-                fechada ? (
-                  <T className="mt-1 font-mont-xb text-sm text-primary">{secaoAtual(g)}</T>
-                ) : (
-                  <TextInput
-                    className="mt-1 border-b border-line pb-0.5 font-mont-xb text-sm text-primary"
-                    value={secaoDraft[g.grupo] ?? secaoAtual(g)}
-                    onChangeText={(t) => setSecaoDraft((s) => ({ ...s, [g.grupo]: t.toUpperCase() }))}
-                    onEndEditing={() => salvarSecao(g)}
-                    onBlur={() => salvarSecao(g)}
-                  />
-                )
-              ) : null}
-              {g.grupo ? (
-                <View className="mt-1 flex-row items-center">
-                  <T className="flex-1 font-mont-xb text-xs uppercase">{g.grupo}</T>
-                  {!fechada ? (
-                    <View className="flex-row">
-                      <Pressable hitSlop={10} style={{ padding: 4 }} onPress={() => moverGrupo(gi, -1)}>
-                        <Ionicons name="arrow-up" size={18} color={gi === 0 ? C.muted : C.primary} />
-                      </Pressable>
-                      <Pressable hitSlop={10} style={{ padding: 4, marginLeft: 8 }} onPress={() => moverGrupo(gi, 1)}>
-                        <Ionicons
-                          name="arrow-down"
-                          size={18}
-                          color={gi === arr.length - 1 ? C.muted : C.primary}
-                        />
-                      </Pressable>
-                      <Pressable
-                        hitSlop={10}
-                        style={{ padding: 4, marginLeft: 8 }}
-                        onPress={() => setMovendoGrupo((x) => (x === g.grupo ? null : g.grupo))}
-                      >
-                        <Ionicons name="swap-horizontal-outline" size={18} color={movendoGrupo === g.grupo ? C.primary : C.muted} />
-                      </Pressable>
-                    </View>
-                  ) : null}
-                </View>
-              ) : null}
-              {movendoGrupo === g.grupo ? (
-                <View className="mb-1 flex-row flex-wrap" style={{ gap: 6 }}>
-                  {secoesDoJogo.map((s) => (
-                    <Pressable
-                      key={s}
-                      onPress={() => moverPraSecao(g, s)}
-                      className={`rounded-full border px-2 py-0.5 ${
-                        s === secaoAtual(g) ? "border-primary bg-primary" : "border-line"
-                      }`}
-                    >
-                      <T className={`text-xs ${s === secaoAtual(g) ? "text-onPrimary" : "text-primary"}`}>
-                        {s}
-                      </T>
-                    </Pressable>
-                  ))}
-                </View>
-              ) : null}
-              {g.opcoes.map((m) => (
-                <View
-                  key={m.id}
-                  className="flex-row items-center justify-between border-b border-line py-1.5"
-                >
-                  {fechada ? (
-                    <T className="flex-1 text-sm">
-                      {m.resultado_final ? "✓ " : ""}
-                      {m.descricao}
+          <View className="mt-2">
+            {agruparMercados(mercadosVis).map((g, gi, arr) => (
+              <View key={g.grupo} className="mt-1">
+                {gi === 0 || secaoAtual(arr[gi - 1]) !== secaoAtual(g) ? (
+                  fechada ? (
+                    <T className="mt-1 font-mont-xb text-sm text-primary">
+                      {secaoAtual(g)}
                     </T>
                   ) : (
-                    <View className="flex-1">
-                      <Checkbox
-                        checked={!!vencedores[m.id]}
-                        onChange={(v) => setVencedor(m.id, v)}
-                        label={m.descricao}
-                      />
-                    </View>
-                  )}
-                  <T className="ml-2 font-odds text-base text-primary">
-                    {fmtOdd(m.multiplicador)}
-                  </T>
-                </View>
-              ))}
-            </View>
-          ))}
-          {!fechada ? (
-            <View className="mt-2 flex-row" style={{ gap: 8 }}>
-              <Button
-                title="Editar mercados"
-                variant="ghost"
-                icon="create-outline"
-                onPress={abrirEditor}
-              />
-              <Button
-                title="Renovar odds"
-                variant="ghost"
-                icon="refresh-outline"
-                onPress={onRenovarMercados}
-              />
-            </View>
-          ) : null}
-        </View>
+                    <TextInput
+                      className="mt-1 border-b border-line pb-0.5 font-mont-xb text-sm text-primary"
+                      value={secaoDraft[g.grupo] ?? secaoAtual(g)}
+                      onChangeText={(t) =>
+                        setSecaoDraft((s) => ({
+                          ...s,
+                          [g.grupo]: t.toUpperCase(),
+                        }))
+                      }
+                      onEndEditing={() => salvarSecao(g)}
+                      onBlur={() => salvarSecao(g)}
+                    />
+                  )
+                ) : null}
+                {g.grupo ? (
+                  <View className="mt-1 flex-row items-center">
+                    <T className="flex-1 font-mont-xb text-xs uppercase">
+                      {g.grupo}
+                    </T>
+                    {!fechada ? (
+                      <View className="flex-row">
+                        <Pressable
+                          hitSlop={10}
+                          style={{ padding: 4 }}
+                          onPress={() => moverGrupo(gi, -1)}
+                        >
+                          <Ionicons
+                            name="arrow-up"
+                            size={18}
+                            color={gi === 0 ? C.muted : C.primary}
+                          />
+                        </Pressable>
+                        <Pressable
+                          hitSlop={10}
+                          style={{ padding: 4, marginLeft: 8 }}
+                          onPress={() => moverGrupo(gi, 1)}
+                        >
+                          <Ionicons
+                            name="arrow-down"
+                            size={18}
+                            color={gi === arr.length - 1 ? C.muted : C.primary}
+                          />
+                        </Pressable>
+                        <Pressable
+                          hitSlop={10}
+                          style={{ padding: 4, marginLeft: 8 }}
+                          onPress={() =>
+                            setMovendoGrupo((x) =>
+                              x === g.grupo ? null : g.grupo,
+                            )
+                          }
+                        >
+                          <Ionicons
+                            name="swap-horizontal-outline"
+                            size={18}
+                            color={
+                              movendoGrupo === g.grupo ? C.primary : C.muted
+                            }
+                          />
+                        </Pressable>
+                      </View>
+                    ) : null}
+                  </View>
+                ) : null}
+                {movendoGrupo === g.grupo ? (
+                  <View className="mb-1 flex-row flex-wrap" style={{ gap: 6 }}>
+                    {secoesDoJogo.map((s) => (
+                      <Pressable
+                        key={s}
+                        onPress={() => moverPraSecao(g, s)}
+                        className={`rounded-full border px-2 py-0.5 ${
+                          s === secaoAtual(g)
+                            ? "border-primary bg-primary"
+                            : "border-line"
+                        }`}
+                      >
+                        <T
+                          className={`text-xs ${s === secaoAtual(g) ? "text-onPrimary" : "text-primary"}`}
+                        >
+                          {s}
+                        </T>
+                      </Pressable>
+                    ))}
+                  </View>
+                ) : null}
+                {g.opcoes.map((m) => (
+                  <View
+                    key={m.id}
+                    className="flex-row items-center justify-between border-b border-line py-1.5"
+                  >
+                    {fechada ? (
+                      <T className="flex-1 text-sm">
+                        {m.resultado_final ? "✓ " : ""}
+                        {m.descricao}
+                      </T>
+                    ) : (
+                      <View className="flex-1">
+                        <Checkbox
+                          checked={!!vencedores[m.id]}
+                          onChange={(v) => setVencedor(m.id, v)}
+                          label={m.descricao}
+                        />
+                      </View>
+                    )}
+                    <T className="ml-2 font-odds text-base text-primary">
+                      {fmtOdd(m.multiplicador)}
+                    </T>
+                  </View>
+                ))}
+              </View>
+            ))}
+            {!fechada ? (
+              <View className="mt-2 flex-row" style={{ gap: 8 }}>
+                <Button
+                  title="Editar mercados"
+                  variant="ghost"
+                  icon="create-outline"
+                  onPress={abrirEditor}
+                />
+                <Button
+                  title="Renovar odds"
+                  variant="ghost"
+                  icon="refresh-outline"
+                  onPress={onRenovarMercados}
+                />
+              </View>
+            ) : null}
+          </View>
         )
       ) : (
         <View className="mt-2">
@@ -764,7 +845,9 @@ function JogoAdmin({
         </View>
       )}
       {!fechada && !recolhido ? (
-        <View>          {!daApi ? (
+        <View>
+          {" "}
+          {!daApi ? (
             <Button
               title={
                 buscando ? "Buscando…" : "Ver mais mercados da API (4 créditos)"
@@ -818,7 +901,8 @@ function JogoAdmin({
               />
             </View>
           )}
-          <ErrorBox erro={erroApi} />        </View>
+          <ErrorBox erro={erroApi} />{" "}
+        </View>
       ) : null}
     </Card>
   );
@@ -1059,7 +1143,9 @@ function AbaConfig({ run }: { run: Run }) {
       </View>
       <View className="mb-2 flex-row items-center">
         <T className="w-14 text-xs text-muted">Início</T>
-        <T className="mr-2 flex-1 px-2 text-[11px] text-muted">já começa valendo</T>
+        <T className="mr-2 flex-1 px-2 text-[11px] text-muted">
+          já começa valendo
+        </T>
         <TextInput
           className="flex-1 rounded-lg border border-line bg-card px-2 py-2 font-odds text-sm text-fg"
           value={cfg.premio_inicial}

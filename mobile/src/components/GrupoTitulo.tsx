@@ -1,6 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useRef, useState } from "react";
-import { Modal, Pressable, View } from "react-native";
+import { Modal, Pressable, useWindowDimensions, View } from "react-native";
 
 import { explicacaoDo } from "../lib/secoes";
 import { useTheme } from "../store/Theme";
@@ -11,13 +11,17 @@ export function GrupoTitulo({ grupo }: { grupo: string }) {
   const { palette: C } = useTheme();
   const [aberto, setAberto] = useState(false);
   const [pos, setPos] = useState({ x: 0, y: 0 });
+  const tela = useWindowDimensions();
+  const largura = Math.min(260, tela.width - 16);
   const iconRef = useRef<any>(null);
   const dica = explicacaoDo(grupo);
 
   const abrir = () => {
-    iconRef.current?.measureInWindow?.((x: number, y: number, w: number, h: number) => {
-      setPos({ x, y: y + h + 6 });
-    });
+    iconRef.current?.measureInWindow?.(
+      (x: number, y: number, w: number, h: number) => {
+        setPos({ x, y: y + h + 6 });
+      },
+    );
     setAberto(true);
   };
 
@@ -26,19 +30,34 @@ export function GrupoTitulo({ grupo }: { grupo: string }) {
       <T className="font-mont-xb text-[11px] uppercase text-muted">{grupo}</T>
       {dica ? (
         <View ref={iconRef} collapsable={false}>
-          <Pressable onPress={abrir} hitSlop={8} accessibilityLabel={`Explicação: ${grupo}`}>
-            <Ionicons name="help-circle-outline" size={15} color={C.muted} style={{ marginLeft: 4 }} />
+          <Pressable
+            onPress={abrir}
+            hitSlop={8}
+            accessibilityLabel={`Explicação: ${grupo}`}
+          >
+            <Ionicons
+              name="help-circle-outline"
+              size={15}
+              color={C.muted}
+              style={{ marginLeft: 4 }}
+            />
           </Pressable>
         </View>
       ) : null}
-      <Modal transparent visible={aberto} animationType="none" onRequestClose={() => setAberto(false)}>
+      <Modal
+        transparent
+        visible={aberto}
+        animationType="none"
+        onRequestClose={() => setAberto(false)}
+      >
         <Pressable style={{ flex: 1 }} onPress={() => setAberto(false)} />
         <View
           style={{
             position: "absolute",
-            top: pos.y,
-            left: Math.max(8, Math.min(pos.x, 300)),
-            width: 260,
+            // Balão sempre dentro da tela: perto da borda de baixo/direita ele recua.
+            top: Math.max(8, Math.min(pos.y, tela.height - 200)),
+            left: Math.max(8, Math.min(pos.x, tela.width - largura - 8)),
+            width: largura,
           }}
         >
           <View

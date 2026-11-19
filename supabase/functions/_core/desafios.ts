@@ -57,7 +57,7 @@ export async function meusDesafios(db: Db, userId: string, busca?: string) {
        where l.publico and l.status <> 'finalizada'
          and l.owner_id <> $1
          and not exists (select 1 from entradas e where e.liga_id = l.id and e.user_id = $1)
-         ${termo ? 'and (l.titulo ilike $2 or l.id::text = $2)' : ''}
+         ${termo ? 'and (l.titulo ilike $2 or l.id::text = $3)' : ''}
        order by l.created_at desc limit 30`;
   const [meus, publicos] = await Promise.all([
     db.unsafe(
@@ -67,7 +67,7 @@ export async function meusDesafios(db: Db, userId: string, busca?: string) {
        order by l.created_at desc`,
       [userId],
     ),
-    db.unsafe(publicosQuery, termo ? [userId, `%${termo}%`] : [userId]),
+    db.unsafe(publicosQuery, termo ? [userId, `%${termo}%`, termo.toLowerCase()] : [userId]),
   ]);
   // Posição do usuário nos desafios finalizados — pra selo de campeão/pódio na lista.
   const fin = meus.filter((r) => r.status === 'finalizada');
@@ -118,10 +118,11 @@ export async function criarDesafio(sql: Db, user: UserPublico, input: Record<str
     const config = await getConfig(tx);
     const data = pool.map((f) => (f.data instanceof Date ? f.data.toISOString() : String(f.data)).slice(0, 10)).sort()[0];
     const fichasIn = Number(input.fichas);
-    const fichas =
-      Number.isInteger(fichasIn) && fichasIn >= 10 && fichasIn <= 5000
-        ? fichasIn
-        : config.fichas_por_entrada;
+    const informou = input.fichas != null && input.fichas !== '';
+    if (informou && !(Number.isInteger(fichasIn) && fichasIn >= 10 && fichasIn <= 5000)) {
+      throw new RuleError('Fichas: escolha um número inteiro de 10 a 5000.');
+    }
+    const fichas = informou ? fichasIn : config.fichas_por_entrada;
 
     const [liga] = await tx`
       insert into ligas (data, owner_id, titulo, convite, publico, custo_entrada, fichas_por_entrada, modo)
@@ -166,7 +167,7 @@ export async function conviteView(db: Db, token: string) {
 
 /** Detalhe completo: jogos+mercados, minha situação, ranking. Privado: só quem entrou. */
 export async function detalhe(db: Db, user: UserPublico | null, ligaId: string, odds?: OddsConfig) {
-  const liga = await porId(db, ligaId);
+  let liga = await porId(db, ligaId);
   const entrada = user ? await db`select 1 from entradas where liga_id = ${liga.id} and user_id = ${user.id}` : [];
   const entrou = entrada.length > 0;
   if (!liga.publico && !entrou && liga.owner_id !== user?.id) {
@@ -182,7 +183,8 @@ export async function detalhe(db: Db, user: UserPublico | null, ligaId: string, 
         and j.horario <= now() and j.horario > now() - interval '3 days'
       limit 1`;
     if (pendente) {
-      const [v] = await db`select resultados_verificados_em as ts from ligas where id = ${liga.id}`;
+      // Throttle global: a busca na API cobre todas as ligas, então 1 vez a cada 10 min basta pra todos os desafios.
+      const [v] = await db`select max(resultados_verificados_em) as ts from ligas`;
       const ts = v?.ts ? new Date(v.ts as string).getTime() : 0;
       if (Date.now() - ts > 10 * 60 * 1000) {
         try {
@@ -191,6 +193,7 @@ export async function detalhe(db: Db, user: UserPublico | null, ligaId: string, 
           console.error('[desafio] sync resultados falhou', e);
         }
         await db`update ligas set resultados_verificados_em = now() where id = ${liga.id}`;
+        liga = await porId(db, ligaId);
       }
     }
   }

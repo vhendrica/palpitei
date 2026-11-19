@@ -25,7 +25,7 @@ export function StreakModal({
     return () => clearTimeout(t);
   }, [onFechar]);
 
-  const amanha = CURVA[Math.min(dia, 6)]; // CURVA[dia] = dia seguinte (dia é 1-based)
+  const amanha = dia >= 7 ? CURVA[0] : CURVA[dia]; // CURVA[dia] = dia seguinte (dia é 1-based); depois do 7º recomeça
 
   return (
     <Modal transparent visible animationType="fade" onRequestClose={onFechar}>

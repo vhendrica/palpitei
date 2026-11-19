@@ -32,7 +32,13 @@ import {
   T,
 } from "../../components/ui";
 import { track } from "../../lib/analytics";
-import { alternarOdd, corMultipla, type Draft, DRAFT_VAZIO, fichasNoDraft } from "../../lib/bilhete";
+import {
+  alternarOdd,
+  corMultipla,
+  type Draft,
+  DRAFT_VAZIO,
+  fichasNoDraft,
+} from "../../lib/bilhete";
 import { useDesktop } from "../../lib/desktop";
 import { fmtData, fmtPontos, fmtPts } from "../../lib/format";
 import { errorMessage, useApp } from "../../store/AppStore";
@@ -52,14 +58,17 @@ export default function HomeMultipla() {
   // já exibido/dispensado para não reabrir a cada refetch; `streakManual` cobre o
   // clique no indicador do header.
   const bonus = home?.bonus_login ?? null;
-  const bonusKey = bonus ? `${bonus.dia}:${bonus.pontos}:${bonus.quebrou}` : null;
+  const bonusKey = bonus
+    ? `${bonus.dia}:${bonus.pontos}:${bonus.quebrou}`
+    : null;
   const [streakManual, setStreakManual] = useState<{
     dia: number;
     pontos: number;
     quebrou: boolean;
   } | null>(null);
   const [bonusVisto, setBonusVisto] = useState<string | null>(null);
-  const streak = streakManual ?? (bonus && bonusKey !== bonusVisto ? bonus : null);
+  const streak =
+    streakManual ?? (bonus && bonusKey !== bonusVisto ? bonus : null);
   const fecharStreak = () => {
     setStreakManual(null);
     setBonusVisto(bonusKey);
@@ -110,7 +119,10 @@ export default function HomeMultipla() {
     const antes = palpitouAntes.current;
     palpitouAntes.current = palpitou;
     if (!palpitou || antes) return;
-    const t = setTimeout(() => scrollRef.current?.scrollTo({ y: 0, animated: true }), 150);
+    const t = setTimeout(
+      () => scrollRef.current?.scrollTo({ y: 0, animated: true }),
+      150,
+    );
     return () => clearTimeout(t);
   }, [palpitou]);
   const [editandoKey, setEditandoKey] = useState<string | null>(null);
@@ -121,11 +133,15 @@ export default function HomeMultipla() {
     const simples: Record<string, number> = {};
     for (const j of home?.jogos ?? []) {
       if (j.comecou) continue;
-      for (const m of j.mercados) if ((m.minhas_fichas ?? 0) > 0) simples[m.id] = m.minhas_fichas!;
+      for (const m of j.mercados)
+        if ((m.minhas_fichas ?? 0) > 0) simples[m.id] = m.minhas_fichas!;
     }
-    const multiplas = (eu?.multiplas ?? []).filter((m) => m.pernas.every((p) => !p.comecou));
+    const multiplas = (eu?.multiplas ?? []).filter((m) =>
+      m.pernas.every((p) => !p.comecou),
+    );
     const fichas =
-      Object.values(simples).reduce((s, f) => s + f, 0) + multiplas.reduce((s, m) => s + m.fichas, 0);
+      Object.values(simples).reduce((s, f) => s + f, 0) +
+      multiplas.reduce((s, m) => s + m.fichas, 0);
     return { simples, multiplas, fichas };
   }, [home?.jogos, eu?.multiplas]);
 
@@ -134,7 +150,12 @@ export default function HomeMultipla() {
       mercados: m.pernas.map((p) => p.mercado_id),
       fichas: m.fichas,
     }));
-    const itens = [...new Set([...Object.keys(editaveis.simples), ...ms.flatMap((m) => m.mercados)])];
+    const itens = [
+      ...new Set([
+        ...Object.keys(editaveis.simples),
+        ...ms.flatMap((m) => m.mercados),
+      ]),
+    ];
     setDraft({ itens, simples: { ...editaveis.simples }, multiplas: ms });
     setEditandoKey(draftKey);
     track("Abriu edição do bilhete", { origem: "liga" });
@@ -145,7 +166,8 @@ export default function HomeMultipla() {
     track("Cancelou edição do bilhete", { origem: "liga" });
   };
 
-  const fichasLivresBase = (eu?.fichas_livres ?? 0) + (editando ? editaveis.fichas : 0);
+  const fichasLivresBase =
+    (eu?.fichas_livres ?? 0) + (editando ? editaveis.fichas : 0);
   const noDraft = useMemo(() => fichasNoDraft(draft), [draft]);
   const livres = fichasLivresBase - noDraft;
   const aberta = home?.liga?.status === "aberta";
@@ -186,14 +208,17 @@ export default function HomeMultipla() {
 
   const confirmar = () =>
     run(async () => {
-      const n = await apostar({
-        simples: Object.fromEntries(
-          draft.itens
-            .filter((id) => (draft.simples[id] ?? 0) > 0)
-            .map((id) => [id, draft.simples[id]]),
-        ),
-        multiplas: draft.multiplas.filter((m) => m.mercados.length > 0),
-      }, editando);
+      const n = await apostar(
+        {
+          simples: Object.fromEntries(
+            draft.itens
+              .filter((id) => (draft.simples[id] ?? 0) > 0)
+              .map((id) => [id, draft.simples[id]]),
+          ),
+          multiplas: draft.multiplas.filter((m) => m.mercados.length > 0),
+        },
+        editando,
+      );
       setDraft(DRAFT_VAZIO);
       setEditandoKey(null);
       if (editando) {
@@ -290,114 +315,136 @@ export default function HomeMultipla() {
             )
           }
         >
-        <View className="flex-row items-center">
-          <T className="flex-shrink text-[11px] uppercase tracking-widest text-muted" numberOfLines={1}>
-            {j.campeonato} • {fmtData(j.horario)}
-          </T>
-          <StatusJogo jogo={j} />
-        </View>
-        <View className="mt-1 flex-row items-center">
-          <T
-            className={`font-mont-xb ${j.destaque ? "text-xl" : "text-base"}`}
-            numberOfLines={1}
-            style={{ flexShrink: 1 }}
-          >
-            {j.time_casa}
-          </T>
-          <T className={`mx-1.5 font-mont-xb ${j.destaque ? "text-xl" : "text-base"}`}>
-            {j.placar ? `${j.placar.casa} x ${j.placar.fora}` : "x"}
-          </T>
-          <T
-            className={`font-mont-xb ${j.destaque ? "text-xl" : "text-base"}`}
-            numberOfLines={1}
-            style={{ flexShrink: 1 }}
-          >
-            {j.time_fora}
-          </T>
-        </View>
-        </Pressable>
-        {!j.finalizado ? (
-        <View className="mt-3">
-          {agruparMercados(j.mercados)
-            .filter((_, gi) => gi < MERCADOS_VISIVEIS || abertos.includes(j.id))
-            .map((g, gi, arr) => {
-            const sec = g.opcoes[0]?.secao ?? secaoDo(g.grupo);
-            const novaSecao =
-              gi === 0 ||
-              (arr[gi - 1].opcoes[0]?.secao ?? secaoDo(arr[gi - 1].grupo)) !== sec;
-            return (
-              <View key={g.grupo} className="mb-3">
-                {novaSecao && sec !== "PRINCIPAL" ? (
-                  <T className="mb-1 mt-1 font-mont-xb text-sm text-primary">{sec}</T>
-                ) : null}
-                {g.grupo ? <GrupoTitulo grupo={g.grupo} /> : null}
-                <View className="flex-row flex-wrap" style={{ gap: 6 }}>
-                  {g.opcoes.map((m) => {
-                    const minhas =
-                      editando && !j.comecou ? 0 : (m.minhas_fichas ?? 0);
-                    const noBilhete = draft.itens.includes(m.id);
-                    const resultado =
-                      home.liga?.status === "finalizada" || j.finalizado || m.decidido
-                        ? m.resultado_final
-                          ? "green"
-                          : minhas > 0
-                            ? "red"
-                            : null
-                        : null;
-                    return (
-                      <View
-                        key={m.id}
-                        style={{ flexGrow: 1, flexBasis: "30%", minWidth: 0 }}
-                      >
-                        <BetButton
-                          compact
-                          descricao={m.descricao}
-                          multiplicador={m.multiplicador}
-                          selected={noBilhete}
-                          fichas={minhas}
-                          selos={selosDe(m.id)}
-                          resultado={resultado}
-                          disabled={
-                            !podeApostar && (!!eu || !aberta || j.comecou)
-                          }
-                          onPress={() =>
-                            podeApostar
-                              ? setDraft((d) => alternarOdd(d, m.id))
-                              : chamarPalpitar()
-                          }
-                        />
-                      </View>
-                    );
-                  })}
-                </View>
-              </View>
-            );
-          })}
-          {agruparMercados(j.mercados).length > MERCADOS_VISIVEIS ? (
-            <Pressable
-              onPress={() =>
-                setAbertos((a) =>
-                  a.includes(j.id) ? a.filter((x) => x !== j.id) : [...a, j.id],
-                )
-              }
-              className="flex-row items-center justify-center py-1 active:opacity-70"
+          <View className="flex-row items-center">
+            <T
+              className="flex-shrink text-[11px] uppercase tracking-widest text-muted"
+              numberOfLines={1}
             >
-              <T className="font-mont-b text-xs text-primary">
-                {abertos.includes(j.id)
-                  ? "Ver menos mercados"
-                  : `Ver mais mercados (${agruparMercados(j.mercados).length - MERCADOS_VISIVEIS})`}
-              </T>
-              <Ionicons
-                name={abertos.includes(j.id) ? "chevron-up" : "chevron-down"}
-                size={14}
-                color={C.primary}
-              />
-            </Pressable>
-          ) : null}
-          {j.mercados.length === 0 ? (
-            <T className="text-sm text-muted">Mercados em breve.</T>
-          ) : null}
-        </View>
+              {j.campeonato} • {fmtData(j.horario)}
+            </T>
+            <StatusJogo jogo={j} />
+          </View>
+          <View className="mt-1 flex-row items-center">
+            <T
+              className={`font-mont-xb ${j.destaque ? "text-xl" : "text-base"}`}
+              numberOfLines={1}
+              style={{ flexShrink: 1 }}
+            >
+              {j.time_casa}
+            </T>
+            <T
+              className={`mx-1.5 font-mont-xb ${j.destaque ? "text-xl" : "text-base"}`}
+            >
+              {j.placar ? `${j.placar.casa} x ${j.placar.fora}` : "x"}
+            </T>
+            <T
+              className={`font-mont-xb ${j.destaque ? "text-xl" : "text-base"}`}
+              numberOfLines={1}
+              style={{ flexShrink: 1 }}
+            >
+              {j.time_fora}
+            </T>
+          </View>
+        </Pressable>
+        {!j.finalizado || j.mercados.some((m) => (m.minhas_fichas ?? 0) > 0) ? (
+          <View className="mt-3">
+            {agruparMercados(
+              j.finalizado
+                ? j.mercados.filter((m) => (m.minhas_fichas ?? 0) > 0)
+                : j.mercados,
+            )
+              .filter(
+                (_, gi) => gi < MERCADOS_VISIVEIS || abertos.includes(j.id),
+              )
+              .map((g, gi, arr) => {
+                const sec = g.opcoes[0]?.secao ?? secaoDo(g.grupo);
+                const novaSecao =
+                  gi === 0 ||
+                  (arr[gi - 1].opcoes[0]?.secao ??
+                    secaoDo(arr[gi - 1].grupo)) !== sec;
+                return (
+                  <View key={g.grupo} className="mb-3">
+                    {novaSecao && sec !== "PRINCIPAL" ? (
+                      <T className="mb-1 mt-1 font-mont-xb text-sm text-primary">
+                        {sec}
+                      </T>
+                    ) : null}
+                    {g.grupo ? <GrupoTitulo grupo={g.grupo} /> : null}
+                    <View className="flex-row flex-wrap" style={{ gap: 6 }}>
+                      {g.opcoes.map((m) => {
+                        const minhas =
+                          editando && !j.comecou ? 0 : (m.minhas_fichas ?? 0);
+                        const noBilhete = draft.itens.includes(m.id);
+                        const resultado =
+                          home.liga?.status === "finalizada" ||
+                          j.finalizado ||
+                          m.decidido
+                            ? m.resultado_final
+                              ? "green"
+                              : minhas > 0
+                                ? "red"
+                                : null
+                            : null;
+                        return (
+                          <View
+                            key={m.id}
+                            style={{
+                              flexGrow: 1,
+                              flexBasis: "30%",
+                              minWidth: 0,
+                            }}
+                          >
+                            <BetButton
+                              compact
+                              descricao={m.descricao}
+                              multiplicador={m.multiplicador}
+                              selected={noBilhete}
+                              fichas={minhas}
+                              selos={selosDe(m.id)}
+                              resultado={resultado}
+                              disabled={
+                                !podeApostar && (!!eu || !aberta || j.comecou)
+                              }
+                              onPress={() =>
+                                podeApostar
+                                  ? setDraft((d) => alternarOdd(d, m.id))
+                                  : chamarPalpitar()
+                              }
+                            />
+                          </View>
+                        );
+                      })}
+                    </View>
+                  </View>
+                );
+              })}
+            {agruparMercados(j.mercados).length > MERCADOS_VISIVEIS ? (
+              <Pressable
+                onPress={() =>
+                  setAbertos((a) =>
+                    a.includes(j.id)
+                      ? a.filter((x) => x !== j.id)
+                      : [...a, j.id],
+                  )
+                }
+                className="flex-row items-center justify-center py-1 active:opacity-70"
+              >
+                <T className="font-mont-b text-xs text-primary">
+                  {abertos.includes(j.id)
+                    ? "Ver menos mercados"
+                    : `Ver mais mercados (${agruparMercados(j.mercados).length - MERCADOS_VISIVEIS})`}
+                </T>
+                <Ionicons
+                  name={abertos.includes(j.id) ? "chevron-up" : "chevron-down"}
+                  size={14}
+                  color={C.primary}
+                />
+              </Pressable>
+            ) : null}
+            {j.mercados.length === 0 ? (
+              <T className="text-sm text-muted">Mercados em breve.</T>
+            ) : null}
+          </View>
         ) : null}
       </Card>
     );
@@ -408,7 +455,11 @@ export default function HomeMultipla() {
       <AppHeader
         streak={home.usuario?.login_streak ?? undefined}
         onStreak={() =>
-          setStreakManual({ dia: home.usuario?.login_streak ?? 1, pontos: 0, quebrou: false })
+          setStreakManual({
+            dia: home.usuario?.login_streak ?? 1,
+            pontos: 0,
+            quebrou: false,
+          })
         }
       />
       <ScrollView
@@ -424,221 +475,263 @@ export default function HomeMultipla() {
         <View
           style={
             desktop
-              ? { maxWidth: 1180, width: "100%", alignSelf: "center", flexDirection: "row", alignItems: "flex-start", gap: 20 }
+              ? {
+                  maxWidth: 1180,
+                  width: "100%",
+                  alignSelf: "center",
+                  flexDirection: "row",
+                  alignItems: "flex-start",
+                  gap: 20,
+                }
               : undefined
           }
         >
-        <View style={desktop ? { flex: 1, minWidth: 0 } : undefined}>
-        {!home.liga ? (
-          <EmptyState
-            icon="calendar-outline"
-            title="Nenhuma rodada aberta agora"
-            subtitle="Volte mais tarde: os jogos do dia estão sendo escolhidos."
-          />
-        ) : (
-          <>
-            <View className="mb-3 flex-row items-center justify-between">
-              <T className="font-mont-xb text-xl">
-                {home.liga.data === home.data
-                  ? "Rodada do dia"
-                  : `Rodada de ${home.liga.data.slice(8, 10)}/${home.liga.data.slice(5, 7)}`}
-              </T>
-              <StatusBadge status={home.liga.status} />
-            </View>
-            <PremioLinha
-              premio={home.premio}
-              descricao={home.liga.premio_desc}
-              finalizada={home.liga.status === "finalizada"}
-            />
-
-            {user && !eu ? (
-              <EntradaModal
-                visible={explicando}
-                custo={home.regras.custo_entrada_pontos}
-                fichas={home.regras.fichas_por_entrada}
-                saldo={user.saldo_pontos}
-                streak={home.usuario?.login_streak ?? 0}
-                busy={busy}
-                onConfirmar={entrar}
-                onFechar={() => setExplicando(false)}
+          <View style={desktop ? { flex: 1, minWidth: 0 } : undefined}>
+            {!home.liga ? (
+              <EmptyState
+                icon="calendar-outline"
+                title="Nenhuma rodada aberta agora"
+                subtitle="Volte mais tarde: os jogos do dia estão sendo escolhidos."
               />
-            ) : null}
-            <View
-              onLayout={(e) => {
-                palpitarY.current = e.nativeEvent.layout.y;
-              }}
-            >
-              <Card className="mt-3">
-                {!user ? (
-                  <>
-                    <CarrosselJogos
-                      jogos={destaque ? [destaque, ...outros] : home.jogos}
-                      onOdd={chamarPalpitar}
-                    />
-                    <PulsoBrilho sinal={sinal}>
-                      <Button
-                        title="Palpitar"
-                        icon="football"
-                        onPress={() => router.push("/entrar")}
-                        className="mt-3"
-                      />
-                    </PulsoBrilho>
-                  </>
-                ) : !eu ? (
-                  <>
-                    <CarrosselJogos
-                      jogos={destaque ? [destaque, ...outros] : home.jogos}
-                      onOdd={chamarPalpitar}
-                    />
-                    <PulsoBrilho sinal={sinal}>
-                      <Button
-                        title="Palpitar"
-                        icon="football"
-                        onPress={() => setExplicando(true)}
-                        loading={busy}
-                        disabled={!aberta}
-                        className="mt-3"
-                      />
-                    </PulsoBrilho>
-                  </>
-                ) : (
-                  <>
-                    {(!valendo || editaveis.fichas > 0 || livres > 0) && livres + noDraft > 0 ? (
-                      <SituacaoFichas livres={livres} noBilhete={noDraft} />
-                    ) : null}
-                    {(eu.fichas_ganhas ?? 0) > 0 ? (
-                      <T className="mb-2 text-center text-xs text-muted">
-                        Seus acertos já devolveram {fmtPts(eu.fichas_ganhas!)} fichas. Dá pra reapostar nos jogos que não começaram.
-                      </T>
-                    ) : null}
-                    {aberta && editando ? (
-                      <Button
-                        title="Cancelar edição"
-                        variant="ghost"
-                        icon="close"
-                        onPress={cancelarEdicao}
-                        className="mb-3"
-                      />
-                    ) : aberta && editaveis.fichas > 0 && draft.itens.length === 0 ? (
-                      <Button
-                        title="Editar bilhete"
-                        variant="ghost"
-                        icon="create-outline"
-                        onPress={editarBilhete}
-                        className="mb-3"
-                      />
-                    ) : null}
-                    <View className="flex-row justify-around">
-                      <Stat label="Pontuação" value={fmtPontos(eu.pontuacao)} />
-                      <Stat
-                        label="Posição"
-                        value={eu.posicao ? `${eu.posicao}º` : "—"}
-                      />
-                      <Stat
-                        label="Palpiteiros ›"
-                        value={fmtPts(home.premio.palpiteiros)}
-                        onPress={() => router.push("/palpiteiros")}
-                      />
-                    </View>
-                  </>
-                )}
-                <ErrorBox erro={erro} />
-              </Card>
-            </View>
-
-            <View className="mt-3">
-              <PremioBar
-                premio={home.premio}
-                finalizada={home.liga.status === "finalizada"}
-                descricao={home.liga.premio_desc}
-                onPalpiteiros={
-                  eu ? undefined : () => router.push("/palpiteiros")
-                }
-                semContagem={!!eu}
-                onConvidar={() => convidar(home.liga?.premio_desc)}
-                completo={palpitou}
-              />
-            </View>
-
-            <Pressable onPress={() => router.push("/simulador")}>
-              <Card className="mt-3 border-[#7C8DA6]">
-                <View className="flex-row items-center justify-between">
-                  <View className="flex-1 pr-3">
-                    <T
-                      className="font-mont-b tracking-widest"
-                      style={{ color: "#7C8DA6", fontSize: 9 }}
-                    >
-                      SIMULADOR
-                    </T>
-                    <T className="mt-1 font-mont-b text-sm">
-                      Quanto você perderia apostando de verdade?
-                    </T>
-                    <T className="mt-1 text-xs text-muted">
-                      Dinheiro virtual, odds reais — acompanhe seu resultado.
-                    </T>
-                  </View>
-                  <Ionicons name="cash-outline" size={26} color="#7C8DA6" />
+            ) : (
+              <>
+                <View className="mb-3 flex-row items-center justify-between">
+                  <T className="font-mont-xb text-xl">
+                    {home.liga.data === home.data
+                      ? "Rodada do dia"
+                      : `Rodada de ${home.liga.data.slice(8, 10)}/${home.liga.data.slice(5, 7)}`}
+                  </T>
+                  <StatusBadge status={home.liga.status} />
                 </View>
-              </Card>
-            </Pressable>
+                <PremioLinha
+                  premio={home.premio}
+                  descricao={home.liga.premio_desc}
+                  finalizada={home.liga.status === "finalizada"}
+                />
 
-            <View onLayout={(e) => (jogosY.current = e.nativeEvent.layout.y)}>
-              <SectionTitle>Jogos</SectionTitle>
-            </View>
-            {destaque ? renderJogo(destaque) : null}
-            {desktop ? (
-              <View style={{ flexDirection: "row", flexWrap: "wrap", marginHorizontal: -6 }}>
-                {outros.map((j) => (
-                  <View key={j.id} style={{ width: "50%", paddingHorizontal: 6 }}>
-                    {renderJogo(j)}
+                {user && !eu ? (
+                  <EntradaModal
+                    visible={explicando}
+                    custo={home.regras.custo_entrada_pontos}
+                    fichas={home.regras.fichas_por_entrada}
+                    saldo={user.saldo_pontos}
+                    streak={home.usuario?.login_streak ?? 0}
+                    busy={busy}
+                    onConfirmar={entrar}
+                    onFechar={() => setExplicando(false)}
+                  />
+                ) : null}
+                <View
+                  onLayout={(e) => {
+                    palpitarY.current = e.nativeEvent.layout.y;
+                  }}
+                >
+                  <Card className="mt-3">
+                    {!user ? (
+                      <>
+                        <CarrosselJogos
+                          jogos={destaque ? [destaque, ...outros] : home.jogos}
+                          onOdd={chamarPalpitar}
+                        />
+                        <PulsoBrilho sinal={sinal}>
+                          <Button
+                            title="Palpitar"
+                            icon="football"
+                            onPress={() => router.push("/entrar")}
+                            className="mt-3"
+                          />
+                        </PulsoBrilho>
+                      </>
+                    ) : !eu ? (
+                      <>
+                        <CarrosselJogos
+                          jogos={destaque ? [destaque, ...outros] : home.jogos}
+                          onOdd={chamarPalpitar}
+                        />
+                        <PulsoBrilho sinal={sinal}>
+                          <Button
+                            title="Palpitar"
+                            icon="football"
+                            onPress={() => setExplicando(true)}
+                            loading={busy}
+                            disabled={!aberta}
+                            className="mt-3"
+                          />
+                        </PulsoBrilho>
+                      </>
+                    ) : (
+                      <>
+                        {(!valendo || editaveis.fichas > 0 || livres > 0) &&
+                        livres + noDraft > 0 ? (
+                          <SituacaoFichas livres={livres} noBilhete={noDraft} />
+                        ) : null}
+                        {(eu.fichas_ganhas ?? 0) > 0 ? (
+                          <T className="mb-2 text-center text-xs text-muted">
+                            Seus acertos já devolveram{" "}
+                            {fmtPts(eu.fichas_ganhas!)} fichas. Dá pra reapostar
+                            nos jogos que não começaram.
+                          </T>
+                        ) : null}
+                        {aberta && editando ? (
+                          <Button
+                            title="Cancelar edição"
+                            variant="ghost"
+                            icon="close"
+                            onPress={cancelarEdicao}
+                            className="mb-3"
+                          />
+                        ) : aberta &&
+                          editaveis.fichas > 0 &&
+                          draft.itens.length === 0 ? (
+                          <Button
+                            title="Editar bilhete"
+                            variant="ghost"
+                            icon="create-outline"
+                            onPress={editarBilhete}
+                            className="mb-3"
+                          />
+                        ) : null}
+                        <View className="flex-row justify-around">
+                          <Stat
+                            label="Pontuação"
+                            value={fmtPontos(eu.pontuacao)}
+                          />
+                          <Stat
+                            label="Posição"
+                            value={eu.posicao ? `${eu.posicao}º` : "—"}
+                          />
+                          <Stat
+                            label="Palpiteiros ›"
+                            value={fmtPts(home.premio.palpiteiros)}
+                            onPress={() => router.push("/palpiteiros")}
+                          />
+                        </View>
+                      </>
+                    )}
+                    <ErrorBox erro={erro} />
+                  </Card>
+                </View>
+
+                <View className="mt-3">
+                  <PremioBar
+                    premio={home.premio}
+                    finalizada={home.liga.status === "finalizada"}
+                    descricao={home.liga.premio_desc}
+                    onPalpiteiros={
+                      eu ? undefined : () => router.push("/palpiteiros")
+                    }
+                    semContagem={!!eu}
+                    onConvidar={() => convidar(home.liga?.premio_desc)}
+                    completo={palpitou}
+                  />
+                </View>
+
+                <Pressable onPress={() => router.push("/simulador")}>
+                  <Card className="mt-3 border-[#7C8DA6]">
+                    <View className="flex-row items-center justify-between">
+                      <View className="flex-1 pr-3">
+                        <T
+                          className="font-mont-b tracking-widest"
+                          style={{ color: "#7C8DA6", fontSize: 9 }}
+                        >
+                          SIMULADOR
+                        </T>
+                        <T className="mt-1 font-mont-b text-sm">
+                          Quanto você perderia apostando de verdade?
+                        </T>
+                        <T className="mt-1 text-xs text-muted">
+                          Dinheiro virtual, odds reais — acompanhe seu
+                          resultado.
+                        </T>
+                      </View>
+                      <Ionicons name="cash-outline" size={26} color="#7C8DA6" />
+                    </View>
+                  </Card>
+                </Pressable>
+
+                <View
+                  onLayout={(e) => (jogosY.current = e.nativeEvent.layout.y)}
+                >
+                  <SectionTitle>Jogos</SectionTitle>
+                </View>
+                {destaque ? renderJogo(destaque) : null}
+                {desktop ? (
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      flexWrap: "wrap",
+                      marginHorizontal: -6,
+                    }}
+                  >
+                    {outros.map((j) => (
+                      <View
+                        key={j.id}
+                        style={{ width: "50%", paddingHorizontal: 6 }}
+                      >
+                        {renderJogo(j)}
+                      </View>
+                    ))}
                   </View>
-                ))}
-              </View>
-            ) : (
-              outros.map(renderJogo)
+                ) : (
+                  outros.map(renderJogo)
+                )}
+              </>
             )}
-          </>
-        )}
-        </View>
-        {desktop && eu && home.liga ? (
-          <View style={[{ width: 340 }, { position: "sticky", top: 16 } as object]}>
-            {aberta || draft.itens.length > 0 ? (
-              <Bilhete
-                draft={draft}
-                opcoes={opcoes}
-                fichasLivres={fichasLivresBase}
-                offsetMultiplas={offsetMultiplas}
-                onChange={setDraft}
-                rail
-                onResumo={() => {
-                  track("Abriu resumo do bilhete", { origem: "liga" });
-                  setErroBilhete(null);
-                  setResumo(true);
-                }}
-              />
-            ) : (
-              <Card>
-                <T className="font-mont-xb text-sm">Meu bilhete</T>
-                <T className="mt-1 text-xs leading-4 text-muted">
-                  A rodada não aceita mais palpites. Acompanhe seus acertos nos jogos ao lado.
-                </T>
-              </Card>
-            )}
-            {editando && draft.itens.length === 0 ? (
-              <Card className="mt-3">
-                <T className="mb-2 text-center text-xs text-muted">
-                  Você tirou todos os palpites dos jogos que não começaram.
-                </T>
-                <Button title="Salvar alterações" loading={busy} onPress={confirmar} />
-                <ErrorBox erro={erroBilhete} />
-              </Card>
-            ) : null}
           </View>
-        ) : null}
+          {desktop && eu && home.liga ? (
+            <View
+              style={[
+                { width: 340 },
+                { position: "sticky", top: 16 } as object,
+              ]}
+            >
+              {aberta || draft.itens.length > 0 ? (
+                <Bilhete
+                  draft={draft}
+                  opcoes={opcoes}
+                  fichasLivres={fichasLivresBase}
+                  offsetMultiplas={offsetMultiplas}
+                  onChange={setDraft}
+                  rail
+                  onResumo={() => {
+                    track("Abriu resumo do bilhete", { origem: "liga" });
+                    setErroBilhete(null);
+                    setResumo(true);
+                  }}
+                />
+              ) : (
+                <Card>
+                  <T className="font-mont-xb text-sm">Meu bilhete</T>
+                  <T className="mt-1 text-xs leading-4 text-muted">
+                    A rodada não aceita mais palpites. Acompanhe seus acertos
+                    nos jogos ao lado.
+                  </T>
+                </Card>
+              )}
+              {editando && draft.itens.length === 0 ? (
+                <Card className="mt-3">
+                  <T className="mb-2 text-center text-xs text-muted">
+                    Você tirou todos os palpites dos jogos que não começaram.
+                  </T>
+                  <Button
+                    title="Salvar alterações"
+                    loading={busy}
+                    onPress={confirmar}
+                  />
+                  <ErrorBox erro={erroBilhete} />
+                </Card>
+              ) : null}
+            </View>
+          ) : null}
         </View>
       </ScrollView>
       {streak ? (
-        <StreakModal dia={streak.dia} pontos={streak.pontos} quebrou={streak.quebrou} onFechar={fecharStreak} />
+        <StreakModal
+          dia={streak.dia}
+          pontos={streak.pontos}
+          quebrou={streak.quebrou}
+          onFechar={fecharStreak}
+        />
       ) : null}
       {eu ? (
         <ResumoBilhete
@@ -672,7 +765,11 @@ export default function HomeMultipla() {
           <T className="mb-2 text-center text-sm text-muted">
             Você tirou todos os palpites dos jogos que não começaram.
           </T>
-          <Button title="Salvar alterações" loading={busy} onPress={confirmar} />
+          <Button
+            title="Salvar alterações"
+            loading={busy}
+            onPress={confirmar}
+          />
           <ErrorBox erro={erroBilhete} />
         </View>
       ) : null}
@@ -740,7 +837,9 @@ function SituacaoFichas({
 }
 
 function convidar(premio?: string | null) {
-  const url = process.env.EXPO_PUBLIC_APP_URL ?? "https://vhendrica.github.io/palpitei/app/";
+  const url =
+    process.env.EXPO_PUBLIC_APP_URL ??
+    "https://vhendrica.github.io/palpitei/app/";
   const msg = `Bora palpitar comigo no PALPIT? É de graça${premio ? ` e o campeão leva ${premio}` : ""}! ${url}`;
   if (Platform.OS === "web") {
     Linking.openURL(`https://wa.me/?text=${encodeURIComponent(msg)}`);
@@ -833,7 +932,11 @@ function SlideJogo({ jogo, onOdd }: { jogo: Jogo; onOdd: () => void }) {
               className="flex-1 items-center rounded-lg border border-line bg-cardAlt px-1 py-1.5 active:opacity-70"
               style={{ minWidth: 0 }}
             >
-              <T className="text-[9px] font-mont-b uppercase" numberOfLines={1} style={{ maxWidth: "100%" }}>
+              <T
+                className="text-[9px] font-mont-b uppercase"
+                numberOfLines={1}
+                style={{ maxWidth: "100%" }}
+              >
                 {m.descricao}
               </T>
               <T className="font-odds text-sm text-primary">
@@ -851,7 +954,9 @@ function StatusJogo({ jogo }: { jogo: Jogo }) {
   if (jogo.finalizado) {
     return (
       <View className="ml-2 rounded-full bg-cardAlt px-2 py-0.5">
-        <T className="font-mont-xb text-[9px] tracking-widest text-muted">FINALIZADO</T>
+        <T className="font-mont-xb text-[9px] tracking-widest text-muted">
+          FINALIZADO
+        </T>
       </View>
     );
   }
@@ -864,8 +969,16 @@ function AoVivo() {
   useEffect(() => {
     const loop = Animated.loop(
       Animated.sequence([
-        Animated.timing(a, { toValue: 0.25, duration: 600, useNativeDriver: true }),
-        Animated.timing(a, { toValue: 1, duration: 600, useNativeDriver: true }),
+        Animated.timing(a, {
+          toValue: 0.25,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+        Animated.timing(a, {
+          toValue: 1,
+          duration: 600,
+          useNativeDriver: true,
+        }),
       ]),
     );
     loop.start();
@@ -874,9 +987,17 @@ function AoVivo() {
   return (
     <View className="ml-2 flex-row items-center rounded-full bg-primary/15 px-2 py-0.5">
       <Animated.View
-        style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: C.primary, opacity: a }}
+        style={{
+          width: 6,
+          height: 6,
+          borderRadius: 3,
+          backgroundColor: C.primary,
+          opacity: a,
+        }}
       />
-      <T className="ml-1 font-mont-xb text-[9px] tracking-widest text-primary">AO VIVO</T>
+      <T className="ml-1 font-mont-xb text-[9px] tracking-widest text-primary">
+        AO VIVO
+      </T>
     </View>
   );
 }

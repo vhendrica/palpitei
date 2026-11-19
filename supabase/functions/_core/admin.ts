@@ -319,6 +319,10 @@ export async function renovarMercadosJogo(sql: Db, cfg: OddsConfig | undefined, 
     return true;
   });
   return sql.begin(async (tx: Tx) => {
+    // Rechecado dentro da transação (com a liga travada): alguém pode ter entrado durante a chamada à API.
+    await tx`select id from ligas where id = ${j.liga_id} for update`;
+    const [{ n: agora }] = await tx`select count(*)::int as n from entradas where liga_id = ${j.liga_id}`;
+    if (agora > 0) throw new RuleError('Já tem palpiteiro nessa rodada; os mercados estão travados.');
     await tx`delete from mercados where jogo_id = ${jogoId}`;
     await tx`insert into mercados ${tx(
       dedup.map((m, ordem) => ({ jogo_id: jogoId, grupo: m.grupo, descricao: m.descricao, multiplicador: m.multiplicador, ordem })),
@@ -336,6 +340,9 @@ export async function removerLiga(sql: Db, ligaId: string) {
   if (n > 0) throw new RuleError('Já tem palpiteiro nessa rodada; não dá pra remover (finalizar mantém o histórico).');
   return sql.begin(async (tx: Tx) => {
     await tx`delete from mercados where jogo_id in (select id from jogos where liga_id = ${ligaId})`;
+    // Os jogos voltam a ficar livres no pool (dá pra remover ou escolher de novo).
+    await tx`update fixtures_dia set selecionado = false
+             where fixture_id in (select fixture_id from jogos where liga_id = ${ligaId} and fixture_id is not null)`;
     await tx`delete from jogos where liga_id = ${ligaId}`;
     await tx`delete from ligas where id = ${ligaId}`;
     return { removida: ligaId };
