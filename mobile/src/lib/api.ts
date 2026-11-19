@@ -57,7 +57,7 @@ async function req<T>(
   method: string,
   path: string,
   body?: unknown,
-  opts?: { silencioso?: boolean },
+  opts?: { silencioso?: boolean; semToast?: boolean },
 ): Promise<T> {
   let res: Response;
   // A tela escura fica só pra gravações: leitura mostra esqueleto na própria tela.
@@ -83,7 +83,7 @@ async function req<T>(
       const erro = new ApiError(data.error ?? 'Algo deu errado. Tente novamente.', res.status);
       // 4xx é erro esperado do usuário (código errado etc.); 5xx é bug/queda — loga.
       if (res.status >= 500) track('Erro na API', { path, status: res.status });
-      if (res.status !== 401) onApiError?.(erro.message);
+      if (res.status !== 401 && !opts?.semToast) onApiError?.(erro.message);
       throw erro;
     }
     return data as T;
@@ -96,7 +96,7 @@ export type CadastroInput = {
   nome: string;
   email: string;
   senha: string;
-  whatsapp?: string;
+  whatsapp: string;
   cpf: string;
   data_nascimento: string;
   bairro?: string;
@@ -112,8 +112,10 @@ export type BilheteInput = {
 };
 
 export const api = {
-  cadastro: (input: CadastroInput) => req<Sessao>('POST', '/auth/cadastro', input),
-  login: (email: string, senha: string) => req<Sessao>('POST', '/auth/login', { email, senha }),
+  // Login e cadastro mostram o erro no próprio formulário (sem toast duplicado).
+  cadastro: (input: CadastroInput) => req<Sessao>('POST', '/auth/cadastro', input, { semToast: true }),
+  login: (email: string, senha: string) =>
+    req<Sessao>('POST', '/auth/login', { email, senha }, { semToast: true }),
   // OTP WhatsApp dormente — reativar quando a verificação voltar.
   otpLogin: (whatsapp: string) => req<CodigoEnviado>('POST', '/auth/otp/login', { whatsapp }),
   otpReenviar: (whatsapp: string) => req<CodigoEnviado>('POST', '/auth/otp/reenviar', { whatsapp }),

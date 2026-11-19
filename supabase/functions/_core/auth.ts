@@ -11,7 +11,6 @@ import {
   validarNome,
   validarSenha,
   validarWhatsapp,
-  validarWhatsappOpcional,
 } from './validation.ts';
 import type { WhatsappSender } from './whatsapp.ts';
 
@@ -90,7 +89,7 @@ export async function cadastrar(d: AuthDeps, input: CadastroInput) {
   const nome = validarNome(input.nome);
   const email = validarEmail(input.email);
   const senha = validarSenha(input.senha);
-  const whatsapp = validarWhatsappOpcional(input.whatsapp);
+  const whatsapp = validarWhatsapp(input.whatsapp);
   const cpf = validarCpf(input.cpf);
   const nascimento = parseDataNascimento(input.data_nascimento);
   validarMaioridade(nascimento, (d.hoje ?? hojeISO)());

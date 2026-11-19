@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppHeader } from "../components/AppHeader";
 import { ErrorBox, Field } from "../components/Form";
+import { useDesktop } from "../lib/desktop";
 import { Button, T } from "../components/ui";
 import { errorMessage, useApp } from "../store/AppStore";
 import { useTheme } from "../store/Theme";
@@ -14,6 +15,7 @@ export default function Entrar() {
   const { palette: C } = useTheme();
   const insets = useSafeAreaInsets();
   const { entrar } = useApp();
+  const desktop = useDesktop();
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [mostrar, setMostrar] = useState(false);
@@ -43,6 +45,7 @@ export default function Entrar() {
         contentContainerStyle={{
           padding: 20,
           paddingBottom: insets.bottom + 32,
+          ...(desktop ? { width: "100%", maxWidth: 440, alignSelf: "center", paddingTop: 48 } : {}),
         }}
         keyboardShouldPersistTaps="handled"
       >

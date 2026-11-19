@@ -73,8 +73,8 @@ test('rejeita menor de 18, CPF inválido, senha fraca e consentimentos ausentes'
 
 test('CPF, e-mail e WhatsApp únicos entre contas ativas', async () => {
   await cadastrar(deps, input());
-  await assert.rejects(cadastrar(deps, input({ email: 'b@exemplo.com', whatsapp: '' })), { message: 'CPF já cadastrado.' });
-  await assert.rejects(cadastrar(deps, input({ cpf: '111.444.777-35', whatsapp: '' })), {
+  await assert.rejects(cadastrar(deps, input({ email: 'b@exemplo.com', whatsapp: '(85) 99999-0101' })), { message: 'CPF já cadastrado.' });
+  await assert.rejects(cadastrar(deps, input({ cpf: '111.444.777-35', whatsapp: '(85) 99999-0102' })), {
     message: 'E-mail já cadastrado. Faça login.',
   });
   await assert.rejects(cadastrar(deps, input({ cpf: '111.444.777-35', email: 'b@exemplo.com' })), {

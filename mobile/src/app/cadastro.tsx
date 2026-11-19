@@ -14,14 +14,37 @@ import { AppHeader } from "../components/AppHeader";
 import { Checkbox, ErrorBox, Field } from "../components/Form";
 import { Button, T } from "../components/ui";
 import { track } from "../lib/analytics";
+import { useDesktop } from "../lib/desktop";
 import { fmtCpf, fmtDataNasc, fmtWhats } from "../lib/format";
 import { errorMessage, useApp } from "../store/AppStore";
 import { useTheme } from "../store/Theme";
+
+// No computador o formulário fica centralizado e os campos andam em pares.
+function Linha({
+  desktop,
+  children,
+}: {
+  desktop: boolean;
+  children: React.ReactNode;
+}) {
+  if (!desktop) return <>{children}</>;
+  const filhos = Array.isArray(children) ? children : [children];
+  return (
+    <View className="flex-row" style={{ gap: 16 }}>
+      {filhos.map((ch, i) => (
+        <View key={i} className="flex-1">
+          {ch}
+        </View>
+      ))}
+    </View>
+  );
+}
 
 export default function Cadastro() {
   const { palette: C } = useTheme();
   const insets = useSafeAreaInsets();
   const { cadastrar } = useApp();
+  const desktop = useDesktop();
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
@@ -37,7 +60,11 @@ export default function Cadastro() {
 
   const olho = (
     <Pressable onPress={() => setMostrar((m) => !m)} hitSlop={8}>
-      <Ionicons name={mostrar ? "eye-off-outline" : "eye-outline"} size={20} color={C.muted} />
+      <Ionicons
+        name={mostrar ? "eye-off-outline" : "eye-outline"}
+        size={20}
+        color={C.muted}
+      />
     </Pressable>
   );
 
@@ -50,7 +77,7 @@ export default function Cadastro() {
         nome,
         email,
         senha,
-        whatsapp: whats || undefined,
+        whatsapp: whats,
         cpf,
         data_nascimento: nasc,
         aceita_termos: termos,
@@ -75,6 +102,14 @@ export default function Cadastro() {
         contentContainerStyle={{
           padding: 20,
           paddingBottom: insets.bottom + 32,
+          ...(desktop
+            ? {
+                width: "100%",
+                maxWidth: 640,
+                alignSelf: "center",
+                paddingTop: 32,
+              }
+            : {}),
         }}
         keyboardShouldPersistTaps="handled"
       >
@@ -89,62 +124,68 @@ export default function Cadastro() {
           <T className="font-odds text-2xl text-primary">+500</T>
         </View>
 
+        <Linha desktop={desktop}>
+          <Field
+            label="Seu nome"
+            icon="person-outline"
+            placeholder="Como te chamam?"
+            value={nome}
+            onChangeText={setNome}
+            autoCapitalize="words"
+          />
+          <Field
+            label="E-mail"
+            icon="mail-outline"
+            placeholder="voce@email.com"
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoComplete="email"
+            value={email}
+            onChangeText={setEmail}
+          />
+        </Linha>
+        <Linha desktop={desktop}>
+          <Field
+            label="Senha"
+            icon="lock-closed-outline"
+            placeholder="Mín. 8, com letras e números"
+            secureTextEntry={!mostrar}
+            autoCapitalize="none"
+            value={senha}
+            onChangeText={setSenha}
+            trailing={olho}
+          />
+          <Field
+            label="Repita a senha"
+            icon="lock-closed-outline"
+            placeholder="Confirme sua senha"
+            secureTextEntry={!mostrar}
+            autoCapitalize="none"
+            value={senha2}
+            onChangeText={setSenha2}
+            trailing={olho}
+          />
+        </Linha>
+        <Linha desktop={desktop}>
+          <Field
+            label="CPF"
+            icon="card-outline"
+            placeholder="000.000.000-00"
+            keyboardType="number-pad"
+            value={cpf}
+            onChangeText={(t) => setCpf(fmtCpf(t))}
+          />
+          <Field
+            label="Data de nascimento"
+            icon="calendar-outline"
+            placeholder="DD/MM/AAAA"
+            keyboardType="number-pad"
+            value={nasc}
+            onChangeText={(t) => setNasc(fmtDataNasc(t))}
+          />
+        </Linha>
         <Field
-          label="Seu nome"
-          icon="person-outline"
-          placeholder="Como te chamam?"
-          value={nome}
-          onChangeText={setNome}
-          autoCapitalize="words"
-        />
-        <Field
-          label="E-mail"
-          icon="mail-outline"
-          placeholder="voce@email.com"
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoComplete="email"
-          value={email}
-          onChangeText={setEmail}
-        />
-        <Field
-          label="Senha"
-          icon="lock-closed-outline"
-          placeholder="Mín. 8, com letras e números"
-          secureTextEntry={!mostrar}
-          autoCapitalize="none"
-          value={senha}
-          onChangeText={setSenha}
-          trailing={olho}
-        />
-        <Field
-          label="Repita a senha"
-          icon="lock-closed-outline"
-          placeholder="Confirme sua senha"
-          secureTextEntry={!mostrar}
-          autoCapitalize="none"
-          value={senha2}
-          onChangeText={setSenha2}
-          trailing={olho}
-        />
-        <Field
-          label="CPF"
-          icon="card-outline"
-          placeholder="000.000.000-00"
-          keyboardType="number-pad"
-          value={cpf}
-          onChangeText={(t) => setCpf(fmtCpf(t))}
-        />
-        <Field
-          label="Data de nascimento"
-          icon="calendar-outline"
-          placeholder="DD/MM/AAAA"
-          keyboardType="number-pad"
-          value={nasc}
-          onChangeText={(t) => setNasc(fmtDataNasc(t))}
-        />
-        <Field
-          label="WhatsApp (opcional)"
+          label="WhatsApp"
           icon="logo-whatsapp"
           placeholder="(85) 9 9999-9999"
           keyboardType="phone-pad"
