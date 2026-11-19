@@ -184,3 +184,12 @@ test('escanteios e cartões do admin liquidam os mercados de contagem; o resto p
   ]);
   assert.throws(() => extrasDoCorpo({ escanteios: [1] }), /inválida/);
 });
+
+test('incompativeis: linhas da mesma contagem', async () => {
+  const { incompativeis } = await import('../functions/_core/compat.ts');
+  const o = (grupo: string, descricao: string) => ({ jogo_id: 'j', grupo, descricao, time_casa: 'A', time_fora: 'B' });
+  assert.equal(incompativeis(o('ESCANTEIOS 8.5', 'MAIS DE 8.5'), o('ESCANTEIOS 9.5', 'MENOS DE 9.5')), false);
+  assert.equal(incompativeis(o('ESCANTEIOS 8.5', 'MAIS DE 8.5'), o('ESCANTEIOS 9.5', 'MAIS DE 9.5')), true);
+  assert.equal(incompativeis(o('ESCANTEIOS 9.5', 'MAIS DE 9.5'), o('ESCANTEIOS 8.5', 'MENOS DE 8.5')), true);
+  assert.equal(incompativeis(o('CARTÕES DO JOGADOR 0.5', 'PEDRO — MAIS DE 0.5'), o('CARTÕES DO JOGADOR 1.5', 'ARRASCAETA — MAIS DE 1.5')), false);
+});
