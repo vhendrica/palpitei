@@ -351,7 +351,7 @@ export async function palpiteirosDoDia(db: Db, user: UserPublico | null, data = 
 export async function palpiteirosDaLiga(db: Db, user: UserPublico | null, liga: LigaRow, verTudo = false) {
   const data = liga.data;
   const [entradas, apostas, multiplas] = await Promise.all([
-    db`select e.user_id, u.nome, e.created_at, e.fichas_total from entradas e join users u on u.id = e.user_id
+    db`select e.user_id, u.nome, u.username, e.created_at, e.fichas_total from entradas e join users u on u.id = e.user_id
        where e.liga_id = ${liga.id} order by e.created_at`,
     db`select a.user_id, m.id as mercado_id, m.grupo, m.descricao, m.resultado_final, max(a.odd) as multiplicador,
          j.time_casa, j.time_fora, j.horario <= now() as comecou,
@@ -440,7 +440,7 @@ export async function palpiteirosDaLiga(db: Db, user: UserPublico | null, liga: 
               ),
           );
       return {
-        nome: eu ? (e.nome as string) : nomePublico(e.nome as string),
+        nome: (e.username as string | null) ?? (eu ? (e.nome as string) : nomePublico(e.nome as string)),
         entrou_em: iso(e.created_at)!,
         eu,
         posicao: r?.posicao ?? null,

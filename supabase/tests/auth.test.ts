@@ -23,8 +23,10 @@ beforeEach(async () => {
   };
 });
 
+let userSeq = 0;
 const input = (over: Record<string, unknown> = {}) => ({
   nome: 'Vitória Hendrica',
+  username: `vitoria${++userSeq}`,
   email: 'Vitoria@Exemplo.com',
   senha: 'senha1234',
   whatsapp: '(85) 99999-0000',

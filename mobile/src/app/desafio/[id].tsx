@@ -16,6 +16,7 @@ import { BetButton } from "../../components/BetButton";
 import { Bilhete, type OpcaoBilhete } from "../../components/Bilhete";
 import { Confirmar } from "../../components/Confirmar";
 import { GrupoTitulo } from "../../components/GrupoTitulo";
+import { rankSecao, secaoDo } from "../../lib/secoes";
 import { PalpiteiroBilhete } from "../../components/PalpiteiroBilhete";
 import { ErrorBox } from "../../components/Form";
 import { ResumoBilhete } from "../../components/ResumoBilhete";
@@ -95,6 +96,7 @@ export default function Detalhe() {
   const [confirmaFim, setConfirmaFim] = useState(false);
   const [finalizando, setFinalizando] = useState(false);
   const [rankingCompleto, setRankingCompleto] = useState(false);
+  const [secoesOcultas, setSecoesOcultas] = useState<Record<string, boolean>>({});
 
   const toggleBilhete = useCallback(
     async (posicao: number) => {
@@ -421,8 +423,22 @@ export default function Detalhe() {
   ) : null;
 
   const jogoCard = (j: Jogo) => {
-    const grupos = agruparMercados(j.mercados);
+    const grupos = agruparMercados(j.mercados).sort(
+      (a, b) =>
+        rankSecao(a.opcoes[0]?.secao ?? secaoDo(a.grupo)) -
+        rankSecao(b.opcoes[0]?.secao ?? secaoDo(b.grupo)),
+    );
     const aberto = abertos.includes(j.id);
+    const gruposVis = grupos.filter(
+      (_, gi) => gi < MERCADOS_VISIVEIS || aberto,
+    );
+    const secoesJogo: { nome: string; grupos: typeof gruposVis }[] = [];
+    for (const g of gruposVis) {
+      const sec = g.opcoes[0]?.secao ?? secaoDo(g.grupo);
+      const ult = secoesJogo[secoesJogo.length - 1];
+      if (ult?.nome === sec) ult.grupos.push(g);
+      else secoesJogo.push({ nome: sec, grupos: [g] });
+    }
     const alternar = () =>
       setAbertos((a) =>
         a.includes(j.id) ? a.filter((x) => x !== j.id) : [...a, j.id],
@@ -488,9 +504,29 @@ export default function Detalhe() {
           </View>
         ) : null}
         <View className="mt-1">
-          {grupos
-            .filter((_, gi) => gi < MERCADOS_VISIVEIS || aberto)
-            .map((g) => (
+          {secoesJogo.map((s) => {
+              const chave = `${j.id}|${s.nome}`;
+              const oculta = !!secoesOcultas[chave];
+              return (
+                <View key={s.nome}>
+                  <Pressable
+                    onPress={() =>
+                      setSecoesOcultas((o) => ({ ...o, [chave]: !oculta }))
+                    }
+                    className="mt-2 flex-row items-center active:opacity-70"
+                  >
+                    <Ionicons
+                      name={oculta ? "chevron-forward" : "chevron-down"}
+                      size={13}
+                      color={C.primary}
+                    />
+                    <T className="ml-1 font-mont-xb text-xs text-primary">
+                      {s.nome}
+                    </T>
+                  </Pressable>
+                  {oculta
+                    ? null
+                    : s.grupos.map((g) => (
               <View key={g.grupo || "_"} className="mt-2.5">
                 {g.grupo ? <GrupoTitulo grupo={g.grupo} /> : null}
                 <View className="flex-row flex-wrap" style={{ gap: 6 }}>
@@ -529,7 +565,10 @@ export default function Detalhe() {
                   })}
                 </View>
               </View>
-            ))}
+                        ))}
+                </View>
+              );
+            })}
           {grupos.length > MERCADOS_VISIVEIS ? (
             <Pressable
               onPress={alternar}

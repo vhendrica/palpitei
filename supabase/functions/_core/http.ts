@@ -91,12 +91,13 @@ export function createApi(deps: ApiDeps) {
       const b = await c.body();
       return auth.entrar(authDeps, { email: b.email, senha: b.senha });
     }],
-    // OTP WhatsApp dormente — mantido para reativar quando a verificação voltar.
+    ['GET', /^\/auth\/username-disponivel$/, async (c) => auth.usernameDisponivel(sql, c.query.get('u'))],
     ['POST', /^\/auth\/senha\/esqueci$/, async (c) => auth.pedirRecuperacao(authDeps, { email: (await c.body()).email })],
     ['POST', /^\/auth\/senha\/redefinir$/, async (c) => {
       const b = await c.body();
       return auth.redefinirSenha(authDeps, { token: b.token, senha: b.senha });
     }],
+    // OTP WhatsApp dormente — mantido para reativar quando a verificação voltar.
     ['POST', /^\/auth\/otp\/login$/, async (c) => auth.solicitarCodigo(authDeps, { whatsapp: (await c.body()).whatsapp })],
     ['POST', /^\/auth\/otp\/reenviar$/, async (c) => auth.solicitarCodigo(authDeps, { whatsapp: (await c.body()).whatsapp })],
     ['POST', /^\/auth\/otp\/confirmar$/, async (c) => {

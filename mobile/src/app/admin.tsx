@@ -265,7 +265,7 @@ function AbaLiga({ data, run }: { data: string; run: Run }) {
         ) : null}
       </Card>
 
-      {/* Especiais do dia: ordem de exibição na home, ajustável com ↑↓. */}
+      {/* Especiais em destaque: ordem de exibição na home, ajustável com ↑↓. */}
       {(() => {
         const especiaisDaLiga = la.jogos
           .flatMap((j) =>
@@ -288,7 +288,7 @@ function AbaLiga({ data, run }: { data: string; run: Run }) {
         return (
           <Card className="mb-3">
             <T className="text-[11px] uppercase tracking-widest text-muted">
-              Especiais do dia — ordem na home ({especiaisDaLiga.length}/10)
+              Especiais em destaque — ordem na home ({especiaisDaLiga.length}/10)
             </T>
             {especiaisDaLiga.map((e, i) => (
               <View
@@ -667,6 +667,8 @@ function JogoAdmin({
   };
 
   const [recolhido, setRecolhido] = useState(false);
+  // Grupos de mercados recolhidos dentro do card (lista longa de props fica manejável).
+  const [gruposOcultos, setGruposOcultos] = useState<Record<string, boolean>>({});
   const [movendoGrupo, setMovendoGrupo] = useState<string | null>(null);
   const [salvou, setSalvou] = useState(false);
   const marcarSalvou = () => {
@@ -791,6 +793,27 @@ function JogoAdmin({
                 ) : null}
                 {g.grupo ? (
                   <View className="mt-1 flex-row items-center">
+                    <Pressable
+                      hitSlop={10}
+                      style={{ padding: 2 }}
+                      onPress={() =>
+                        setGruposOcultos((o) => ({
+                          ...o,
+                          [g.grupo]: !gruposOcultos[g.grupo],
+                        }))
+                      }
+                      accessibilityLabel={`${gruposOcultos[g.grupo] ? "Expandir" : "Recolher"} ${g.grupo}`}
+                    >
+                      <Ionicons
+                        name={
+                          gruposOcultos[g.grupo]
+                            ? "chevron-forward"
+                            : "chevron-down"
+                        }
+                        size={14}
+                        color={C.muted}
+                      />
+                    </Pressable>
                     <T className="flex-1 font-mont-xb text-xs uppercase">
                       {g.grupo}
                     </T>
@@ -860,7 +883,9 @@ function JogoAdmin({
                     ))}
                   </View>
                 ) : null}
-                {g.opcoes.map((m) => (
+                {gruposOcultos[g.grupo]
+                  ? null
+                  : g.opcoes.map((m) => (
                   <View
                     key={m.id}
                     className="flex-row items-center justify-between border-b border-line py-1.5"
@@ -928,7 +953,7 @@ function JogoAdmin({
                       {fmtOdd(m.multiplicador)}
                     </T>
                   </View>
-                ))}
+                    ))}
               </View>
             ))}
             {!fechada ? (

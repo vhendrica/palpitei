@@ -94,6 +94,7 @@ async function req<T>(
 
 export type CadastroInput = {
   nome: string;
+  username: string;
   email: string;
   senha: string;
   whatsapp: string;
@@ -114,6 +115,8 @@ export type BilheteInput = {
 export const api = {
   // Login e cadastro mostram o erro no próprio formulário (sem toast duplicado).
   cadastro: (input: CadastroInput) => req<Sessao>('POST', '/auth/cadastro', input, { semToast: true }),
+  usernameLivre: (u: string) =>
+    req<{ disponivel: boolean }>('GET', `/auth/username-disponivel?u=${encodeURIComponent(u)}`, { semToast: true }),
   login: (email: string, senha: string) =>
     req<Sessao>('POST', '/auth/login', { email, senha }, { semToast: true }),
   // OTP WhatsApp dormente — reativar quando a verificação voltar.
