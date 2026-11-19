@@ -102,9 +102,10 @@ test('fluxo completo: admin monta a múltipla, usuário entra, distribui, rankin
   const ap = await call('POST', '/liga/hoje/apostas', { distribuicao: { [mA]: 120, [mB]: 80 } }, userToken);
   assert.deepEqual(ap.body, { fichas_distribuidas: 200, fichas_livres: 0 });
 
-  // mercado com fichas sai da vitrine, mas a aposta continua valendo pra quem apostou
+  // mercado com fichas não pode ser removido pelo admin
   const rm = await call('PUT', `/admin/jogos/${home.body.jogos[0].id}/mercados`, { mercados: [] }, adminToken);
-  assert.equal(rm.status, 200, JSON.stringify(rm.body));
+  assert.notEqual(rm.status, 200);
+  assert.match(rm.body.error, /já tem aposta/);
 
   home = await call('GET', '/home', undefined, userToken);
   assert.equal(home.body.eu.fichas_livres, 0);
