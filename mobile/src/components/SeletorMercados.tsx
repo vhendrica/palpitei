@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { Pressable, ScrollView, TextInput, View } from "react-native";
 
 import { fmtOdd } from "../lib/format";
+import { secaoDo } from "../lib/secoes";
 import { useTheme } from "../store/Theme";
 import { Button, T } from "./ui";
 
@@ -26,16 +27,11 @@ const PRINCIPAIS = ["RESULTADO", "AMBOS MARCAM", "DUPLA CHANCE", "EMPATE ANULA",
 const norm = (s: string) =>
   s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
 
+/** Aba do grupo = a mesma seção que o usuário vê na tela de palpite. */
 export function categoriaDo(g: GrupoSel): string {
   const c = g.opcoes[0]?.categoria;
-  if (c) return c;
-  const n = norm(g.grupo);
-  if (n.startsWith("ESCANTEIO")) return "ESCANTEIOS";
-  if (n.startsWith("CART")) return "CARTÕES";
-  if (n.startsWith("HANDICAP")) return "HANDICAP";
-  if (n.startsWith("GOLS") || n.startsWith("AMBOS")) return "GOLS";
-  if (["RESULTADO", "DUPLA CHANCE", "EMPATE ANULA"].some((p) => n.startsWith(p))) return "RESULTADO";
-  return "OUTROS";
+  if (c === "JOGADOR") return "JOGADOR";
+  return secaoDo(g.grupo);
 }
 
 /** Família do grupo sem a linha: "GOLS 2.5" e "GOLS 3.5" ficam juntos em "GOLS". */
