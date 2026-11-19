@@ -51,7 +51,7 @@ export function RankingDoDia({ voltar }: { voltar?: boolean }) {
 
   return (
     <View className="flex-1 bg-bg">
-      <AppHeader title="Ranking do dia" back={voltar} />
+      <AppHeader title="Ranking" back={voltar} />
       <ScrollView
         contentContainerStyle={{ padding: 16, paddingBottom: 48 }}
         refreshControl={
