@@ -157,6 +157,7 @@ export default function Detalhe() {
 
   const liga = d?.liga;
   const eu = d?.eu && d.eu.entrou ? d.eu : null;
+  const minhasPernas = new Set((eu?.multiplas ?? []).flatMap((mu) => mu.pernas.map((p) => p.mercado_id)));
   const aberta = liga?.status === "aberta";
   const encerrada = liga?.status === "finalizada";
   // Rodada não iniciada (nenhum jogo começou): o ranking segue o potencial.
@@ -499,7 +500,7 @@ export default function Detalhe() {
                       j.finalizado || m.decidido
                         ? m.resultado_final
                           ? "green"
-                          : (m.minhas_fichas ?? 0) > 0
+                          : (m.minhas_fichas ?? 0) > 0 || minhasPernas.has(m.id)
                             ? "red"
                             : null
                         : null;

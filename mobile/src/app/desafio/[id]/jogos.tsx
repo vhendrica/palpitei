@@ -14,6 +14,9 @@ import { agruparMercados, type DesafioDetalhe } from "../../../types";
 export default function JogosDesafio() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const [d, setD] = useState<DesafioDetalhe | null>(null);
+  const minhasPernas = new Set(
+    (d?.eu && d.eu.entrou ? (d.eu.multiplas ?? []) : []).flatMap((mu) => mu.pernas.map((p) => p.mercado_id)),
+  );
   const [erro, setErro] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -67,7 +70,7 @@ export default function JogosDesafio() {
                             j.finalizado || m.decidido
                               ? m.resultado_final
                                 ? "green"
-                                : (m.minhas_fichas ?? 0) > 0
+                                : (m.minhas_fichas ?? 0) > 0 || minhasPernas.has(m.id)
                                   ? "red"
                                   : null
                               : null
