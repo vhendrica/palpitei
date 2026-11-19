@@ -430,7 +430,7 @@ async function potencialPorUsuario(db: Db, ligaId: string, soComecados = true) {
  */
 /** `quem`: o próprio usuário vê o potencial completo, inclusive de jogos que não começaram. */
 export async function calcularRanking(db: Db, ligaId: string, quem?: string): Promise<RankingRow[]> {
-  const [rows, pontos, acertos, potencialAberto, [liga], potencialMeu] = await Promise.all([
+  const [rows, pontos, acertos, potencialAberto, [liga], potencialMeu, potBruto, invPorUser] = await Promise.all([
     db`
       with ev as (
         select a.user_id, a.fichas_apostadas as f
@@ -439,7 +439,7 @@ export async function calcularRanking(db: Db, ligaId: string, quem?: string): Pr
         union all
         select user_id, fichas_apostadas from multiplas where liga_id = ${ligaId}
       )
-      select u.id, u.nome, u.bairro,
+      select u.id, u.nome, u.bairro, e.fichas_total,
              coalesce((select sum(ev.f) from ev where ev.user_id = e.user_id), 0)::int as fichas
       from entradas e join users u on u.id = e.user_id
       where e.liga_id = ${ligaId}`,
@@ -448,15 +448,56 @@ export async function calcularRanking(db: Db, ligaId: string, quem?: string): Pr
     potencialPorUsuario(db, ligaId),
     db`select status from ligas where id = ${ligaId}`,
     quem ? potencialPorUsuario(db, ligaId, false) : Promise.resolve(new Map<string, number>()),
+    // Potencial exibido na tela (retorno bruto de simples não-perdidas + múltiplas vivas),
+    // menos o que foi reapostado além das fichas da entrada — mesmo número do card.
+    db`
+      select a.user_id,
+        coalesce(sum(a.fichas_apostadas * a.multiplicador) filter (where m.decidido_em is null or m.resultado_final), 0) as gross
+      from apostas a join mercados m on m.id = a.mercado_id join jogos j on j.id = m.jogo_id
+      where j.liga_id = ${ligaId}
+      group by a.user_id`,
+    db`
+      select user_id,
+             coalesce(sum(gross) filter (where perdidas = 0), 0) as gross_mult,
+             coalesce(sum(fichas), 0) as inv
+      from (
+        select mu.user_id, mu.fichas_apostadas as fichas,
+               mu.fichas_apostadas * exp(sum(ln(case when m.anulado then 1 else p.odd end))) as gross,
+               count(*) filter (where m.decidido_em is not null and m.resultado_final = false) as perdidas
+        from multiplas mu
+        join multipla_pernas p on p.multipla_id = mu.id
+        join mercados m on m.id = p.mercado_id
+        where mu.liga_id = ${ligaId}
+        group by mu.id, mu.user_id, mu.fichas_apostadas
+      ) x
+      group by user_id`,
   ]);
   // Rodada finalizada: o que não foi decidido perdeu, então potencial não desempata nem soma.
   const potencial = liga?.status === 'finalizada' ? new Map<string, number>() : potencialAberto;
+  const grossMult = new Map<string, number>();
+  const investido = new Map<string, number>();
+  for (const r of invPorUser) {
+    grossMult.set(r.user_id as string, num(r.gross_mult));
+    investido.set(r.user_id as string, num(r.inv));
+  }
+  const potExibido = new Map<string, number>();
+  const grossS = new Map<string, number>();
+  for (const r of potBruto) grossS.set(r.user_id as string, num(r.gross));
+  for (const r of rows) {
+    const uid = r.id as string;
+    // inv de simples = total apostado em simples (o mesmo `ev.f` menos as múltiplas);
+    // como ev soma simples+múltiplas, usamos fichas - inv_mults pra simples.
+    const invMults = investido.get(uid) ?? 0;
+    const invTotal = num(r.fichas);
+    const excesso = Math.max(0, invTotal - num(r.fichas_total));
+    potExibido.set(uid, (grossS.get(uid) ?? 0) + (grossMult.get(uid) ?? 0) - excesso);
+  }
   const lista = rows.map((r) => ({
     r,
     pontos: pontos.get(r.id as string) ?? 0,
     maior: acertos.get(r.id as string)?.maior ?? 0,
     n: acertos.get(r.id as string)?.n ?? 0,
-    pot: potencial.get(r.id as string) ?? 0,
+    pot: potExibido.get(r.id as string) ?? 0,
   }));
   type L = (typeof lista)[number];
   const criterio = (a: L, b: L): string | null =>

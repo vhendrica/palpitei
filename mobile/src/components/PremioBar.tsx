@@ -1,6 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useEffect, useState } from "react";
-import { Animated, Easing, Pressable, View } from "react-native";
+import { Animated, Easing, Pressable, Text, View } from "react-native";
 
 import { fmtPts } from "../lib/format";
 import { useTheme } from "../store/Theme";
@@ -64,7 +64,8 @@ export function PremioBar({
   return (
     <View className="rounded-2xl border border-gold/50 bg-gold/10 p-4">
       <View className="flex-row items-center">
-        <T className="text-[26px]">🏆</T>
+        {/* Emoji fora do <T> pra usar a fonte de emoji do sistema, não a Montserrat. */}
+        <Text style={{ fontSize: 26 }}>🏆</Text>
         <View className="ml-2.5 flex-1">
           <T className="font-mont-b text-[10px] uppercase tracking-widest text-muted">
             {finalizada ? "Prêmio final" : "Prêmio do campeão"}
@@ -72,24 +73,26 @@ export function PremioBar({
           {descricao ? (
             <T className="font-mont-xb text-lg text-gold">{descricao}</T>
           ) : null}
+        </View>
+        <View className="items-end">
           {premio_atual > 0 || !descricao ? (
             <T className="font-odds text-2xl text-gold">
               {premio_atual > 0 ? fmtReais(premio_atual) : "—"}
             </T>
           ) : null}
+          {semContagem || !completo ? null : (
+            <Pressable
+              className="items-end active:opacity-70"
+              onPress={onPalpiteiros}
+              disabled={!onPalpiteiros}
+            >
+              <T className="font-odds text-xl">{fmtPts(palpiteiros)}</T>
+              <T className="text-[10px] uppercase tracking-widest text-muted">
+                palpiteiros{onPalpiteiros ? " ›" : ""}
+              </T>
+            </Pressable>
+          )}
         </View>
-        {semContagem || !completo ? null : (
-          <Pressable
-            className="items-end active:opacity-70"
-            onPress={onPalpiteiros}
-            disabled={!onPalpiteiros}
-          >
-            <T className="font-odds text-xl">{fmtPts(palpiteiros)}</T>
-            <T className="text-[10px] uppercase tracking-widest text-muted">
-              palpiteiros{onPalpiteiros ? " ›" : ""}
-            </T>
-          </Pressable>
-        )}
       </View>
 
       {meta && !finalizada && completo ? (
@@ -256,7 +259,6 @@ export function PremioLinha({
   descricao?: string | null;
   finalizada?: boolean;
 }) {
-  const { palette: C } = useTheme();
   // Finalizada: só o prêmio real (sem a meta), em texto neutro — pode não ter havido campeão.
   const valor =
     descricao ||
@@ -268,7 +270,7 @@ export function PremioLinha({
   if (!valor) return null;
   return (
     <View className="flex-row items-center rounded-xl border border-gold/40 bg-gold/10 px-3 py-2">
-      <Ionicons name="trophy" size={16} color={C.gold} />
+      <T className="text-sm">🏆</T>
       <T className="ml-2 flex-1 text-sm" numberOfLines={1}>
         {finalizada ? "Prêmio da rodada: " : "Campeão leva "}
         <T className="font-mont-xb text-sm text-gold">{valor}</T>
