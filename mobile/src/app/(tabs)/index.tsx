@@ -446,6 +446,24 @@ export default function HomeMultipla() {
             ) : null}
           </View>
         ) : null}
+        {j.destaque && !eu ? (
+          <PulsoBrilho sinal={sinal}>
+            <Button
+              title={
+                user
+                  ? `Palpitar na rodada · ${home.regras.custo_entrada_pontos} pontos`
+                  : "Entrar e palpitar"
+              }
+              icon="football"
+              onPress={() =>
+                user ? setExplicando(true) : router.push("/entrar")
+              }
+              loading={busy}
+              disabled={!aberta}
+              className="mt-1"
+            />
+          </PulsoBrilho>
+        ) : null}
       </Card>
     );
   };
@@ -515,47 +533,15 @@ export default function HomeMultipla() {
                     onFechar={() => setExplicando(false)}
                   />
                 ) : null}
-                <View
-                  onLayout={(e) => {
-                    palpitarY.current = e.nativeEvent.layout.y;
-                  }}
-                >
-                  <Card className="mt-3">
-                    {/* Hero sem carrossel: os jogos já aparecem na lista abaixo —
-                        antes o jogo do dia aparecia aqui e de novo em JOGOS. */}
-                    {!user ? (
-                      <>
-                        <T className="text-sm text-muted">
-                          Palpite de graça nos jogos de hoje. O campeão leva o
-                          prêmio.
-                        </T>
-                        <PulsoBrilho sinal={sinal}>
-                          <Button
-                            title="Palpitar"
-                            icon="football"
-                            onPress={() => router.push("/entrar")}
-                            className="mt-3"
-                          />
-                        </PulsoBrilho>
-                      </>
-                    ) : !eu ? (
-                      <>
-                        <T className="text-sm text-muted">
-                          Entre na rodada e distribua suas fichas nos jogos
-                          abaixo.
-                        </T>
-                        <PulsoBrilho sinal={sinal}>
-                          <Button
-                            title="Palpitar"
-                            icon="football"
-                            onPress={() => setExplicando(true)}
-                            loading={busy}
-                            disabled={!aberta}
-                            className="mt-3"
-                          />
-                        </PulsoBrilho>
-                      </>
-                    ) : (
+                {/* Hero = jogo do dia: quem não entrou ainda vê o card do
+                    destaque com o CTA dentro; quem entrou vê seu status. */}
+                {eu ? (
+                  <View
+                    onLayout={(e) => {
+                      palpitarY.current = e.nativeEvent.layout.y;
+                    }}
+                  >
+                    <Card className="mt-3">
                       <>
                         {(!valendo || editaveis.fichas > 0 || livres > 0) &&
                         livres + noDraft > 0 ? (
@@ -603,13 +589,13 @@ export default function HomeMultipla() {
                           />
                         </View>
                       </>
-                    )}
-                    <ErrorBox erro={erro} />
-                  </Card>
-                </View>
+                      <ErrorBox erro={erro} />
+                    </Card>
+                  </View>
+                ) : (
+                  <ErrorBox erro={erro} />
+                )}
 
-                {/* Jogo do dia logo abaixo do hero: é a decisão principal,
-                    não pode ficar enterrado depois de prêmio e simulador. */}
                 {destaque ? renderJogo(destaque) : null}
 
                 <View className="mt-3">
