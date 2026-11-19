@@ -332,11 +332,11 @@ export async function pontosPorUsuario(db: Db, ligaId: string): Promise<Map<stri
 export async function retornosPorUsuario(db: Db, ligaId: string): Promise<Map<string, number>> {
   const [simples, pernas] = await Promise.all([
     db`
-      select a.user_id, sum(a.fichas_apostadas * a.odd) as pontos
+      select a.user_id, sum(a.fichas_apostadas * case when m.anulado then 1 else a.odd end) as pontos
       from apostas a join mercados m on m.id = a.mercado_id join jogos j on j.id = m.jogo_id
       where j.liga_id = ${ligaId} and m.resultado_final group by a.user_id`,
     db`
-      select mu.id, mu.user_id, mu.fichas_apostadas, p.odd, m.resultado_final
+      select mu.id, mu.user_id, mu.fichas_apostadas, case when m.anulado then 1 else p.odd end as odd, m.resultado_final
       from multiplas mu join multipla_pernas p on p.multipla_id = mu.id join mercados m on m.id = p.mercado_id
       where mu.liga_id = ${ligaId}`,
   ]);
@@ -367,9 +367,9 @@ async function acertosPorUsuario(db: Db, ligaId: string) {
   const [simples, pernas] = await Promise.all([
     db`
       select a.user_id, a.odd from apostas a join mercados m on m.id = a.mercado_id join jogos j on j.id = m.jogo_id
-      where j.liga_id = ${ligaId} and m.resultado_final`,
+      where j.liga_id = ${ligaId} and m.resultado_final and not m.anulado`,
     db`
-      select mu.id, mu.user_id, p.odd, m.resultado_final
+      select mu.id, mu.user_id, case when m.anulado then 1 else p.odd end as odd, m.resultado_final
       from multiplas mu join multipla_pernas p on p.multipla_id = mu.id join mercados m on m.id = p.mercado_id
       where mu.liga_id = ${ligaId}`,
   ]);

@@ -34,8 +34,11 @@ export async function aplicarPlacar(sql: Db, jogoId: string, casa: number, fora:
       if (!p && !extra) continue; // mercado de escanteios/cartões/1º tempo sem dado: fica pra finalização manual
       const bateu = p ? p(casa, fora) : px!(extra!);
       if (bateu == null) continue; // a API não mandou a estatística: fica pra finalização manual
-      if (bateu) marcados++;
-      await tx`update mercados set resultado_final = ${bateu}, decidido_em = coalesce(decidido_em, now()) where id = ${m.id}`;
+      // Empate anula: no empate o palpite é anulado e as fichas voltam (odd 1.0).
+      const anulado = casa === fora && String(m.grupo ?? '').toUpperCase().startsWith('EMPATE ANULA');
+      if (bateu && !anulado) marcados++;
+      await tx`update mercados set resultado_final = ${bateu || anulado}, anulado = ${anulado},
+               decidido_em = coalesce(decidido_em, now()) where id = ${m.id}`;
     }
     return { jogo_id: jogoId, placar: [casa, fora] as const, mercados_certos: marcados };
   });
