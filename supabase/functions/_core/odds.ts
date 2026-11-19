@@ -202,6 +202,10 @@ const PROPS: Record<string, string> = {
   'players-firstcard': 'PRIMEIRO CARTÃO',
   'players-cards': 'LEVA CARTÃO',
   'players-assists': 'DÁ ASSISTÊNCIA',
+  'players-goals': 'MARCA 2+ GOLS',
+  'players-shots': 'FAZ 2+ CHUTES',
+  'players-offsides': 'É IMPEDIDO',
+  'players-foulscommitted': 'COMETE 2+ FALTAS',
   'playertotals-goals': 'GOLS DO JOGADOR',
   'playertotals-assists': 'ASSISTÊNCIAS DO JOGADOR',
   'playertotals-shots': 'CHUTES DO JOGADOR',
@@ -211,6 +215,13 @@ const PROPS: Record<string, string> = {
   'playertotals-saves': 'DEFESAS DO GOLEIRO',
   'playertotals-foulscommitted': 'FALTAS DO JOGADOR',
   'playertotals-offsides': 'IMPEDIMENTOS DO JOGADOR',
+};
+
+/** Linha de contagem preferida por tipo de prop (default "1+" = faz pelo menos um). */
+const PROP_LINHA: Record<string, string> = {
+  'players-goals': '2+',
+  'players-shots': '2+',
+  'players-foulscommitted': '2+',
 };
 
 /** Nome do jogador no feed vem "Sobrenome, Nome" — vira "NOME SOBRENOME". */
@@ -241,9 +252,10 @@ function traduzir(m: Market, saida: string, jogador: string | null, C: string, F
     const j = nomeJogador(jogador);
     if (tipo.startsWith('players-')) {
       // "Sim" é o mercado que interessa; o "Não" do jogador tem odd baixa e confunde.
-      // Alguns livram de "Sim/Não" pra contagem ("1+", "2+", "3+" — ex.: assistências):
-      // aí o "1+" é o equivalente a "sim" (faz pelo menos uma).
-      if (saida !== 'Yes' && saida !== '1+') return null;
+      // Mercados de contagem vêm "1+", "2+", "3+"... — cada tipo tem a linha que faz
+      // sentido pro bolão (assistência = 1+, dois gols = 2+, etc.).
+      const linha = PROP_LINHA[tipo] ?? '1+';
+      if (saida !== 'Yes' && saida !== linha) return null;
       return { grupo: nome, descricao: j, categoria: 'JOGADOR' };
     }
     const mm = saida === 'Over' ? `MAIS DE ${h}` : saida === 'Under' ? `MENOS DE ${h}` : null;
