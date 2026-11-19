@@ -4,6 +4,7 @@ import * as desafios from './desafios.ts';
 import type { Db } from './db.ts';
 import { ForbiddenError, NotFoundError, RuleError } from './errors.ts';
 import { importarOdds, mercadosDaApi, mercadosDaFixture, type OddsConfig } from './odds.ts';
+import { propsDoJogo, type OddsPapiConfig } from './oddspapi.ts';
 import { aplicarPlacar, atualizarResultados } from './resultados.ts';
 import * as sim from './sim.ts';
 import { apostar, type MultiplaInput, entrarNaLiga, finalizarLiga, getLiga, getLigaAtual, reativarLiga } from './rules.ts';
@@ -22,6 +23,7 @@ export type ApiDeps = {
   hoje?: () => string;
   corsOrigin?: string;
   odds?: OddsConfig;
+  oddsPapi?: OddsPapiConfig;
   /** Segredo do agendador (pg_cron) para POST /cron/resultados. */
   cronSecret?: string;
 };
@@ -273,7 +275,10 @@ export function createApi(deps: ApiDeps) {
     }],
     ['POST', /^\/admin\/jogos\/([^/]+)\/destaque$/, async (c) => (await c.requireAdmin(), admin.marcarDestaque(sql, c.params[0]))],
     ['POST', /^\/admin\/mercados\/([^/]+)\/especial$/, async (c) => (await c.requireAdmin(), admin.alternarEspecial(sql, c.params[0]))],
+    ['POST', /^\/admin\/mercados\/([^/]+)\/resultado$/, async (c) =>
+      (await c.requireAdmin(), admin.definirResultadoMercado(sql, c.params[0], (await c.body()).resultado))],
     ['GET', /^\/admin\/jogos\/([^/]+)\/mercados-api$/, async (c) => (await c.requireAdmin(), mercadosDaApi(sql, deps.odds, c.params[0]))],
+    ['GET', /^\/admin\/jogos\/([^/]+)\/props-api$/, async (c) => (await c.requireAdmin(), propsDoJogo(sql, deps.oddsPapi, c.params[0]))],
     ['PUT', /^\/admin\/jogos\/([^/]+)\/mercados$/, async (c) => {
       await c.requireAdmin();
       return admin.definirMercados(sql, c.params[0], (await c.body()).mercados);

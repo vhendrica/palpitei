@@ -205,11 +205,18 @@ export const api = {
       req<LigaAdmin>('PATCH', `/admin/liga/${id}`, body),
     destaque: (jogoId: string) => req<LigaAdmin>('POST', `/admin/jogos/${jogoId}/destaque`),
     especial: (mercadoId: string) => req<LigaAdmin>('POST', `/admin/mercados/${mercadoId}/especial`),
+    resultadoMercado: (mercadoId: string, resultado: 'certo' | 'errado' | 'pendente') =>
+      req<LigaAdmin>('POST', `/admin/mercados/${mercadoId}/resultado`, { resultado }),
     mercadosApi: (jogoId: string) =>
       req<{
         mercados: { grupo: string; descricao: string; multiplicador: number; casas: number }[];
         creditos_restantes: number | null;
       }>('GET', `/admin/jogos/${jogoId}/mercados-api`),
+    propsApi: (jogoId: string) =>
+      req<{ mercados: { grupo: string; descricao: string; multiplicador: number }[]; fixtureId: string }>(
+        'GET',
+        `/admin/jogos/${jogoId}/props-api`,
+      ),
     mercados: (jogoId: string, mercados: { id?: string; grupo: string; descricao: string; multiplicador: number }[]) =>
       req<LigaAdmin>('PUT', `/admin/jogos/${jogoId}/mercados`, { mercados }),
     renovarMercados: (jogoId: string) =>

@@ -282,6 +282,14 @@ function AbaLiga({ data, run }: { data: string; run: Run }) {
               return "Especial da rodada atualizado.";
             })
           }
+          onResultado={(mercadoId, resultado) =>
+            run(async () => {
+              setLa(await api.admin.resultadoMercado(mercadoId, resultado));
+              return resultado === 'pendente'
+                ? "Mercado voltou pra pendente."
+                : `Mercado marcado: ${resultado === 'certo' ? 'bateu ✓' : 'não bateu ✗'}.`;
+            })
+          }
           onSalvarMercados={(ms) =>
             run(async () => {
               try {
@@ -366,6 +374,7 @@ function JogoAdmin({
   setVencedor,
   onDestaque,
   onEspecial,
+  onResultado,
   onSalvarMercados,
   onRenovarMercados,
 }: {
@@ -375,6 +384,7 @@ function JogoAdmin({
   setVencedor: (id: string, v: boolean) => void;
   onDestaque: () => void;
   onEspecial: (mercadoId: string) => void;
+  onResultado: (mercadoId: string, resultado: 'certo' | 'errado' | 'pendente') => void;
   onRenovarMercados: () => void;
   onSalvarMercados: (
     ms: {
@@ -404,6 +414,33 @@ function JogoAdmin({
       setErroApi(errorMessage(e));
     } finally {
       setBuscando(false);
+    }
+  };
+
+  const [buscandoProps, setBuscandoProps] = useState(false);
+  const buscarProps = async () => {
+    setBuscandoProps(true);
+    setErroApi(null);
+    try {
+      const r = await api.admin.propsApi(jogo.id);
+      setDaApi((atual) => {
+        const base = atual ?? { mercados: [], creditos_restantes: null };
+        const chaves = new Set(
+          base.mercados.map(
+            (m) => `${m.grupo.toUpperCase()}|${normDescricao(m.descricao)}`,
+          ),
+        );
+        const novos = r.mercados
+          .filter(
+            (m) => !chaves.has(`${m.grupo.toUpperCase()}|${normDescricao(m.descricao)}`),
+          )
+          .map((m) => ({ ...m, casas: 1 }));
+        return { ...base, mercados: [...base.mercados, ...novos] };
+      });
+    } catch (e) {
+      setErroApi(errorMessage(e));
+    } finally {
+      setBuscandoProps(false);
     }
   };
 
@@ -785,6 +822,40 @@ function JogoAdmin({
                         />
                       </View>
                     )}
+                    {!fechada ? (
+                      <Pressable
+                        onPress={() =>
+                          onResultado(
+                            m.id,
+                            !m.decidido
+                              ? "certo"
+                              : m.resultado_final
+                                ? "errado"
+                                : "pendente",
+                          )
+                        }
+                        className="p-1"
+                        accessibilityLabel="Marcar resultado do mercado (pendente, bateu, não bateu)"
+                      >
+                        <Ionicons
+                          name={
+                            !m.decidido
+                              ? "ellipse-outline"
+                              : m.resultado_final
+                                ? "checkmark-circle"
+                                : "close-circle"
+                          }
+                          size={16}
+                          color={
+                            !m.decidido
+                              ? C.muted
+                              : m.resultado_final
+                                ? C.primary
+                                : C.danger
+                          }
+                        />
+                      </Pressable>
+                    ) : null}
                     <Pressable
                       onPress={() => onEspecial(m.id)}
                       className="p-1"
@@ -967,6 +1038,13 @@ function JogoAdmin({
               />
             </View>
           )}
+          <Button
+            title={buscandoProps ? "Buscando props…" : "Player props (OddsPapi)"}
+            variant="outline"
+            icon="person-outline"
+            className="mt-1"
+            onPress={buscandoProps ? undefined : buscarProps}
+          />
           <ErrorBox erro={erroApi} />{" "}
         </View>
       ) : null}

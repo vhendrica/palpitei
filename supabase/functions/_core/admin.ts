@@ -253,6 +253,33 @@ export async function alternarEspecial(sql: Db, mercadoId: string) {
 }
 
 /**
+ * Liquidação manual de um mercado (player props e mercados que o placar automático não resolve).
+ * 'certo' | 'errado' marcam o resultado já; 'pendente' volta pra aguardando. Rodada finalizada
+ * não muda — reative o palpite primeiro.
+ */
+export async function definirResultadoMercado(sql: Db, mercadoId: string, resultado: unknown) {
+  if (!isUuid(mercadoId)) throw new NotFoundError('Mercado não encontrado.');
+  if (!['certo', 'errado', 'pendente'].includes(resultado as string))
+    throw new RuleError('Resultado inválido. Use certo, errado ou pendente.');
+  const ligaId = await sql.begin(async (tx: Tx) => {
+    const [m] = await tx`
+      select j.liga_id, l.status from mercados m
+      join jogos j on j.id = m.jogo_id join ligas l on l.id = j.liga_id
+      where m.id = ${mercadoId} for update of m`;
+    if (!m) throw new NotFoundError('Mercado não encontrado.');
+    if (m.status === 'finalizada') throw new RuleError('Palpite já finalizado; reative pra ajustar.');
+    await tx`
+      update mercados set
+        resultado_final = ${resultado === 'certo'},
+        anulado = false,
+        decidido_em = case when ${resultado} = 'pendente' then null else coalesce(decidido_em, now()) end
+      where id = ${mercadoId}`;
+    return m.liga_id as string;
+  });
+  return ligaAdmin(sql, ligaId);
+}
+
+/**
  * Define os mercados de um jogo (lista completa). Itens com `id` são atualizados, sem `id` são criados e os
  * omitidos são removidos. Mercados que já receberam fichas não podem ser alterados nem removidos.
  */
