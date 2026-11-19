@@ -32,7 +32,9 @@ import {
   StatusBadge,
   T,
 } from "../../components/ui";
+import { api } from "../../lib/api";
 import { track } from "../../lib/analytics";
+import { PalpiteiroBilhete } from "../../components/PalpiteiroBilhete";
 import {
   alternarOdd,
   corMultipla,
@@ -47,7 +49,7 @@ import { useTheme } from "../../store/Theme";
 import { agruparMercados } from "../../types";
 import { GrupoTitulo } from "../../components/GrupoTitulo";
 import { secaoDo } from "../../lib/secoes";
-import type { Jogo } from "../../types";
+import type { Jogo, PalpiteiroView } from "../../types";
 
 const MERCADOS_VISIVEIS = 2;
 
@@ -86,6 +88,7 @@ export default function HomeMultipla() {
   );
   const [resumo, setResumo] = useState(false);
   const [verBilhete, setVerBilhete] = useState(false);
+  const [minhaVisao, setMinhaVisao] = useState<PalpiteiroView | null>(null);
   const [abertos, setAbertos] = useState<string[]>([]);
   const setDraft = (fn: Draft | ((d: Draft) => Draft)) =>
     setDraftState({
@@ -713,7 +716,15 @@ export default function HomeMultipla() {
 
                 {palpitou && eu ? (
                   <>
-                    <Pressable onPress={() => setVerBilhete(true)}>
+                    <Pressable
+                      onPress={() => {
+                        setVerBilhete(true);
+                        api.palpiteiros().then((r) => {
+                          const eu2 = (r.palpiteiros ?? []).find((p) => p.eu);
+                          setMinhaVisao(eu2 ?? null);
+                        }).catch(() => setMinhaVisao(null));
+                      }}
+                    >
                       <Card className="mt-3">
                         <View className="flex-row items-center justify-between">
                           <View className="flex-1">
@@ -970,39 +981,13 @@ export default function HomeMultipla() {
           >
             <T className="mb-3 font-mont-xb text-base">Meu bilhete</T>
             <ScrollView>
-              {meuBilhete.simples.map((p, i) => (
-                <View
-                  key={i}
-                  className="flex-row items-center justify-between border-b border-line py-2"
-                >
-                  <View className="flex-1 pr-2">
-                    <T className="font-mont-b text-sm">{p.descricao}</T>
-                    <T className="text-[11px] text-muted">
-                      {p.jogo} · {p.grupo}
-                    </T>
-                  </View>
-                  <T className="font-odds text-sm text-primary">
-                    {p.fichas} fichas · {fmtOdd(p.odd)}
-                  </T>
-                </View>
-              ))}
-              {meuBilhete.multiplas.map((m, i) => (
-                <View key={i} className="border-b border-line py-2">
-                  <View className="flex-row items-center justify-between">
-                    <T className="font-mont-b text-sm">
-                      Múltipla · {m.pernas.length} palpites
-                    </T>
-                    <T className="font-odds text-sm text-primary">
-                      {m.fichas} fichas · {fmtOdd(m.odd)}
-                    </T>
-                  </View>
-                  {m.pernas.map((p, j) => (
-                    <T key={j} className="mt-0.5 text-[11px] text-muted">
-                      {p.descricao} · {p.jogo}
-                    </T>
-                  ))}
-                </View>
-              ))}
+              {minhaVisao ? (
+                <PalpiteiroBilhete p={minhaVisao} />
+              ) : (
+                <T className="py-4 text-center text-xs text-muted">
+                  Carregando…
+                </T>
+              )}
             </ScrollView>
             {aberta ? (
               <Button
