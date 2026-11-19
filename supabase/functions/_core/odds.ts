@@ -399,7 +399,10 @@ export async function mercadosDaApi(db: Db, cfg: OddsConfig | undefined, jogoId:
   return { mercados };
 }
 
-/** Versão por fixture do pool (para o criador de desafio ver os sugeridos). */
+/**
+ * Versão por fixture do pool (criador de desafio e sugestões do pool): só os mercados principais,
+ * que o placar liquida sozinho — o dono do desafio não informa escanteios/cartões nem jogador.
+ */
 export async function mercadosDaFixture(db: Db, cfg: OddsConfig | undefined, fixtureId: string) {
   if (!cfg?.apiKey) return [];
   const externoId = externoDe(fixtureId);
@@ -410,10 +413,10 @@ export async function mercadosDaFixture(db: Db, cfg: OddsConfig | undefined, fix
   if (!f || f.fonte !== 'oddspapi') return [];
   const cache = f.mercados_sugeridos as MercadoApi[] | null;
   // Cache com mais de 6h é refeito (odds atualizadas).
-  if (cache?.length && !f.velho) return cache;
-  const mercados = await buscarMercados(cfg, externoId, f.time_casa as string, f.time_fora as string);
+  if (cache?.length && !f.velho) return principais(cache);
+  const mercados = principais(await buscarMercados(cfg, externoId, f.time_casa as string, f.time_fora as string));
   // Feed sem mercados agora: mantém as sugestões que já tinham vindo.
-  if (!mercados.length && cache?.length) return cache;
+  if (!mercados.length && cache?.length) return principais(cache);
   await db`update fixtures_dia set mercados_sugeridos = ${db.json(mercados)}, odds_atualizadas_em = now()
            where externo_id = ${externoId}`;
   return mercados;
