@@ -64,7 +64,7 @@ export function PremioBar({
   return (
     <View className="rounded-2xl border border-gold/50 bg-gold/10 p-4">
       <View className="flex-row items-center">
-        <Ionicons name="trophy" size={22} color={C.gold} />
+        <T className="text-[26px]">🏆</T>
         <View className="ml-2.5 flex-1">
           <T className="font-mont-b text-[10px] uppercase tracking-widest text-muted">
             {finalizada ? "Prêmio final" : "Prêmio do campeão"}
