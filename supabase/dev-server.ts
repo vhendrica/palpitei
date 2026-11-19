@@ -21,11 +21,12 @@ const handle = createApi({
   appUrl: env('APP_URL'),
   otp: { expor: otpMockAtivo(env) && env('OTP_EXPOR_CODIGO') !== 'false' },
   cronSecret: env('CRON_SECRET'),
-  odds: env('FOOTBALL_API_KEY')
-    ? { apiKey: env('FOOTBALL_API_KEY')!, ligas: env('FOOTBALL_LIGAS')?.split(',').map((s) => s.trim()) }
-    : undefined,
-  oddsPapi: env('ODDS_PAPI_KEY')
-    ? { apiKey: env('ODDS_PAPI_KEY')!, bookmaker: env('ODDS_PAPI_BOOKMAKER') ?? 'bet365' }
+  odds: env('ODDS_PAPI_KEY')
+    ? {
+        apiKey: env('ODDS_PAPI_KEY')!,
+        bookmaker: env('ODDS_PAPI_BOOKMAKER') ?? '1xbet',
+        torneios: env('ODDS_PAPI_TORNEIOS')?.split(',').map(Number).filter(Boolean),
+      }
     : undefined,
 });
 const port = Number(env('PORT') ?? 8787);

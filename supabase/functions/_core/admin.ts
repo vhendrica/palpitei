@@ -3,7 +3,7 @@ import { NotFoundError, RuleError } from './errors.ts';
 import { validarEscada } from './premio.ts';
 import { getEscada, getLiga, getLigaPorData } from './rules.ts';
 import { getConfig, jogosComMercados } from './services.ts';
-import { mercadosDaApi, type OddsConfig } from './odds.ts';
+import { mercadosDaApi, type OddsConfig, principais } from './odds.ts';
 import { isUuid, validarDataISO } from './validation.ts';
 
 const inteiroPositivo = (v: unknown, campo: string) => {
@@ -380,14 +380,14 @@ export async function definirMercados(sql: Db, jogoId: string, mercadosInput: un
 }
 
 /** Abre/fecha a múltipla para entradas e apostas ('aberta' ↔ 'em_andamento'). Finalizar é outro endpoint. */
-/** Refaz os mercados de um jogo com as odds atuais da Football API. Só antes de alguém entrar na rodada. */
+/** Refaz os mercados de um jogo com as odds atuais da OddsPapi (só os mercados principais). Só antes de alguém entrar na rodada. */
 export async function renovarMercadosJogo(sql: Db, cfg: OddsConfig | undefined, jogoId: string) {
   if (!isUuid(jogoId)) throw new NotFoundError('Jogo não encontrado.');
   const [j] = await sql`select j.id, j.liga_id, j.time_casa, j.time_fora from jogos j where j.id = ${jogoId}`;
   if (!j) throw new NotFoundError('Jogo não encontrado.');
   const [{ n }] = await sql`select count(*)::int as n from entradas where liga_id = ${j.liga_id}`;
   if (n > 0) throw new RuleError('Já tem palpiteiro nessa rodada; os mercados estão travados.');
-  const { mercados } = await mercadosDaApi(sql, cfg, jogoId);
+  const mercados = principais((await mercadosDaApi(sql, cfg, jogoId)).mercados);
   if (!mercados.length) throw new RuleError('A API não devolveu mercados para esse jogo.');
   const vistos = new Set<string>();
   const dedup = mercados.filter((m) => {

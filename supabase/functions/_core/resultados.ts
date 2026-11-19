@@ -1,9 +1,27 @@
 import { decidido, type ExDados, predicado, predicadoEx } from './compat.ts';
 import { type Db, num, type Tx } from './db.ts';
 import { NotFoundError, RuleError } from './errors.ts';
-import { type FixtureApi, fixturesDoDia, type OddsConfig } from './odds.ts';
+import { type OddsConfig, placarDoJogo as placarDaApi } from './odds.ts';
 import { isUuid } from './validation.ts';
 
+
+const par = (v: unknown): [number, number] | undefined => {
+  if (v == null || v === '') return undefined;
+  if (!Array.isArray(v) || v.length !== 2) throw new RuleError('Estatística inválida.');
+  const [a, b] = v.map(Number);
+  if (![a, b].every((n) => Number.isInteger(n) && n >= 0 && n <= 99)) throw new RuleError('Estatística inválida.');
+  return [a, b];
+};
+
+/** Estatísticas pós-jogo enviadas pelo admin: cada uma [casa, fora]; ausente = não informada. */
+export const extrasDoCorpo = (b: Record<string, unknown>): ExDados => {
+  const ex: ExDados = {};
+  for (const k of ['gols1t', 'escanteios', 'escanteios1t', 'cartoes'] as const) {
+    const v = par(b[k]);
+    if (v) ex[k] = v;
+  }
+  return ex;
+};
 
 /** Grava o placar final e marca os mercados do jogo que bateram (pelo placar). */
 export async function aplicarPlacar(sql: Db, jogoId: string, casa: number, fora: number, extra?: ExDados) {
@@ -11,12 +29,17 @@ export async function aplicarPlacar(sql: Db, jogoId: string, casa: number, fora:
   if (![casa, fora].every((n) => Number.isInteger(n) && n >= 0)) throw new RuleError('Placar inválido.');
   return sql.begin(async (tx: Tx) => {
     const [j] = await tx`
-      select j.id, j.time_casa, j.time_fora, l.status from jogos j join ligas l on l.id = j.liga_id
+      select j.id, j.time_casa, j.time_fora, j.estatisticas, l.status from jogos j join ligas l on l.id = j.liga_id
       where j.id = ${jogoId} for update of j`;
     if (!j) throw new NotFoundError('Jogo não encontrado.');
     if (j.status === 'finalizada') throw new RuleError('Palpite já finalizado.');
+    // Estatísticas já informadas (ex.: escanteios pelo admin) valem junto com as novas.
+    const salvas: ExDados = { ...((j.estatisticas as ExDados | null) ?? {}), ...(extra ?? {}) };
+    delete salvas.placar;
+    const ex: ExDados = { ...salvas, placar: [casa, fora] };
     await tx`
-      update jogos set placar_casa = ${casa}, placar_fora = ${fora}, finalizado_em = coalesce(finalizado_em, now())
+      update jogos set placar_casa = ${casa}, placar_fora = ${fora}, finalizado_em = coalesce(finalizado_em, now()),
+             estatisticas = ${tx.json(salvas as never)}
       where id = ${jogoId}`;
     const mercados = await tx`select id, grupo, descricao from mercados where jogo_id = ${jogoId}`;
     let marcados = 0;
@@ -31,8 +54,7 @@ export async function aplicarPlacar(sql: Db, jogoId: string, casa: number, fora:
       const p = predicado(o);
       const px = p ? null : predicadoEx(o);
       if (!p && !px) continue;
-      if (!p && !extra) continue; // mercado de escanteios/cartões/1º tempo sem dado: fica pra finalização manual
-      const bateu = p ? p(casa, fora) : px!(extra!);
+      const bateu = p ? p(casa, fora) : px!(ex);
       if (bateu == null) continue; // a API não mandou a estatística: fica pra finalização manual
       // Empate anula: no empate o palpite é anulado e as fichas voltam (odd 1.0).
       const anulado = casa === fora && String(m.grupo ?? '').toUpperCase().startsWith('EMPATE ANULA');
@@ -71,8 +93,8 @@ export async function aplicarParcial(sql: Db, jogoId: string, casa: number, fora
 }
 
 /**
- * Busca na The Odds API o placar dos jogos da rodada que já começaram e ainda não terminaram.
- * Sem jogo rolando, não chama a API (não gasta crédito). Cada campeonato consultado custa 2 créditos.
+ * Busca na OddsPapi o placar dos jogos da rodada que já começaram e ainda não terminaram.
+ * Sem jogo rolando, não chama a API (não gasta crédito). Cada jogo consultado custa 1 request.
  */
 export async function atualizarResultados(sql: Db, cfg: OddsConfig | undefined) {
   await fecharApostasIniciadas(sql);
@@ -81,51 +103,34 @@ export async function atualizarResultados(sql: Db, cfg: OddsConfig | undefined) 
     from jogos j
     join ligas l on l.id = j.liga_id
     join fixtures_dia f on f.fixture_id = j.fixture_id
-    where l.status <> 'finalizada' and j.finalizado_em is null and f.externo_id is not null
+    where l.status <> 'finalizada' and j.finalizado_em is null and f.externo_id is not null and f.fonte = 'oddspapi'
       and j.horario <= now() and j.horario > now() - interval '3 days'`;
-  // Sem jogo pendente, zero requests (plano FREE = 60/hora).
+  // Sem jogo pendente, zero requests.
   if (pendentes.length === 0) return { consultados: 0, finalizados: [], mercados_decididos: 0, creditos_restantes: null };
-  if (!cfg?.apiKey) throw new RuleError('Integração de futebol não configurada (FOOTBALL_API_KEY).');
+  if (!cfg?.apiKey) throw new RuleError('Integração de odds não configurada (ODDS_PAPI_KEY).');
 
-  // 1 request por data com jogo pendente (quase sempre 1) — a janela traz live + finished juntos.
-  const porData = new Map<string, Record<string, unknown>[]>();
-  for (const p of pendentes) {
-    const d = (p.data instanceof Date ? p.data.toISOString() : String(p.data)).slice(0, 10);
-    porData.set(d, [...(porData.get(d) ?? []), p]);
-  }
+  // 1 request por jogo pendente. O placar da OddsPapi só traz gols (jogo e 1º tempo):
+  // escanteios e cartões o admin informa depois do jogo (POST /admin/jogos/:id/placar).
   const finalizados = [];
   let decididos = 0;
   const restantes: number | null = null;
-  for (const jogos of porData.values()) {
-    const data = (jogos[0].data instanceof Date ? jogos[0].data.toISOString() : String(jogos[0].data)).slice(0, 10);
-    let lista: FixtureApi[];
+  for (const jogo of pendentes) {
+    let ev;
     try {
-      lista = await fixturesDoDia(cfg, data);
+      ev = await placarDaApi(cfg, String(jogo.externo_id));
     } catch (e) {
-      console.error('[resultados] falha', data, e);
+      console.error('[resultados] falha', jogo.externo_id, e);
       continue;
     }
-    for (const ev of lista) {
-      const jogo = jogos.find((j) => j.externo_id === String(ev.id));
-      if (!jogo || !ev.goals) continue;
-      const casa = Number(ev.goals.home);
-      const fora = Number(ev.goals.away);
-      if (!Number.isInteger(casa) || !Number.isInteger(fora) || casa < 0 || fora < 0) continue;
+    if (!ev) continue;
+    const { casa, fora } = ev;
+    if (![casa, fora].every((n) => Number.isInteger(n) && n >= 0)) continue;
+    if (ev.status === 'finished') {
       const extra: ExDados = {
-        gols1t:
-          ev.goals.half_home != null && ev.goals.half_away != null
-            ? [ev.goals.half_home, ev.goals.half_away]
-            : undefined,
-        escanteios: ev.corners ? [ev.corners.home, ev.corners.away] : undefined,
-        escanteios1t:
-          ev.corners?.half_home != null && ev.corners.half_away != null
-            ? [ev.corners.half_home, ev.corners.half_away]
-            : undefined,
-        cartoes: ev.cards ? [ev.cards.home.yellow + ev.cards.home.red, ev.cards.away.yellow + ev.cards.away.red] : undefined,
+        gols1t: ev.casa1t != null && ev.fora1t != null ? [ev.casa1t, ev.fora1t] : undefined,
       };
-      if (ev.status === 'finished') finalizados.push(await aplicarPlacar(sql, jogo.id as string, casa, fora, extra));
-      else if (ev.status === 'live') decididos += await aplicarParcial(sql, jogo.id as string, casa, fora);
-    }
+      finalizados.push(await aplicarPlacar(sql, jogo.id as string, casa, fora, extra));
+    } else if (ev.status === 'live') decididos += await aplicarParcial(sql, jogo.id as string, casa, fora);
   }
   // Desafios fecham sozinhos quando todos os jogos já têm placar final.
   await sql`

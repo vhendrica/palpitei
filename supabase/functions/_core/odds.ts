@@ -4,89 +4,136 @@ import { nomeBR } from './times.ts';
 import { validarDataISO } from './validation.ts';
 
 /**
- * Integração com a 5DollarFootballAPI (api.5dollarfootballapi.com/v1).
- * Plano FREE: 60 req/hora — então:
- * - fixtures do dia = 1 request total (janela de 24h, ligas filtradas no servidor);
- * - placares = 1 request por data pendente (só quando tem jogo rolando — ver resultados.ts);
- * - odds = 1 request por jogo, sob demanda (cache em fixtures_dia.mercados_sugeridos).
+ * Integração com a OddsPapi v4 (api.oddspapi.io/v4) — única fonte de jogos, odds e placar.
+ * As odds vêm de uma casa só (1xBet por padrão). Custo de requests:
+ * - jogos do dia = 1 request por campeonato configurado;
+ * - odds = 1 request por jogo, sob demanda (cache em fixtures_dia.mercados_sugeridos);
+ * - catálogo de mercados = 1 request por isolate;
+ * - placar = 1 request por jogo pendente (ver resultados.ts).
+ * Os mercados que o placar resolve (resultado, gols, ambos marcam, handicap, 1º tempo) batem
+ * sozinhos; os demais (jogador, escanteios, cartões, placar exato...) o admin liquida na mão.
  */
-export type OddsConfig = { apiKey: string; ligas?: string[]; fetch?: typeof fetch };
+export type OddsConfig = { apiKey: string; bookmaker?: string; torneios?: number[]; fetch?: typeof fetch };
 
-/** Ligas do MVP no plano FREE — migrando pro Pro basta trocar esta lista (ou FOOTBALL_LIGAS). */
-export const LIGAS_MVP = [
-  'England Premier League',
-  'Spain La Liga',
-  'Italy Serie A',
-  'Germany Bundesliga I',
-  'France Ligue 1',
-];
-export const ESPORTES_PADRAO = LIGAS_MVP;
+/** Brasileirão Série A, Série B e Copa do Brasil (tournamentId da OddsPapi). */
+export const TORNEIOS_PADRAO = [325, 390, 373];
+const CASA_PADRAO = '1xbet';
+const BASE = 'https://api.oddspapi.io/v4';
 
-const BASE = 'https://api.5dollarfootballapi.com/v1';
-const TZ = 'America/Fortaleza';
-
+export type Categoria = 'RESULTADO' | 'GOLS' | 'HANDICAP' | 'ESCANTEIOS' | 'CARTÕES' | 'JOGADOR' | 'OUTROS';
 export type MercadoSugerido = { grupo: string; descricao: string; multiplicador: number };
-export type MercadoApi = MercadoSugerido & { casas: number; real?: boolean };
+export type MercadoApi = MercadoSugerido & { casas: number; real?: boolean; categoria?: Categoria };
 
 export type FixtureApi = {
-  id: number;
-  league: { id: number; name: string };
-  teams: { home: { id: number; name: string }; away: { id: number; name: string } };
-  kickoff_utc: string;
-  kickoff_ts: number;
-  status: 'scheduled' | 'live' | 'finished' | 'unknown';
-  goals?: { home: number; away: number; half_home?: number; half_away?: number };
-  corners?: { home: number; away: number; half_home?: number; half_away?: number };
-  cards?: { home: { yellow: number; red: number }; away: { yellow: number; red: number } };
+  id: string;
+  tournamentId: number;
+  tournamentName: string;
+  casa: string;
+  fora: string;
+  startTime: string;
+  hasOdds: boolean;
 };
 
-type OddsLinha = { line?: number; home?: number; draw?: number; away?: number; over?: number; under?: number; yes?: number; no?: number };
-type OddsBloco = { opening?: OddsLinha | null; closing?: OddsLinha | null; inplay?: OddsLinha | null; line?: number | string | null };
-type OddsResp = { fixture_id: number; bookmakers: { slug: string; odds: Record<string, OddsBloco | OddsBloco[] | undefined> }[] };
+type Market = {
+  marketId: number;
+  marketName?: string;
+  marketType?: string;
+  period?: string;
+  handicap?: number;
+  playerProp?: boolean;
+  outcomes?: { outcomeId: number; outcomeName?: string }[];
+};
+type PlayerPrice = { active?: boolean; price?: number; playerName?: string | null };
+export type OddsResp = {
+  bookmakerOdds?: Record<
+    string,
+    {
+      bookmakerIsActive?: boolean;
+      suspended?: boolean;
+      markets?: Record<
+        string,
+        { marketActive?: boolean; outcomes?: Record<string, { players?: Record<string, PlayerPrice> }> }
+      >;
+    }
+  >;
+};
+export type ScoresResp = {
+  scores?: { periods?: Record<string, { participant1Score?: number; participant2Score?: number }> };
+};
 
-const req = async (cfg: OddsConfig, path: string) => {
-  const res = await (cfg.fetch ?? fetch)(`${BASE}${path}`, {
-    headers: { Authorization: `Bearer ${cfg.apiKey}` },
-  });
+const req = async (cfg: OddsConfig, path: string, notFoundNull = false) => {
+  const sep = path.includes('?') ? '&' : '?';
+  const res = await (cfg.fetch ?? fetch)(`${BASE}${path}${sep}apiKey=${encodeURIComponent(cfg.apiKey)}`);
+  if (notFoundNull && res.status === 404) return null;
   if (!res.ok) {
-    console.error('[odds] falha', path, res.status, (await res.text().catch(() => '')).slice(0, 200));
+    console.error('[oddspapi] falha', path, res.status, (await res.text().catch(() => '')).slice(0, 200));
     throw new RuleError(
-      res.status === 401
-        ? 'Chave da Football API inválida.'
+      res.status === 401 || res.status === 403
+        ? 'Chave da OddsPapi inválida.'
         : res.status === 429
-          ? 'Limite de requisições da API de futebol atingido. Tente mais tarde.'
-          : 'Falha ao buscar dados. Tente de novo.',
+          ? 'Limite de requisições da OddsPapi atingido. Tente mais tarde.'
+          : 'Falha ao buscar dados na OddsPapi. Tente de novo.',
     );
   }
-  return (await res.json()).data;
+  return res.json();
 };
 
-/** Meia-noite em Fortaleza = 03:00 UTC. */
+const semChave = () => new RuleError('Integração de odds não configurada (ODDS_PAPI_KEY).');
+
+/** "id1000032566887160" ⇄ 1000032566887160 (fixture_id bigint do pool). */
+export const fixtureNumerico = (externoId: string) => Number(externoId.replace(/^id/, ''));
+export const externoDe = (fixtureId: string | number) => {
+  const s = String(fixtureId);
+  return /^\d+$/.test(s) ? `id${s}` : s;
+};
+
+/** Dia em Fortaleza (UTC-3): de 03:00Z do dia a 03:00Z do seguinte. */
 const janelaDia = (data: string) => {
-  const inicio = Date.parse(`${data}T03:00:00Z`) / 1000;
-  return { inicio, fim: inicio + 86400 };
+  const inicio = Date.parse(`${data}T03:00:00Z`);
+  return { inicio, fim: inicio + 86400_000 };
 };
+const diaSeguinte = (data: string) => new Date(Date.parse(`${data}T12:00:00Z`) + 86400_000).toISOString().slice(0, 10);
 
-/** Todos os jogos do dia nas ligas do MVP — 1 request só. */
+/** Jogos do dia nos campeonatos configurados — 1 request por campeonato. */
 export async function fixturesDoDia(cfg: OddsConfig, data: string): Promise<FixtureApi[]> {
   const { inicio, fim } = janelaDia(data);
-  const d = await req(cfg, `/fixtures?start_time=${inicio}&end_time=${fim}&per_page=100`);
-  const ligas = (cfg.ligas?.length ? cfg.ligas : LIGAS_MVP).map((s) => s.toUpperCase());
-  return ((d ?? []) as FixtureApi[]).filter((j) => ligas.includes(j.league?.name?.toUpperCase() ?? ''));
+  const out: FixtureApi[] = [];
+  for (const t of cfg.torneios?.length ? cfg.torneios : TORNEIOS_PADRAO) {
+    const lista = ((await req(cfg, `/fixtures?tournamentId=${t}&from=${data}&to=${diaSeguinte(data)}`)) ?? []) as Record<
+      string,
+      unknown
+    >[];
+    for (const f of lista) {
+      const ts = Date.parse(String(f.startTime));
+      if (!(ts >= inicio && ts < fim)) continue;
+      out.push({
+        id: String(f.fixtureId),
+        tournamentId: Number(f.tournamentId),
+        tournamentName: String(f.tournamentName ?? ''),
+        casa: String(f.participant1Name ?? ''),
+        fora: String(f.participant2Name ?? ''),
+        startTime: String(f.startTime),
+        hasOdds: f.hasOdds === true,
+      });
+    }
+  }
+  return out;
 }
 
 /** Importa os jogos do dia pro pool (fixtures_dia). Odds ficam sob demanda (mercadosDaApi). */
 export async function importarOdds(db: Db, cfg: OddsConfig | undefined, dataInput: unknown) {
-  if (!cfg?.apiKey) throw new RuleError('Integração de futebol não configurada (FOOTBALL_API_KEY).');
+  if (!cfg?.apiKey) throw semChave();
   const data = validarDataISO(dataInput);
   const jogos = await fixturesDoDia(cfg, data);
   const importados = [];
   for (const j of jogos) {
+    const casa = nomeBR(j.casa);
+    const fora = nomeBR(j.fora);
     const [row] = await db`
       insert into fixtures_dia (fixture_id, data, time_casa, time_fora, horario, campeonato, fonte, externo_id,
                                 externo_esporte, mercados_sugeridos)
-      values (${j.id}, ${data}, ${nomeBR(j.teams.home.name)}, ${nomeBR(j.teams.away.name)}, ${j.kickoff_utc},
-              ${j.league.name}, 'api_football', ${String(j.id)}, ${j.league.name}, '[]'::jsonb)
+      values (${fixtureNumerico(j.id)}, ${data}, ${casa}, ${fora}, ${j.startTime},
+              ${nomeTorneio(j)}, 'oddspapi', ${j.id}, ${String(j.tournamentId)}, '[]'::jsonb)
       on conflict (externo_id) do update set
         data = excluded.data, time_casa = excluded.time_casa, time_fora = excluded.time_fora,
         horario = excluded.horario, campeonato = excluded.campeonato,
@@ -97,206 +144,307 @@ export async function importarOdds(db: Db, cfg: OddsConfig | undefined, dataInpu
             or fixtures_dia.time_fora is distinct from excluded.time_fora then '[]'::jsonb
           else fixtures_dia.mercados_sugeridos end
       returning fixture_id`;
-    importados.push({ fixture_id: Number(row.fixture_id), time_casa: nomeBR(j.teams.home.name), time_fora: nomeBR(j.teams.away.name) });
+    importados.push({ fixture_id: Number(row.fixture_id), time_casa: casa, time_fora: fora });
   }
   return { importados, total: importados.length };
 }
 
-const fechamento = (b: OddsBloco | OddsBloco[] | undefined) =>
-  !b || Array.isArray(b) ? null : (b.closing ?? b.opening ?? null);
-const linhaMeio = (x: unknown): x is number => typeof x === 'number' && Math.abs((x % 1) - 0.5) < 1e-9;
+const NOMES_TORNEIO: Record<number, string> = { 325: 'Brasileirão Série A', 390: 'Brasileirão Série B', 373: 'Copa do Brasil' };
+const nomeTorneio = (j: FixtureApi) => NOMES_TORNEIO[j.tournamentId] ?? j.tournamentName;
 
-// ---- Escada derivada: a API só dá 1 linha de escanteios/cartões; estimamos as vizinhas
-// ajustando um Poisson à probabilidade real (sem vig) da linha de mercado.
-const poissonTail = (n: number, mu: number) => {
-  let t = Math.exp(-mu);
-  let s = t;
-  for (let k = 1; k < n; k++) {
-    t = (t * mu) / k;
-    s += t;
-  }
-  return 1 - s;
-};
-const ajustaMu = (n: number, pAlvo: number) => {
-  let lo = 0.2;
-  let hi = 40;
-  for (let i = 0; i < 40; i++) {
-    const mid = (lo + hi) / 2;
-    if (poissonTail(n, mid) < pAlvo) lo = mid;
-    else hi = mid;
-  }
-  return (lo + hi) / 2;
-};
-
-/** Bet365: abertura/fechamento das 12 famílias de mercado -> nosso cardápio seccionado. */
-export function mercadosDasOdds(resp: OddsResp, casa: string, fora: string): MercadoApi[] {
-  const bet = resp.bookmakers?.find((b) => b.slug === 'bet365') ?? resp.bookmakers?.[0];
-  if (!bet?.odds) return [];
-  const m = bet.odds;
-  const out: MercadoApi[] = [];
-  const push = (grupo: string, descricao: string, mult: unknown, real = false) => {
-    const v = Math.round(Number(mult) * 100) / 100;
-    // Arredondado aqui pra nunca salvar odd 1.00 (v=1.004 entrava e depois reprovava na validação).
-    if (Number.isFinite(v) && v >= 1.01) out.push({ grupo, descricao, multiplicador: v, casas: 1, real });
-  };
-  const CASA = casa.toUpperCase();
-  const FORA = fora.toUpperCase();
-
-  // PRINCIPAL: 1X2 + derivados (dupla chance, empate anula)
-  const x2 = fechamento(m['1x2']);
-  if (x2?.home && x2.draw && x2.away) {
-    push('RESULTADO', CASA, x2.home, true);
-    push('RESULTADO', 'EMPATE', x2.draw, true);
-    push('RESULTADO', FORA, x2.away, true);
-  }
-  // AMBOS MARCAM vem logo depois do RESULTADO (2º grupo sempre), independente do 1x2.
-  const btts = fechamento(m['btts']);
-  if (btts) {
-    push('AMBOS MARCAM', 'SIM', btts.yes, true);
-    push('AMBOS MARCAM', 'NÃO', btts.no, true);
-  }
-  if (x2?.home && x2.draw && x2.away) {
-    const dc = (a: number, b: number) => 1 / (1 / a + 1 / b);
-    push('DUPLA CHANCE', `${CASA} OU EMPATE`, dc(x2.home, x2.draw));
-    push('DUPLA CHANCE', `${FORA} OU EMPATE`, dc(x2.away, x2.draw));
-    push('DUPLA CHANCE', `${CASA} OU ${FORA}`, dc(x2.home, x2.away));
-    push('EMPATE ANULA', CASA, 1 + x2.home / x2.away);
-    push('EMPATE ANULA', FORA, 1 + x2.away / x2.home);
-  }
-
-  // GOLS: escada fixa de linhas (.5) + ambas marcam
-  const fixed = Array.isArray(m['goal_line_fixed']) ? m['goal_line_fixed'] : [];
-  for (const l of fixed) {
-    const f = fechamento(l);
-    if (!f || !linhaMeio(l.line) || (l.line! > 5.5)) continue;
-    const g = `GOLS ${l.line}`;
-    push(g, `MAIS DE ${l.line}`, f.over);
-    push(g, `MENOS DE ${l.line}`, f.under);
-  }
-  // HANDICAP: linha principal (.5 ou inteira); linha 0 já é coberta pelo EMPATE ANULA
-  // Linhas quarto (.25/.75 = split de aposta) não cabem no modelo PALPIT: só .5 ou inteira.
-  const hc = fechamento(m['asian_handicap']);
-  if (hc?.line != null && hc.line !== 0 && (linhaMeio(hc.line) || Number.isInteger(hc.line))) {
-    const f = (l: number) => (l > 0 ? `+${l}` : `${l}`);
-    push('HANDICAP', `CASA ${f(hc.line)}`, hc.home);
-    push('HANDICAP', `FORA ${f(-hc.line)}`, hc.away);
-  }
-
-  // ESCANTEIOS / CARTÕES: escada de linhas derivada da linha real (mesma faixa do filtro 30-70%)
-  // Um grupo por linha, como "GOLS 2.5" — a linha real da casa mantém o preço real.
-  const escada = (prefixo: string, real: OddsLinha, maxLinha: number) => {
-    if (real.line == null || !real.over || !real.under) return;
-    const po = 1 / real.over;
-    const pu = 1 / real.under;
-    const margem = po + pu;
-    const mu = ajustaMu(Math.floor(real.line) + 1, po / margem);
-    for (let l = 0.5; l <= maxLinha; l += 1) {
-      const g = `${prefixo} ${l}`;
-      const pO = poissonTail(Math.floor(l) + 1, mu);
-      const pU = 1 - pO;
-      if (l === real.line) {
-        push(g, `MAIS DE ${l}`, real.over, true);
-        push(g, `MENOS DE ${l}`, real.under, true);
-      } else {
-        push(g, `MAIS DE ${l}`, 1 / Math.max(0.001, pO * margem));
-        push(g, `MENOS DE ${l}`, 1 / Math.max(0.001, pU * margem));
-      }
-    }
-  };
-  const corner = fechamento(m['corner_line']);
-  if (corner) escada('ESCANTEIOS', corner, 19.5);
-  const cornerHc = fechamento(m['corner_asian']);
-  if (cornerHc?.line != null && cornerHc.line !== 0 && (linhaMeio(cornerHc.line) || Number.isInteger(cornerHc.line))) {
-    const f = (l: number) => (l > 0 ? `+${l}` : `${l}`);
-    push('ESCANTEIOS HCP', `CASA ${f(cornerHc.line)}`, cornerHc.home);
-    push('ESCANTEIOS HCP', `FORA ${f(-cornerHc.line)}`, cornerHc.away);
-  }
-  const cards = fechamento(m['card_line']);
-  if (cards) escada('CARTÕES', cards, 11.5);
-
-  // 1º TEMPO: gols, handicap e escanteios do primeiro tempo
-  const g1 = fechamento(m['goal_line_half']);
-  if (g1?.line != null && linhaMeio(g1.line)) {
-    push('GOLS 1º TEMPO', `MAIS DE ${g1.line}`, g1.over);
-    push('GOLS 1º TEMPO', `MENOS DE ${g1.line}`, g1.under);
-  }
-  const h1 = fechamento(m['asian_handicap_half']);
-  if (h1?.line != null && h1.line !== 0 && (linhaMeio(h1.line) || Number.isInteger(h1.line))) {
-    const f = (l: number) => (l > 0 ? `+${l}` : `${l}`);
-    push('HANDICAP 1º TEMPO', `CASA ${f(h1.line)}`, h1.home);
-    push('HANDICAP 1º TEMPO', `FORA ${f(-h1.line)}`, h1.away);
-  }
-  const c1 = fechamento(m['corner_line_half']);
-  if (c1) escada('ESCANTEIOS 1º TEMPO', c1, 9.5);
-  return filtrarJogaveis(out);
+// Catálogo de mercados do futebol: muda raramente, fica no isolate.
+let catalogo: Map<number, Market> | null = null;
+async function catalogoMercados(cfg: OddsConfig): Promise<Map<number, Market>> {
+  if (catalogo) return catalogo;
+  const lista = ((await req(cfg, '/markets?sportId=10')) ?? []) as Market[];
+  catalogo = new Map(lista.map((m) => [m.marketId, m]));
+  return catalogo;
 }
+/** Só para testes. */
+export const _limparCatalogo = () => (catalogo = null);
+
+const linhaMeia = (h: number) => Math.abs(Math.abs(h % 1) - 0.5) < 1e-9;
+const sinal = (h: number) => (h > 0 ? `+${h}` : `${h}`);
+
+const PROPS: Record<string, string> = {
+  'players-anytimegoalscorer': 'MARCA NO JOGO',
+  'players-firstgoalscorer': 'PRIMEIRO A MARCAR',
+  'players-lastgoalscorer': 'ÚLTIMO A MARCAR',
+  'players-firstcard': 'PRIMEIRO CARTÃO',
+  'players-cards': 'LEVA CARTÃO',
+  'players-assists': 'DÁ ASSISTÊNCIA',
+  'playertotals-goals': 'GOLS DO JOGADOR',
+  'playertotals-assists': 'ASSISTÊNCIAS DO JOGADOR',
+  'playertotals-shots': 'CHUTES DO JOGADOR',
+  'playertotals-shotsongoal': 'CHUTES NO GOL DO JOGADOR',
+  'playertotals-cards': 'CARTÕES DO JOGADOR',
+  'playertotals-tackles': 'DESARMES DO JOGADOR',
+  'playertotals-saves': 'DEFESAS DO GOLEIRO',
+  'playertotals-foulscommitted': 'FALTAS DO JOGADOR',
+  'playertotals-offsides': 'IMPEDIMENTOS DO JOGADOR',
+};
+
+/** Nome do jogador no feed vem "Sobrenome, Nome" — vira "NOME SOBRENOME". */
+const nomeJogador = (s: string) => {
+  const [sob, nome] = s.split(',').map((x) => x.trim());
+  return (nome ? `${nome} ${sob}` : sob).toUpperCase();
+};
+
+type Opcao = { grupo: string; descricao: string; categoria: Categoria; real?: boolean } | null;
 
 /**
- * Só sugestões "jogáveis": probabilidade implícita (1/odd) entre ~30% e ~70%.
- * Grupos com >4 opções ficam com as 4 mais equilibradas; com <=4 ficam todas.
+ * Traduz (mercado, opção) da OddsPapi pro cardápio do PALPIT. Os nomes de grupo/descrição seguem o
+ * formato que compat.ts sabe liquidar pelo placar ("GOLS 2.5"/"MAIS DE 2.5", "HANDICAP"/"CASA -1",
+ * "GOLS 1º TEMPO"...). Mercados que o placar não resolve usam descrições fora desse formato e ficam
+ * pra liquidação manual. 2º tempo e prorrogação ficam de fora (o placar não separa esses períodos).
  */
-function filtrarJogaveis(ms: MercadoApi[]): MercadoApi[] {
-  // Odd sem sentido nao aparece (ex.: "mais de 100 escanteios" @300+).
-  ms = ms.filter((m) => m.multiplicador <= 30);
-  const porGrupo = new Map<string, MercadoApi[]>();
-  for (const m of ms) porGrupo.set(m.grupo, [...(porGrupo.get(m.grupo) ?? []), m]);
-  const out: MercadoApi[] = [];
-  for (const g of porGrupo.values()) {
-    // linha que sobrou com 1 lado só não aparece (ex.: só "menos de 100" com odd ~1.0)
-    if (g.length < 2) continue;
-    // grupo cuja opção menos provável ainda tem >85% (linha extremada, ex.: "MENOS DE 15.5") cai fora
-    if (g.every((m) => 1 / m.multiplicador > 0.85)) continue;
-    if (g.length <= 4) {
-      out.push(...g);
-      continue;
+function traduzir(m: Market, saida: string, jogador: string | null, C: string, F: string): Opcao {
+  const tipo = m.marketType ?? '';
+  const h = Number(m.handicap ?? 0);
+  const periodo = m.period ?? '';
+  const lado = (s: string) => (s === '1' ? C : s === '2' ? F : s === 'X' ? 'EMPATE' : null);
+  const maisMenos = (s: string) => (s === 'Over' ? `MAIS DE ${h}` : s === 'Under' ? `MENOS DE ${h}` : null);
+  const simNao = (s: string) => (s === 'Yes' ? 'SIM' : s === 'No' ? 'NÃO' : null);
+
+  if (m.playerProp) {
+    const nome = PROPS[tipo];
+    if (!nome || !jogador || !['result', 'fulltime'].includes(periodo)) return null;
+    const j = nomeJogador(jogador);
+    if (tipo.startsWith('players-')) {
+      // "Sim" é o mercado que interessa; o "Não" do jogador tem odd baixa e confunde.
+      if (saida !== 'Yes') return null;
+      return { grupo: nome, descricao: j, categoria: 'JOGADOR' };
     }
-    const centro = (m: MercadoApi) => Math.abs(1 / m.multiplicador - 0.5);
-    const naFaixa = g.filter((m) => {
-      const p = 1 / m.multiplicador;
-      return p >= 0.3 && p <= 0.7;
-    });
-    const ordenados = [...g].sort((a, b) => centro(a) - centro(b));
-    const sel =
-      naFaixa.length >= 4 ? naFaixa.slice(0, 4) : [...naFaixa, ...ordenados.filter((m) => !naFaixa.includes(m))].slice(0, 4);
-    out.push(...sel);
+    const mm = saida === 'Over' ? `MAIS DE ${h}` : saida === 'Under' ? `MENOS DE ${h}` : null;
+    if (!mm) return null;
+    return { grupo: `${nome} ${h}`, descricao: `${j} — ${mm}`, categoria: 'JOGADOR' };
   }
-  return out;
+
+  if (periodo !== 'fulltime' && periodo !== 'p1') return null;
+  const t1 = periodo === 'p1';
+  const sfx = t1 ? ' 1º TEMPO' : '';
+  switch (tipo) {
+    case '1x2': {
+      const d = lado(saida);
+      return d ? { grupo: t1 ? 'RESULTADO 1º TEMPO' : 'RESULTADO', descricao: d, categoria: 'RESULTADO', real: true } : null;
+    }
+    case 'bothteamsscore': {
+      const d = simNao(saida);
+      return d ? { grupo: `AMBOS MARCAM${sfx}`, descricao: d, categoria: 'GOLS', real: true } : null;
+    }
+    case 'doublechance': {
+      if (t1) return null;
+      const d = saida === '1X' ? `${C} OU EMPATE` : saida === '2X' || saida === 'X2' ? `${F} OU EMPATE` : saida === '12' ? `${C} OU ${F}` : null;
+      return d ? { grupo: 'DUPLA CHANCE', descricao: d, categoria: 'RESULTADO', real: true } : null;
+    }
+    case 'drawnobet': {
+      if (t1) return null;
+      const d = saida === '1' ? C : saida === '2' ? F : null;
+      return d ? { grupo: 'EMPATE ANULA', descricao: d, categoria: 'RESULTADO', real: true } : null;
+    }
+    case 'totals': {
+      const d = linhaMeia(h) ? maisMenos(saida) : null;
+      return d ? { grupo: t1 ? 'GOLS 1º TEMPO' + ` ${h}` : `GOLS ${h}`, descricao: d, categoria: 'GOLS', real: true } : null;
+    }
+    case 'spreads': {
+      if (h === 0 || !(linhaMeia(h) || Number.isInteger(h))) return null;
+      const d = saida === '1' ? `CASA ${sinal(h)}` : saida === '2' ? `FORA ${sinal(-h)}` : null;
+      return d ? { grupo: `HANDICAP${sfx}`, descricao: d, categoria: 'HANDICAP', real: true } : null;
+    }
+    case 'totals-corners': {
+      const d = linhaMeia(h) ? maisMenos(saida) : null;
+      return d ? { grupo: `ESCANTEIOS${sfx} ${h}`, descricao: d, categoria: 'ESCANTEIOS' } : null;
+    }
+    case 'spreads-corners': {
+      if (t1 || h === 0 || !(linhaMeia(h) || Number.isInteger(h))) return null;
+      const d = saida === '1' ? `CASA ${sinal(h)}` : saida === '2' ? `FORA ${sinal(-h)}` : null;
+      return d ? { grupo: 'ESCANTEIOS HCP', descricao: d, categoria: 'ESCANTEIOS' } : null;
+    }
+    case 'teamtotals-corners-team1':
+    case 'teamtotals-corners-team2': {
+      const time = tipo.endsWith('team1') ? C : F;
+      const d = linhaMeia(h) ? maisMenos(saida) : null;
+      return d ? { grupo: `ESCANTEIOS ${time}${sfx} ${h}`, descricao: `${time} ${d}`, categoria: 'ESCANTEIOS' } : null;
+    }
+    case 'totals-bookings': {
+      if (t1) return null;
+      const d = linhaMeia(h) ? maisMenos(saida) : null;
+      return d ? { grupo: `CARTÕES ${h}`, descricao: d, categoria: 'CARTÕES' } : null;
+    }
+    case 'teamtotals-bookings-team1':
+    case 'teamtotals-bookings-team2': {
+      if (t1) return null;
+      const time = tipo.endsWith('team1') ? C : F;
+      const d = linhaMeia(h) ? maisMenos(saida) : null;
+      return d ? { grupo: `CARTÕES ${time} ${h}`, descricao: `${time} ${d}`, categoria: 'CARTÕES' } : null;
+    }
+    case 'teamtotals-team1':
+    case 'teamtotals-team2': {
+      const time = tipo.endsWith('team1') ? C : F;
+      const d = linhaMeia(h) ? maisMenos(saida) : null;
+      // Descrição com o nome do time na frente: não é "MAIS DE x" do jogo, então fica manual.
+      return d ? { grupo: `GOLS ${time}${sfx} ${h}`, descricao: `${time} ${d}`, categoria: 'GOLS' } : null;
+    }
+    case 'correctscore': {
+      if (!/^\d+:\d+$/.test(saida)) return null;
+      return { grupo: `PLACAR EXATO${sfx}`, descricao: saida.replace(':', ' x '), categoria: 'OUTROS' };
+    }
+    case 'oddeven': {
+      if (t1) return null;
+      const d = saida === 'Odd' ? 'ÍMPAR' : saida === 'Even' ? 'PAR' : null;
+      return d ? { grupo: 'GOLS PAR OU ÍMPAR', descricao: `TOTAL ${d}`, categoria: 'GOLS' } : null;
+    }
+    case 'halftime-fulltime': {
+      const [a, b] = saida.split('/').map(lado);
+      return a && b ? { grupo: 'INTERVALO / FINAL', descricao: `${a} / ${b}`, categoria: 'RESULTADO' } : null;
+    }
+    case 'wintonil-team1':
+    case 'wintonil-team2': {
+      if (t1 || saida !== 'Yes') return null;
+      const time = tipo.endsWith('team1') ? C : F;
+      return { grupo: 'VENCE SEM SOFRER GOL', descricao: `${time} VENCE SEM SOFRER`, categoria: 'RESULTADO' };
+    }
+    default:
+      return null;
+  }
 }
 
-/** Odds Bet365 de um jogo do pool/múltipla — 1 request por jogo, cacheado em mercados_sugeridos. */
+/** Odds da casa configurada (1xBet) de um jogo -> cardápio do PALPIT, já seccionado por categoria. */
+export function mercadosDasOdds(
+  resp: OddsResp,
+  cat: Map<number, Market>,
+  casa: string,
+  fora: string,
+  bookmaker = CASA_PADRAO,
+): MercadoApi[] {
+  const book = resp.bookmakerOdds?.[bookmaker];
+  if (!book?.markets || book.bookmakerIsActive === false) return [];
+  const C = casa.toUpperCase();
+  const F = fora.toUpperCase();
+  const vistos = new Set<string>();
+  const out: MercadoApi[] = [];
+  for (const [mid, mk] of Object.entries(book.markets)) {
+    const meta = cat.get(Number(mid));
+    if (!meta || mk.marketActive === false) continue;
+    for (const [oid, oc] of Object.entries(mk.outcomes ?? {})) {
+      const saida = meta.outcomes?.find((o) => o.outcomeId === Number(oid))?.outcomeName ?? '';
+      for (const p of Object.values(oc.players ?? {})) {
+        if (p.active === false || !p.price) continue;
+        const v = Math.round(p.price * 100) / 100;
+        if (!(v >= 1.01 && v <= (meta.playerProp ? 50 : 30))) continue;
+        const t = traduzir(meta, saida, p.playerName ?? null, C, F);
+        if (!t) continue;
+        const k = `${t.grupo}|${t.descricao}`;
+        if (vistos.has(k)) continue;
+        vistos.add(k);
+        out.push({ grupo: t.grupo, descricao: t.descricao, multiplicador: v, casas: 1, real: t.real, categoria: t.categoria });
+      }
+    }
+  }
+  return ordenar(limpar(out));
+}
+
+const ORDEM_CAT: Categoria[] = ['RESULTADO', 'GOLS', 'HANDICAP', 'ESCANTEIOS', 'CARTÕES', 'JOGADOR', 'OUTROS'];
+const ORDEM_GRUPO = ['RESULTADO', 'AMBOS MARCAM', 'DUPLA CHANCE', 'EMPATE ANULA', 'GOLS 2.5'];
+const linhaDoGrupo = (g: string) => Number(g.match(/(\d+(?:\.\d+)?)$/)?.[1] ?? 0);
+
+/** Tira linhas extremas: grupo com 1 lado só ou em que todo lado tem >85% de chance. */
+function limpar(ms: MercadoApi[]): MercadoApi[] {
+  const porGrupo = new Map<string, MercadoApi[]>();
+  for (const m of ms) porGrupo.set(m.grupo, [...(porGrupo.get(m.grupo) ?? []), m]);
+  return ms.filter((m) => {
+    const g = porGrupo.get(m.grupo)!;
+    if (m.categoria === 'JOGADOR' || m.grupo.startsWith('PLACAR EXATO') || m.grupo === 'VENCE SEM SOFRER GOL') return true;
+    if (g.length < 2) return false;
+    return !g.every((x) => 1 / x.multiplicador > 0.85);
+  });
+}
+
+function ordenar(ms: MercadoApi[]): MercadoApi[] {
+  const rank = (m: MercadoApi) => {
+    const i = ORDEM_GRUPO.indexOf(m.grupo);
+    return i >= 0 ? i : ORDEM_GRUPO.length;
+  };
+  return [...ms].sort(
+    (a, b) =>
+      ORDEM_CAT.indexOf(a.categoria ?? 'OUTROS') - ORDEM_CAT.indexOf(b.categoria ?? 'OUTROS') ||
+      rank(a) - rank(b) ||
+      a.grupo.replace(/\s[\d.]+$/, '').localeCompare(b.grupo.replace(/\s[\d.]+$/, '')) ||
+      linhaDoGrupo(a.grupo) - linhaDoGrupo(b.grupo) ||
+      (a.categoria === 'JOGADOR' || a.grupo.startsWith('PLACAR') ? a.multiplicador - b.multiplicador : 0),
+  );
+}
+
+async function buscarMercados(cfg: OddsConfig, externoId: string, casa: string, fora: string) {
+  const bookmaker = cfg.bookmaker ?? CASA_PADRAO;
+  const [resp, cat] = await Promise.all([
+    req(cfg, `/odds?fixtureId=${encodeURIComponent(externoId)}&bookmakers=${bookmaker}`, true) as Promise<OddsResp | null>,
+    catalogoMercados(cfg),
+  ]);
+  return resp ? mercadosDasOdds(resp, cat, casa, fora, bookmaker) : [];
+}
+
+/** Odds de um jogo da rodada — 1 request por jogo, cacheado em mercados_sugeridos. */
 export async function mercadosDaApi(db: Db, cfg: OddsConfig | undefined, jogoId: string) {
-  if (!cfg?.apiKey) throw new RuleError('Integração de futebol não configurada (FOOTBALL_API_KEY).');
+  if (!cfg?.apiKey) throw semChave();
   const [j] = await db`
-    select f.externo_id, j.time_casa, j.time_fora from jogos j
+    select f.externo_id, f.fonte, j.time_casa, j.time_fora from jogos j
     left join fixtures_dia f on f.fixture_id = j.fixture_id
     where j.id = ${jogoId}`;
   if (!j) throw new RuleError('Jogo não encontrado.');
-  if (!j.externo_id) throw new RuleError('Esse jogo foi cadastrado na mão; não há odds da API para ele.');
-  const resp = (await req(cfg, `/fixtures/${j.externo_id}/odds`)) as OddsResp;
-  const mercados = mercadosDasOdds(resp, j.time_casa as string, j.time_fora as string);
+  if (!j.externo_id || j.fonte !== 'oddspapi') throw new RuleError('Esse jogo foi cadastrado na mão; não há odds da API para ele.');
+  const mercados = await buscarMercados(cfg, j.externo_id as string, j.time_casa as string, j.time_fora as string);
   await db`update fixtures_dia set mercados_sugeridos = ${db.json(mercados)}, odds_atualizadas_em = now()
            where externo_id = ${j.externo_id}`;
   return { mercados };
 }
 
 /** Versão por fixture do pool (para o criador de desafio ver os sugeridos). */
-export async function mercadosDaFixture(db: Db, cfg: OddsConfig | undefined, externoId: string) {
+export async function mercadosDaFixture(db: Db, cfg: OddsConfig | undefined, fixtureId: string) {
   if (!cfg?.apiKey) return [];
+  const externoId = externoDe(fixtureId);
   const [f] = await db`
-    select time_casa, time_fora, mercados_sugeridos,
+    select time_casa, time_fora, mercados_sugeridos, fonte,
            coalesce(odds_atualizadas_em < now() - interval '6 hours', true) as velho
     from fixtures_dia where externo_id = ${externoId}`;
-  if (!f) return [];
+  if (!f || f.fonte !== 'oddspapi') return [];
   const cache = f.mercados_sugeridos as MercadoApi[] | null;
-  // Cache no formato antigo (família sem linha, ex.: "ESCANTEIOS") é refeito uma vez.
-  const legado = (m: MercadoApi) => /^(ESCANTEIOS|CARTÕES|ESCANTEIOS 1º TEMPO)$/.test(m.grupo);
-  // Cache com mais de 6h é refeito (ordem/filtros novos do cardápio e odds atualizadas).
-  if (cache?.length && !cache.some(legado) && !f.velho) return cache;
-  const resp = (await req(cfg, `/fixtures/${externoId}/odds`)) as OddsResp;
-  const mercados = mercadosDasOdds(resp, f.time_casa as string, f.time_fora as string);
+  // Cache com mais de 6h é refeito (odds atualizadas).
+  if (cache?.length && !f.velho) return cache;
+  const mercados = await buscarMercados(cfg, externoId, f.time_casa as string, f.time_fora as string);
   // Feed sem mercados agora: mantém as sugestões que já tinham vindo.
   if (!mercados.length && cache?.length) return cache;
   await db`update fixtures_dia set mercados_sugeridos = ${db.json(mercados)}, odds_atualizadas_em = now()
            where externo_id = ${externoId}`;
   return mercados;
 }
+
+export type Placar = {
+  status: 'live' | 'finished' | 'unknown';
+  casa: number;
+  fora: number;
+  casa1t?: number;
+  fora1t?: number;
+};
+
+/** Placar de um jogo (só gols). "fulltime" presente = jogo encerrado. Sem placar ainda: null. */
+export async function placarDoJogo(cfg: OddsConfig, externoId: string): Promise<Placar | null> {
+  const r = (await req(cfg, `/scores?fixtureId=${encodeURIComponent(externoId)}`, true)) as ScoresResp | null;
+  const p = r?.scores?.periods;
+  if (!p) return null;
+  const fim = p.fulltime;
+  const atual = fim ?? p.result;
+  if (atual?.participant1Score == null || atual.participant2Score == null) return null;
+  const t1 = p.p1;
+  return {
+    status: fim ? 'finished' : 'live',
+    casa: Number(atual.participant1Score),
+    fora: Number(atual.participant2Score),
+    casa1t: fim && t1?.participant1Score != null ? Number(t1.participant1Score) : undefined,
+    fora1t: fim && t1?.participant2Score != null ? Number(t1.participant2Score) : undefined,
+  };
+}
+
+/** Cardápio enxuto pra montar a rodada rápido: resultado, ambos marcam, dupla chance, empate anula e gols 1.5/2.5/3.5. */
+export const GRUPOS_PRINCIPAIS = ['RESULTADO', 'AMBOS MARCAM', 'DUPLA CHANCE', 'EMPATE ANULA', 'GOLS 1.5', 'GOLS 2.5', 'GOLS 3.5'];
+export const principais = <T extends { grupo: string }>(ms: T[]) => ms.filter((m) => GRUPOS_PRINCIPAIS.includes(m.grupo));
