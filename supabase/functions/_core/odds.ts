@@ -241,7 +241,9 @@ function traduzir(m: Market, saida: string, jogador: string | null, C: string, F
     const j = nomeJogador(jogador);
     if (tipo.startsWith('players-')) {
       // "Sim" é o mercado que interessa; o "Não" do jogador tem odd baixa e confunde.
-      if (saida !== 'Yes') return null;
+      // Alguns livram de "Sim/Não" pra contagem ("1+", "2+", "3+" — ex.: assistências):
+      // aí o "1+" é o equivalente a "sim" (faz pelo menos uma).
+      if (saida !== 'Yes' && saida !== '1+') return null;
       return { grupo: nome, descricao: j, categoria: 'JOGADOR' };
     }
     const mm = saida === 'Over' ? `MAIS DE ${h}` : saida === 'Under' ? `MENOS DE ${h}` : null;
