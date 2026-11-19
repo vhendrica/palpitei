@@ -172,7 +172,7 @@ export async function minhaSituacao(db: Db, userId: string, liga: LigaRow) {
   if (!entrada) return { entrou: false as const };
   const [usadas, ranking, multiplas, retornos] = await Promise.all([
     fichasUsadas(db, userId, liga.id),
-    calcularRanking(db, liga.id),
+    calcularRanking(db, liga.id, userId),
     multiplasDoUsuario(db, userId, liga.id),
     retornosPorUsuario(db, liga.id),
   ]);

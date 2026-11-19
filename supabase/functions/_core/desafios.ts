@@ -219,7 +219,7 @@ export async function detalhe(db: Db, user: UserPublico | null, ligaId: string, 
     jogos,
     eu,
     palpiteiros: num(palpiteiros[0].n),
-    ranking: (await calcularRanking(db, liga.id)).map(({ user_id, ...r }) => ({
+    ranking: (await calcularRanking(db, liga.id, user?.id)).map(({ user_id, ...r }) => ({
       ...r,
       eu: user?.id === user_id,
     })),

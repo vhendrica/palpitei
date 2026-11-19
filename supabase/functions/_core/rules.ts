@@ -391,12 +391,12 @@ async function acertosPorUsuario(db: Db, ligaId: string) {
 }
 
 /** Potencial máximo: pontos atuais + ganho líquido das apostas ainda vivas (simples e múltiplas). */
-async function potencialPorUsuario(db: Db, ligaId: string) {
+async function potencialPorUsuario(db: Db, ligaId: string, soComecados = true) {
   const [simples, mults] = await Promise.all([
     db`
       select a.user_id, coalesce(sum(a.fichas_apostadas * (a.odd - 1)), 0) as pot
       from apostas a join mercados m on m.id = a.mercado_id join jogos j on j.id = m.jogo_id
-      where j.liga_id = ${ligaId} and m.decidido_em is null and j.horario <= now()
+      where j.liga_id = ${ligaId} and m.decidido_em is null and (j.horario <= now() or not ${soComecados})
       group by a.user_id`,
     db`
       select user_id, coalesce(sum(fichas_apostadas * (odd_tot - 1)), 0) as pot from (
@@ -412,7 +412,7 @@ async function potencialPorUsuario(db: Db, ligaId: string) {
         where mu.liga_id = ${ligaId}
         group by mu.id, mu.user_id, mu.fichas_apostadas
       ) x
-      where perdidas = 0 and pendentes > 0 and comecaram
+      where perdidas = 0 and pendentes > 0 and (comecaram or not ${soComecados})
       group by user_id`,
   ]);
   const out = new Map<string, number>();
@@ -426,8 +426,9 @@ async function potencialPorUsuario(db: Db, ligaId: string) {
  * Pontuação desc; empate → maior multiplicador acertado; depois mais bilhetes certos;
  * persistindo, a ordem entre eles é só técnica (id) e sem critério exibido.
  */
-export async function calcularRanking(db: Db, ligaId: string): Promise<RankingRow[]> {
-  const [rows, pontos, acertos, potencialAberto, [liga]] = await Promise.all([
+/** `quem`: o próprio usuário vê o potencial completo, inclusive de jogos que não começaram. */
+export async function calcularRanking(db: Db, ligaId: string, quem?: string): Promise<RankingRow[]> {
+  const [rows, pontos, acertos, potencialAberto, [liga], potencialMeu] = await Promise.all([
     db`
       with ev as (
         select a.user_id, a.fichas_apostadas as f
@@ -444,6 +445,7 @@ export async function calcularRanking(db: Db, ligaId: string): Promise<RankingRo
     acertosPorUsuario(db, ligaId),
     potencialPorUsuario(db, ligaId),
     db`select status from ligas where id = ${ligaId}`,
+    quem ? potencialPorUsuario(db, ligaId, false) : Promise.resolve(new Map<string, number>()),
   ]);
   // Rodada finalizada: o que não foi decidido perdeu, então potencial não desempata nem soma.
   const potencial = liga?.status === 'finalizada' ? new Map<string, number>() : potencialAberto;
@@ -487,7 +489,10 @@ export async function calcularRanking(db: Db, ligaId: string): Promise<RankingRo
       fichas_apostadas: num(x.r.fichas),
       maior_acerto: x.maior,
       acertos: x.n,
-      potencial: round2(x.pontos + (potencial.get(x.r.id as string) ?? 0)),
+      potencial: round2(
+        x.pontos +
+          ((x.r.id === quem && liga?.status !== 'finalizada' ? potencialMeu : potencial).get(x.r.id as string) ?? 0),
+      ),
       desempate,
     };
   });
