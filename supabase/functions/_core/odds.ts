@@ -61,11 +61,17 @@ export type ScoresResp = {
   scores?: { periods?: Record<string, { participant1Score?: number; participant2Score?: number }> };
 };
 
+// A OddsPapi limita a ~1 chamada por segundo por endpoint. Em vez de disparar e pagar retry
+// (cada 429 também conta na cota), espaçamos as chamadas a >=1.1s dentro do isolate.
+let proximaChamada = 0;
 const req = async (cfg: OddsConfig, path: string, notFoundNull = false) => {
   const sep = path.includes('?') ? '&' : '?';
   const url = `${BASE}${path}${sep}apiKey=${encodeURIComponent(cfg.apiKey)}`;
+  const espera = cfg.fetch ? 0 : Math.max(0, proximaChamada - Date.now());
+  proximaChamada = Math.max(proximaChamada, Date.now()) + 1100;
+  if (espera > 0) await new Promise((r) => setTimeout(r, espera));
   let res = await (cfg.fetch ?? fetch)(url);
-  // A OddsPapi limita a ~1 chamada por segundo por endpoint (não é a cota mensal): espera o retryMs e tenta de novo.
+  // Residual: duas instâncias (isolates) ainda podem colidir — espera o retryMs e tenta de novo.
   for (let i = 0; i < 4 && res.status === 429; i++) {
     const ms = Number(((await res.json().catch(() => ({}))) as { error?: { retryMs?: number } }).error?.retryMs);
     await new Promise((r) => setTimeout(r, Math.min(Number.isFinite(ms) ? ms + 150 : 1500, 5000)));
@@ -423,13 +429,15 @@ export async function mercadosDaApi(db: Db, cfg: OddsConfig | undefined, jogoId:
   if (!j.externo_id || j.fonte !== 'oddspapi') throw new RuleError('Esse jogo foi cadastrado na mão; não há odds da API para ele.');
   const cache = (j.mercados_sugeridos as MercadoApi[] | null) ?? [];
   const fresco = j.odds_atualizadas_em != null && Date.parse(String(j.odds_atualizadas_em)) > Date.now() - 6 * 3600_000;
-  if (!forcar && cache.length && fresco) return { mercados: cache, cacheado: true };
+  // Cache fresco conta mesmo vazio: "a API não tem odds pra esse jogo" também é resposta —
+  // sem isso jogos sem odds refazem a request em cada acesso.
+  if (!forcar && fresco) return { mercados: cache, cacheado: true };
   const mercados = await buscarMercados(db, cfg, j.externo_id as string, j.time_casa as string, j.time_fora as string);
-  // Feed vazio (jogo suspenso/casa sem odds): mantém o cache que já existia.
-  if (!mercados.length && cache.length) return { mercados: cache, cacheado: true };
-  await db`update fixtures_dia set mercados_sugeridos = ${db.json(mercados)}, odds_atualizadas_em = now()
-           where externo_id = ${j.externo_id}`;
-  return { mercados, cacheado: false };
+  // Feed vazio (jogo suspenso/casa sem odds): mantém o cache que já existia e marca o timestamp
+  // pra não refazer a request na próxima chamada.
+  await db`update fixtures_dia set mercados_sugeridos = ${db.json(mercados.length ? mercados : cache)},
+           odds_atualizadas_em = now() where externo_id = ${j.externo_id}`;
+  return { mercados: mercados.length ? mercados : cache, cacheado: !mercados.length && cache.length > 0 };
 }
 
 /**
@@ -444,16 +452,17 @@ export async function mercadosDaFixture(db: Db, cfg: OddsConfig | undefined, fix
            coalesce(odds_atualizadas_em < now() - interval '6 hours', true) as velho
     from fixtures_dia where externo_id = ${externoId}`;
   if (!f || f.fonte !== 'oddspapi') return [];
-  const cache = f.mercados_sugeridos as MercadoApi[] | null;
-  // Cache com mais de 6h é refeito (odds atualizadas).
-  if (cache?.length && !f.velho) return principais(cache);
+  const cache = (f.mercados_sugeridos as MercadoApi[] | null) ?? [];
+  // Cache com menos de 6h — inclusive vazio ("a API não tem odds pra esse jogo" também é resposta).
+  // Sem isso, jogos sem odds refaziam a request em cada acesso e estouravam a cota.
+  if (!f.velho) return principais(cache);
   const mercados = await buscarMercados(db, cfg, externoId, f.time_casa as string, f.time_fora as string);
-  // Feed sem mercados agora: mantém as sugestões que já tinham vindo.
-  if (!mercados.length && cache?.length) return principais(cache);
-  // Cacheia a lista COMPLETA: o admin (mercadosDaApi) reaproveita o mesmo cache sem nova request.
-  await db`update fixtures_dia set mercados_sugeridos = ${db.json(mercados)}, odds_atualizadas_em = now()
+  // Feed sem mercados agora: mantém as sugestões que já tinham vindo, mas marca o timestamp
+  // pra não refazer a request na próxima chamada.
+  const guardar = mercados.length ? mercados : cache;
+  await db`update fixtures_dia set mercados_sugeridos = ${db.json(guardar)}, odds_atualizadas_em = now()
            where externo_id = ${externoId}`;
-  return principais(mercados);
+  return principais(guardar);
 }
 
 export type Placar = {
