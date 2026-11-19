@@ -245,9 +245,29 @@ export async function alternarEspecial(sql: Db, mercadoId: string) {
         select count(*)::int as n from mercados m join jogos j on j.id = m.jogo_id
         where j.liga_id = ${m.liga_id} and m.especial`;
       if (num(n) >= 10) throw new RuleError('Máximo de 10 especiais por rodada.');
+      // Novo especial entra no fim da fila; a ordem de exibição é a especial_ordem.
+      await tx`update mercados set especial = true,
+        especial_ordem = coalesce((select max(m2.especial_ordem) from mercados m2 join jogos j2 on j2.id = m2.jogo_id
+          where j2.liga_id = ${m.liga_id} and m2.especial), 0) + 1
+        where id = ${mercadoId}`;
+    } else {
+      await tx`update mercados set especial = false, especial_ordem = null where id = ${mercadoId}`;
     }
-    await tx`update mercados set especial = not especial where id = ${mercadoId}`;
     return m.liga_id as string;
+  });
+  return ligaAdmin(sql, ligaId);
+}
+
+/** Reordena os especiais do dia: o array de ids define a ordem na home (posição 1 = primeiro). */
+export async function ordenarEspeciais(sql: Db, ligaId: string, ids: unknown) {
+  if (!isUuid(ligaId)) throw new NotFoundError('Palpite não encontrado.');
+  if (!Array.isArray(ids)) throw new RuleError('Lista de mercados inválida.');
+  await sql.begin(async (tx: Tx) => {
+    for (const [i, id] of ids.entries()) {
+      if (!isUuid(String(id))) continue;
+      await tx`update mercados m set especial_ordem = ${i + 1}
+        from jogos j where m.jogo_id = j.id and j.liga_id = ${ligaId} and m.id = ${String(id)} and m.especial`;
+    }
   });
   return ligaAdmin(sql, ligaId);
 }
@@ -381,13 +401,13 @@ export async function definirMercados(sql: Db, jogoId: string, mercadosInput: un
 
 /** Abre/fecha a múltipla para entradas e apostas ('aberta' ↔ 'em_andamento'). Finalizar é outro endpoint. */
 /** Refaz os mercados de um jogo com as odds atuais da OddsPapi (só os mercados principais). Só antes de alguém entrar na rodada. */
-export async function renovarMercadosJogo(sql: Db, cfg: OddsConfig | undefined, jogoId: string) {
+export async function renovarMercadosJogo(sql: Db, cfg: OddsConfig | undefined, jogoId: string, forcar = false) {
   if (!isUuid(jogoId)) throw new NotFoundError('Jogo não encontrado.');
   const [j] = await sql`select j.id, j.liga_id, j.time_casa, j.time_fora from jogos j where j.id = ${jogoId}`;
   if (!j) throw new NotFoundError('Jogo não encontrado.');
   const [{ n }] = await sql`select count(*)::int as n from entradas where liga_id = ${j.liga_id}`;
   if (n > 0) throw new RuleError('Já tem palpiteiro nessa rodada; os mercados estão travados.');
-  const mercados = principais((await mercadosDaApi(sql, cfg, jogoId)).mercados);
+  const mercados = principais((await mercadosDaApi(sql, cfg, jogoId, forcar)).mercados);
   if (!mercados.length) throw new RuleError('A API não devolveu mercados para esse jogo.');
   const vistos = new Set<string>();
   const dedup = mercados.filter((m) => {

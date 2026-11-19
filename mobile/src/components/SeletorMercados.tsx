@@ -54,7 +54,8 @@ export function SeletorMercados({
   grupos: GrupoSel[];
   marcado: (g: GrupoSel) => boolean;
   onToggle: (g: GrupoSel) => void;
-  onMarcar: (gs: GrupoSel[]) => void;
+  /** Marca (true) ou desmarca (false) uma lista inteira de grupos de uma vez. */
+  onMarcar: (gs: GrupoSel[], marcar: boolean) => void;
 }) {
   const { palette: C } = useTheme();
   const [cat, setCat] = useState<string>("TODOS");
@@ -115,33 +116,65 @@ export function SeletorMercados({
       </ScrollView>
       <View className="mt-2 flex-row items-center justify-between">
         <T className="text-xs text-muted">{totalMarcados} marcado(s)</T>
-        {principais.length ? (
+        <View className="flex-row">
           <Button
             compact
             variant="ghost"
-            icon="flash-outline"
-            title="Marcar principais"
-            onPress={() => onMarcar(principais)}
+            icon="checkmark-done-outline"
+            title="Marcar visíveis"
+            onPress={() => onMarcar(visiveis, true)}
           />
-        ) : null}
+          <Button
+            compact
+            variant="ghost"
+            icon="close-outline"
+            title="Limpar"
+            onPress={() => onMarcar(visiveis, false)}
+          />
+          {principais.length ? (
+            <Button
+              compact
+              variant="ghost"
+              icon="flash-outline"
+              title="Principais"
+              onPress={() => onMarcar(principais, true)}
+            />
+          ) : null}
+        </View>
       </View>
       {familias.length === 0 ? <T className="mt-2 text-sm text-muted">Nenhum mercado encontrado.</T> : null}
       {familias.map((f) => {
         const aberto = abertos[f.nome] ?? (!!q || f.grupos.length === 1);
         const nMarc = f.grupos.filter(marcado).length;
+        const todos = nMarc === f.grupos.length;
         return (
           <View key={f.nome} className="border-b border-line">
-            <Pressable
-              onPress={() => setAbertos((s) => ({ ...s, [f.nome]: !aberto }))}
-              className="flex-row items-center py-2"
-            >
-              <Ionicons name={aberto ? "chevron-down" : "chevron-forward"} size={14} color={C.muted} />
-              <T className="ml-1 flex-1 font-mont-xb text-xs">{f.nome}</T>
-              <T className="text-[11px] text-muted">
-                {nMarc ? `${nMarc}/` : ""}
-                {f.grupos.length > 1 ? `${f.grupos.length} linhas` : `${f.grupos[0].opcoes.length} opções`}
-              </T>
-            </Pressable>
+            <View className="flex-row items-center py-2">
+              <Pressable
+                onPress={() => setAbertos((s) => ({ ...s, [f.nome]: !aberto }))}
+                className="flex-1 flex-row items-center"
+              >
+                <Ionicons name={aberto ? "chevron-down" : "chevron-forward"} size={14} color={C.muted} />
+                <T className="ml-1 flex-1 font-mont-xb text-xs">{f.nome}</T>
+                <T className="text-[11px] text-muted">
+                  {nMarc ? `${nMarc}/` : ""}
+                  {f.grupos.length > 1 ? `${f.grupos.length} linhas` : `${f.grupos[0].opcoes.length} opções`}
+                </T>
+              </Pressable>
+              <Pressable
+                onPress={() => onMarcar(f.grupos, !todos)}
+                hitSlop={8}
+                className="ml-2 flex-row items-center"
+                accessibilityLabel={todos ? `Desmarcar todos ${f.nome}` : `Marcar todos ${f.nome}`}
+              >
+                <Ionicons
+                  name={todos ? "checkbox" : nMarc ? "remove-circle-outline" : "square-outline"}
+                  size={18}
+                  color={nMarc ? C.primary : C.muted}
+                />
+                <T className={`ml-1 text-[11px] ${nMarc ? "text-primary" : "text-muted"}`}>todos</T>
+              </Pressable>
+            </View>
             {aberto
               ? f.grupos.map((g) => {
                   const ja = marcado(g);

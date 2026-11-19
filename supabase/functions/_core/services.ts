@@ -103,6 +103,7 @@ export async function jogosComMercados(db: Db, ligaId: string, userId?: string |
         resultado_final: !!m.resultado_final,
         decidido: m.decidido_em != null,
         especial: !!m.especial,
+        especial_ordem: (m.especial_ordem as number) ?? null,
         ...(userId ? { minhas_fichas: num(m.minhas) } : {}),
       })),
   }));
@@ -247,7 +248,7 @@ export async function home(db: Db, user: UserPublico | null, data = hojeISO()) {
              j.horario <= now() as comecou
       from mercados m join jogos j on j.id = m.jogo_id
       where j.liga_id = ${liga.id} and m.especial and m.oculto = false
-      order by j.destaque desc, j.horario, j.ordem, m.ordem
+      order by m.especial_ordem nulls last, j.destaque desc, j.horario, j.ordem, m.ordem
       limit 10`,
   ]);
   return {

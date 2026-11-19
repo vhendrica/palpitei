@@ -670,11 +670,6 @@ export default function HomeMultipla() {
                       {home.especiais!.map((e) => {
                         const selecionado = draft.itens.includes(e.id);
                         const pode = !!eu && aberta && !e.comecou;
-                        const rotulo = /^(SIM|NÃO|NAO|EMPATE)$/i.test(
-                          e.descricao,
-                        )
-                          ? `${e.grupo} — ${e.descricao}`
-                          : e.descricao;
                         return (
                           <Pressable
                             key={e.id}
@@ -695,11 +690,19 @@ export default function HomeMultipla() {
                             >
                               {e.time_casa} x {e.time_fora}
                             </T>
+                            {e.grupo ? (
+                              <T
+                                className="mt-1 font-mont-xb text-[9px] uppercase tracking-widest text-primary"
+                                numberOfLines={2}
+                              >
+                                {e.grupo}
+                              </T>
+                            ) : null}
                             <T
                               className="mt-1 font-mont-b text-xs"
                               numberOfLines={2}
                             >
-                              {rotulo}
+                              {e.descricao}
                             </T>
                             <T className="mt-1 font-odds text-base text-primary">
                               {fmtOdd(e.multiplicador)}

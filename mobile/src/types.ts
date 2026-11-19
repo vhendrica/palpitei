@@ -35,6 +35,7 @@ export type Mercado = {
   decidido?: boolean;
   minhas_fichas?: number;
   especial?: boolean;
+  especial_ordem?: number | null;
 };
 
 export type Especial = {

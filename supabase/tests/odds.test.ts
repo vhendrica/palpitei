@@ -65,7 +65,8 @@ test('importa os jogos do dia dos campeonatos configurados', async () => {
   const cfg = { apiKey: 'k', torneios: [325], fetch: ((u: string) => (urls.push(u), fakeFetch(u))) as typeof fetch };
   const r = await importarOdds(sql, cfg, '2030-03-10');
   assert.equal(urls.length, 1);
-  assert.match(urls[0], /^https:\/\/api\.oddspapi\.io\/v4\/fixtures\?tournamentId=325&from=2030-03-10&to=2030-03-11&apiKey=k$/);
+  // `to` é exclusivo e o filtro é por data UTC: +2 cobre jogos 00:00–03:00Z do dia seguinte.
+  assert.match(urls[0], /^https:\/\/api\.oddspapi\.io\/v4\/fixtures\?tournamentId=325&from=2030-03-10&to=2030-03-12&apiKey=k$/);
   assert.deepEqual(r.importados.map((i) => i.fixture_id), [101, 102]);
   const [f] = await sql`select fonte, externo_id, campeonato from fixtures_dia where fixture_id = 101`;
   assert.deepEqual([f.fonte, f.externo_id, f.campeonato], ['oddspapi', 'id101', 'Brasileirão Série A']);
