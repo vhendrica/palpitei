@@ -192,4 +192,6 @@ test('incompativeis: linhas da mesma contagem', async () => {
   assert.equal(incompativeis(o('ESCANTEIOS 8.5', 'MAIS DE 8.5'), o('ESCANTEIOS 9.5', 'MAIS DE 9.5')), true);
   assert.equal(incompativeis(o('ESCANTEIOS 9.5', 'MAIS DE 9.5'), o('ESCANTEIOS 8.5', 'MENOS DE 8.5')), true);
   assert.equal(incompativeis(o('CARTÕES DO JOGADOR 0.5', 'PEDRO — MAIS DE 0.5'), o('CARTÕES DO JOGADOR 1.5', 'ARRASCAETA — MAIS DE 1.5')), false);
+  assert.equal(incompativeis(o('CARTÕES DO JOGADOR 0.5', 'PEDRO — MAIS DE 0.5'), o('CARTÕES DO JOGADOR 1.5', 'PEDRO — MAIS DE 1.5')), true);
+  assert.equal(incompativeis(o('CHUTES DO JOGADOR 1.5', 'PEDRO — MAIS DE 1.5'), o('CHUTES DO JOGADOR 2.5', 'PEDRO — MENOS DE 2.5')), false);
 });
