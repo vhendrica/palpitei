@@ -17,7 +17,8 @@ await sql`
                      terms_accepted_at, terms_version, data_consent_accepted_at, data_consent_version, ativado_em)
   values ('Admin PALPIT', ${whatsapp}, '52998224725', '1990-01-01', 'Aldeota', 500, true,
           now(), 'dev', now(), 'dev', now())
-  on conflict (whatsapp) do update set is_admin = true, ativado_em = coalesce(users.ativado_em, now())`;
+  on conflict (whatsapp) where whatsapp is not null
+  do update set is_admin = true, ativado_em = coalesce(users.ativado_em, now())`;
 
 // Jogos começam daqui a algumas horas, para o palpite ficar aberto durante o desenvolvimento.
 const horario = (h: number) => new Date(Date.now() + h * 3600_000).toISOString();

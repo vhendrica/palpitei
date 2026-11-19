@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, RefreshControl, ScrollView, View } from "react-native";
 
 import { AppHeader } from "../../components/AppHeader";
+import { AuthGate } from "../../components/AuthGate";
 import { ErrorBox, Field } from "../../components/Form";
 import { Button, Card, EmptyState, Esqueleto, StatusBadge, T } from "../../components/ui";
 import { ModalModo } from "../../components/ModalModo";
@@ -62,12 +63,13 @@ export default function Desafios() {
     return (
       <View className="flex-1 bg-bg">
         <AppHeader title="Desafio" />
-        <View className="flex-1 items-center justify-center px-8">
-          <T className="mb-4 text-center text-muted">
-            Entre na sua conta pra criar um desafio e chamar os amigos.
-          </T>
-          <Button title="Entrar" onPress={() => router.push("/entrar")} />
-        </View>
+        <ScrollView contentContainerStyle={{ padding: 16 }}>
+          <AuthGate
+            icon="people-outline"
+            title="Entre pra criar um desafio"
+            subtitle="Monte um grupo com os amigos e palpitem juntos nos jogos do dia."
+          />
+        </ScrollView>
       </View>
     );
   }

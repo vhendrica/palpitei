@@ -1,18 +1,20 @@
-import { useFocusEffect } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import { ScrollView, View } from "react-native";
 
 import { AppHeader } from "../../components/AppHeader";
+import { AuthGate } from "../../components/AuthGate";
 import { ErrorBox } from "../../components/Form";
 import { HistoricoLinha } from "../../components/HistoricoLinha";
 import { Card, EmptyState, Esqueleto } from "../../components/ui";
 import { api } from "../../lib/api";
 import { useDesktop } from "../../lib/desktop";
-import { errorMessage } from "../../store/AppStore";
+import { errorMessage, useApp } from "../../store/AppStore";
 import type { HistoricoItem } from "../../types";
 
 /** Histórico completo: todas as rodadas, desafios e duelos em que o usuário entrou. */
 export default function Historico() {
+  const { user } = useApp();
   const [rows, setRows] = useState<HistoricoItem[] | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const desktop = useDesktop();
@@ -34,10 +36,22 @@ export default function Historico() {
       <AppHeader title="Histórico" back />
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
         <View style={desktop ? { maxWidth: 720, width: "100%", alignSelf: "center" } : undefined}>
-          <ErrorBox erro={erro} />
-          {rows === null && !erro ? <Esqueleto /> : null}
+          {!user ? (
+            <AuthGate
+              icon="time-outline"
+              title="Entre pra ver seu histórico"
+              subtitle="Suas rodadas, desafios e resultados ficam guardados aqui."
+            />
+          ) : null}
+          {user ? <ErrorBox erro={erro} /> : null}
+          {rows === null && !erro && user ? <Esqueleto /> : null}
           {rows && rows.length === 0 ? (
-            <EmptyState icon="time-outline" title="Você ainda não palpitou" />
+            <EmptyState
+              icon="time-outline"
+              title="Você ainda não palpitou"
+              cta="Palpitar agora"
+              onCta={() => router.replace("/")}
+            />
           ) : null}
           {rows && rows.length > 0 ? (
             <Card>

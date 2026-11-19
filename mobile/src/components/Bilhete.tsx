@@ -184,13 +184,33 @@ export function Bilhete({
         {naSimples ? (
           <View className="mt-1.5 flex-row items-center justify-between">
             <T className="text-[11px] text-muted">Fichas na Simples</T>
-            <Stepper
-              value={draft.simples[id] ?? 0}
-              max={livres}
-              ficha
-              editavel
-              onChange={(v) => onChange({ ...draft, simples: { ...draft.simples, [id]: v } })}
-            />
+            <View className="flex-row items-center" style={{ gap: 8 }}>
+              {livres > 0 ? (
+                <Pressable
+                  hitSlop={6}
+                  onPress={() =>
+                    onChange({
+                      ...draft,
+                      simples: {
+                        ...draft.simples,
+                        [id]: (draft.simples[id] ?? 0) + livres,
+                      },
+                    })
+                  }
+                >
+                  <T className="font-mont-b text-[10px] uppercase tracking-wide text-primary">
+                    Usar tudo
+                  </T>
+                </Pressable>
+              ) : null}
+              <Stepper
+                value={draft.simples[id] ?? 0}
+                max={livres}
+                ficha
+                editavel
+                onChange={(v) => onChange({ ...draft, simples: { ...draft.simples, [id]: v } })}
+              />
+            </View>
           </View>
         ) : null}
       </View>
@@ -310,6 +330,23 @@ export function Bilhete({
                       {fmtOdd(oddDaMultipla(m.mercados, opcoes))}
                     </T>
                   </T>
+                  {livres > 0 ? (
+                    <Pressable
+                      hitSlop={6}
+                      onPress={() =>
+                        onChange({
+                          ...draft,
+                          multiplas: draft.multiplas.map((x, k) =>
+                            k === i ? { ...x, fichas: x.fichas + livres } : x,
+                          ),
+                        })
+                      }
+                    >
+                      <T className="mr-1 font-mont-b text-[10px] uppercase tracking-wide text-primary">
+                        Tudo
+                      </T>
+                    </Pressable>
+                  ) : null}
                   <Stepper
                     value={m.fichas}
                     max={livres}
@@ -326,7 +363,10 @@ export function Bilhete({
                 {curta ? (
                   <View className="mb-1.5 flex-row items-center">
                     <Ionicons name="warning-outline" size={14} color={C.gold} />
-                    <T className="ml-1 font-mont-b text-[11px]">Múltipla precisa de pelo menos 2 palpites</T>
+                    <T className="ml-1 flex-1 font-mont-b text-[11px]">
+                      Agregá otro palpite: la múltipla multiplica las odds,
+                      pero solo vale si aciertan todos.
+                    </T>
                   </View>
                 ) : null}
               </View>

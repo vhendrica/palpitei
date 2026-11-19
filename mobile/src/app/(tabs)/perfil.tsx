@@ -4,10 +4,11 @@ import { useCallback, useState } from "react";
 import { Modal, Pressable, ScrollView, Switch, View } from "react-native";
 
 import { AppHeader } from "../../components/AppHeader";
+import { AuthGate } from "../../components/AuthGate";
 import { ErrorBox, Field } from "../../components/Form";
 import { HistoricoLinha } from "../../components/HistoricoLinha";
 import { fmtReais } from "../../components/PremioBar";
-import { Button, Card, EmptyState, Esqueleto, T } from "../../components/ui";
+import { Button, Card, Esqueleto, T } from "../../components/ui";
 import { api } from "../../lib/api";
 import { useDesktop } from "../../lib/desktop";
 import { fmtOdd, fmtPts, fmtWhats } from "../../lib/format";
@@ -68,15 +69,9 @@ export default function Perfil() {
       <View className="flex-1 bg-bg">
         <AppHeader title="Perfil" />
         <ScrollView contentContainerStyle={{ padding: 16 }}>
-          <EmptyState
-            icon="person-circle-outline"
+          <AuthGate
             title="Entre pra ver seu saldo"
             subtitle="Crie sua conta e ganhe PONTOS de boas-vindas."
-          />
-          <Button
-            title="Entrar ou criar conta"
-            onPress={() => router.push("/entrar")}
-            className="mt-3"
           />
           {tema}
         </ScrollView>
@@ -234,6 +229,25 @@ export default function Perfil() {
 
   const sairBtn = <Button title="Sair" variant="danger" onPress={sair} className="mt-4" />;
 
+  // Admin vive acá dentro del Perfil: la barra de abajo queda en 5 pestañas.
+  const adminLink = user.is_admin ? (
+    <>
+      <Titulo>Administración</Titulo>
+      <Pressable onPress={() => router.push("/admin")}>
+        <Card className="flex-row items-center py-3">
+          <Ionicons name="construct-outline" size={20} color={C.primary} />
+          <View className="ml-3 flex-1">
+            <T className="font-mont-b text-sm">Panel admin</T>
+            <T className="text-[11px] text-muted">
+              Rodadas, juegos, importaciones y configuración.
+            </T>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color={C.muted} />
+        </Card>
+      </Pressable>
+    </>
+  ) : null;
+
   return (
     <View className="flex-1 bg-bg">
       <AppHeader title="Perfil" />
@@ -244,6 +258,7 @@ export default function Perfil() {
               {identidade}
               {saldo}
               {vouchers}
+              {adminLink}
               {tema}
               {sairBtn}
             </View>
@@ -261,6 +276,7 @@ export default function Perfil() {
             {meusNumeros}
             {perfil ? historico : null}
             {perfil ? vouchers : null}
+            {adminLink}
             {tema}
             {sairBtn}
           </View>

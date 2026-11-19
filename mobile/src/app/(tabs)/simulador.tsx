@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Modal, Pressable, ScrollView, View } from "react-native";
 
 import { AppHeader } from "../../components/AppHeader";
+import { AuthGate } from "../../components/AuthGate";
 import { ErrorBox, Field } from "../../components/Form";
 import { Button, Card, Esqueleto, SectionTitle, T } from "../../components/ui";
 import { track } from "../../lib/analytics";
@@ -134,11 +135,13 @@ export default function Simulador() {
     return (
       <View className="flex-1 bg-bg">
         <AppHeader title="Simulador" />
-        <View className="p-4">
-          <Card>
-            <T className="text-sm text-muted">Entre na sua conta pra usar o simulador.</T>
-          </Card>
-        </View>
+        <ScrollView contentContainerStyle={{ padding: 16 }}>
+          <AuthGate
+            icon="cash-outline"
+            title="Entre pra usar o simulador"
+            subtitle="Simule apostas com dinheiro virtual e odds reais, sem arriscar nada."
+          />
+        </ScrollView>
       </View>
     );
   }

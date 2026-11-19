@@ -19,7 +19,7 @@ export function DesktopNav() {
   const { user, home } = useApp();
   const router = useRouter();
   const pathname = usePathname();
-  const tabs = user?.is_admin ? [...TABS, { rota: "/(tabs)/admin", titulo: "Admin", ativo: (p: string) => p.startsWith("/admin") }] : TABS;
+  const tabs = user?.is_admin ? [...TABS, { rota: "/admin", titulo: "Admin", ativo: (p: string) => p.startsWith("/admin") }] : TABS;
   const streak = home?.usuario?.login_streak ?? user?.login_streak ?? 0;
 
   return (

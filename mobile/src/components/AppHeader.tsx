@@ -1,5 +1,5 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { router } from "expo-router";
+import { router, usePathname } from "expo-router";
 import { Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -27,6 +27,9 @@ export function PontosPill() {
   );
 }
 
+// Rotas de auth: o botão ENTRAR do header seria redundante ali.
+const ROTAS_AUTH = /^\/(entrar|cadastro|esqueci|nova-senha|codigo)/;
+
 export function AppHeader({
   title,
   back,
@@ -42,6 +45,8 @@ export function AppHeader({
   const { user } = useApp();
   const { palette: C } = useTheme();
   const desktop = useDesktop();
+  const pathname = usePathname();
+  const telaAuth = ROTAS_AUTH.test(pathname);
   // Desktop: a barra do topo (DesktopNav) já faz o papel do cabeçalho. Tela interna ganha só o caminho de volta.
   if (desktop) {
     if (!back) return null;
@@ -99,13 +104,19 @@ export function AppHeader({
             </View>
           ) : null}
           {user && streak != null && streak > 0 ? (
-            <Pressable onPress={onStreak} className="mr-2 rounded-full bg-headerAccent/20 px-2 py-1">
-              <T className="font-mont-b text-[10px] text-headerAccent">🔥 {streak}</T>
+            <Pressable
+              onPress={onStreak}
+              className="mr-2 flex-row items-center rounded-full bg-headerAccent/20 px-2 py-1"
+            >
+              <Ionicons name="flame" size={11} color={C.headerAccent} />
+              <T className="ml-0.5 font-mont-b text-[10px] text-headerAccent">
+                {streak}
+              </T>
             </Pressable>
           ) : null}
           {user ? (
             <PontosPill />
-          ) : (
+          ) : telaAuth ? null : (
             <Pressable
               onPress={() => router.push("/entrar")}
               className="rounded-full bg-headerAccent px-3 py-1.5"

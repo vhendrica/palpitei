@@ -1,4 +1,4 @@
-import { useFocusEffect } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import { Pressable, RefreshControl, ScrollView, View } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
@@ -79,6 +79,8 @@ export function RankingDoDia({ voltar }: { voltar?: boolean }) {
               icon="people-outline"
               title="Ninguém entrou ainda"
               subtitle="Seja o primeiro a palpitar!"
+              cta="Palpitar agora"
+              onCta={() => router.push("/")}
             />
           ) : null}
           {rows && rows.length > 0 ? (

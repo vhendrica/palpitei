@@ -17,6 +17,9 @@ export default function NovaSenha() {
   const [erro, setErro] = useState<string | null>(null);
   const [pronto, setPronto] = useState(false);
   const [busy, setBusy] = useState(false);
+  // O backend exige token > 20 chars — link sem token ou truncado já mostra
+  // o erro aqui em vez de só falhar ao salvar.
+  const linkInvalido = !token || token.length <= 20;
 
   const salvar = async () => {
     setBusy(true);
@@ -52,7 +55,20 @@ export default function NovaSenha() {
         }}
         keyboardShouldPersistTaps="handled"
       >
-        {pronto ? (
+        {linkInvalido ? (
+          <>
+            <T className="mb-2 font-mont-xb text-2xl">
+              Link inválido ou expirado
+            </T>
+            <T className="mb-6 text-sm text-muted">
+              Esse link de recuperação já foi usado ou expirou. Peça um novo.
+            </T>
+            <Button
+              title="Pedir novo link"
+              onPress={() => router.replace("/esqueci")}
+            />
+          </>
+        ) : pronto ? (
           <>
             <T className="mb-2 font-mont-xb text-2xl">Senha trocada!</T>
             <T className="mb-6 text-sm text-muted">

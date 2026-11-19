@@ -4,7 +4,6 @@ import type { ColorValue } from "react-native";
 import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { useApp } from "../../store/AppStore";
 import { useTheme } from "../../store/Theme";
 import { useDesktop } from "../../lib/desktop";
 
@@ -21,7 +20,6 @@ const icon = (active: IconName, inactive: IconName) =>
 
 export default function TabsLayout() {
   const { palette: C } = useTheme();
-  const { user } = useApp();
   const desktop = useDesktop();
   // Altura + padding da área segura pra barra de gestos/home não comer a tab bar.
   const insets = useSafeAreaInsets();
@@ -78,14 +76,6 @@ export default function TabsLayout() {
         options={{
           title: "Perfil",
           tabBarIcon: icon("person", "person-outline"),
-        }}
-      />
-      <Tabs.Screen
-        name="admin"
-        options={{
-          title: "Admin",
-          href: user?.is_admin ? undefined : null,
-          tabBarIcon: icon("construct", "construct-outline"),
         }}
       />
       </Tabs>

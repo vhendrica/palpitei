@@ -3,29 +3,29 @@ import { Redirect, router } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, Pressable, ScrollView, TextInput, View } from "react-native";
 
-import { AppHeader } from "../../components/AppHeader";
-import { Checkbox, ErrorBox, Field } from "../../components/Form";
-import { fmtReais } from "../../components/PremioBar";
+import { AppHeader } from "../components/AppHeader";
+import { Checkbox, ErrorBox, Field } from "../components/Form";
+import { fmtReais } from "../components/PremioBar";
 import {
   Button,
   Card,
   SectionTitle,
   StatusBadge,
   T,
-} from "../../components/ui";
-import { api, ApiError } from "../../lib/api";
-import { fmtData, fmtOdd } from "../../lib/format";
-import { errorMessage, useApp } from "../../store/AppStore";
-import { useTheme } from "../../store/Theme";
-import { agruparMercados } from "../../types";
-import { secaoDo } from "../../lib/secoes";
+} from "../components/ui";
+import { api, ApiError } from "../lib/api";
+import { fmtData, fmtDataNasc, fmtDia, fmtOdd } from "../lib/format";
+import { errorMessage, useApp } from "../store/AppStore";
+import { useTheme } from "../store/Theme";
+import { agruparMercados } from "../types";
+import { secaoDo } from "../lib/secoes";
 import type {
   Config,
   Fixture,
   Jogo,
   LigaAdmin,
   LigaHistorico,
-} from "../../types";
+} from "../types";
 
 type Aba = "liga" | "pool" | "historico" | "config";
 
@@ -33,12 +33,13 @@ const hojeLocal = () =>
   new Date(Date.now() - 3 * 3600_000).toISOString().slice(0, 10);
 
 export default function Admin() {
-  const { user, refreshHome } = useApp();
+  const { ready, user, refreshHome } = useApp();
   const [aba, setAba] = useState<Aba>("liga");
   const [data, setData] = useState(hojeLocal());
   const [erro, setErro] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
 
+  if (!ready) return null;
   if (!user?.is_admin) return <Redirect href="/" />;
 
   /** Executa uma ação admin mostrando erro/sucesso; atualiza a home do app depois. */
@@ -62,7 +63,7 @@ export default function Admin() {
       <View className="flex-row border-b border-line bg-card">
         {(
           [
-            ["liga", "Múltipla"],
+            ["liga", "Rodada"],
             ["pool", "Pool"],
             ["historico", "Histórico"],
             ["config", "Config"],
@@ -84,10 +85,22 @@ export default function Admin() {
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 48 }}>
         {aba === "liga" || aba === "pool" ? (
           <Field
-            label="Data (AAAA-MM-DD)"
+            label="Data (DD/MM/AAAA)"
             icon="calendar-outline"
-            value={data}
-            onChangeText={setData}
+            keyboardType="number-pad"
+            value={
+              /^\d{4}-\d{2}-\d{2}$/.test(data)
+                ? `${data.slice(8, 10)}/${data.slice(5, 7)}/${data.slice(0, 4)}`
+                : data
+            }
+            onChangeText={(t) => {
+              const f = fmtDataNasc(t);
+              setData(
+                f.length === 10
+                  ? `${f.slice(6)}-${f.slice(3, 5)}-${f.slice(0, 2)}`
+                  : f,
+              );
+            }}
           />
         ) : null}
         <ErrorBox erro={erro} />
@@ -142,10 +155,10 @@ function AbaLiga({ data, run }: { data: string; run: Run }) {
     return (
       <Card className="mt-4">
         <T className="font-mont-b text-sm">
-          Nenhuma múltipla montada para {data}.
+          Nenhuma rodada montada para {fmtDia(data)}.
         </T>
         <T className="mt-1 text-xs text-muted">
-          Vá em “Pool de jogos”, selecione os jogos e monte a múltipla.
+          Vá em “Pool de jogos”, selecione os jogos e monte a rodada.
         </T>
       </Card>
     );
@@ -157,11 +170,11 @@ function AbaLiga({ data, run }: { data: string; run: Run }) {
     <>
       <Card className="mt-4">
         <View className="flex-row items-center justify-between">
-          <T className="font-mont-xb text-base">Múltipla de {liga.data}</T>
+          <T className="font-mont-xb text-base">Rodada de {fmtDia(liga.data)}</T>
           <StatusBadge status={liga.status} />
         </View>
         <T className="mt-1 text-sm text-muted">
-          {la.palpiteiros} palpiteiros • entrada {liga.custo_entrada} PONTOS →{" "}
+          {la.palpiteiros} palpiteiro{la.palpiteiros === 1 ? "" : "s"} • entrada {liga.custo_entrada} PONTOS →{" "}
           {liga.fichas_por_entrada} FICHAS
           {liga.premio_final != null
             ? ` • prêmio final ${fmtReais(liga.premio_final)}`
@@ -244,7 +257,7 @@ function AbaLiga({ data, run }: { data: string; run: Run }) {
         ) : null}
         {fechada && la.participantes.length > 0 ? (
           <T className="mt-2 text-xs text-muted">
-            Pra remover palpiteiros, reative a múltipla no Histórico.
+            Pra remover palpiteiros, reative a rodada no Histórico.
           </T>
         ) : null}
       </Card>
@@ -311,7 +324,7 @@ function AbaLiga({ data, run }: { data: string; run: Run }) {
             }}
           />
           <Button
-            title="Finalizar múltipla"
+            title="Finalizar rodada"
             variant="danger"
             className="mt-3"
             onPress={() =>
@@ -1050,14 +1063,14 @@ function AbaPool({
         </Card>
       ))}
       <Button
-        title="Montar múltipla com selecionados"
+        title="Montar rodada com selecionados"
         className="mt-2"
         disabled={selecionados.length === 0}
         onPress={() =>
           run(async () => {
             await api.admin.selecionar(data, selecionados);
             onMontada();
-            return "Múltipla montada. Agora defina mercados e o jogo do dia.";
+            return "Rodada montada. Agora defina mercados e o jogo do dia.";
           })
         }
       />
@@ -1260,7 +1273,7 @@ function AbaConfig({ run }: { run: Run }) {
       {campo("fichas_por_entrada", "Fichas por entrada")}
       {campo("pontos_boas_vindas", "Bônus de cadastro (PONTOS)")}
       <T className="mb-3 text-xs text-muted">
-        Entrada e fichas valem para as próximas múltiplas montadas.
+        Entrada e fichas valem para as próximas rodadas.
       </T>
       <Button
         title="Salvar regras"
@@ -1300,11 +1313,11 @@ function AbaHistorico({
 
   if (!ligas) return <T className="mt-4 text-muted">Carregando…</T>;
   if (ligas.length === 0)
-    return <T className="mt-4 text-muted">Nenhuma múltipla ainda.</T>;
+    return <T className="mt-4 text-muted">Nenhuma rodada ainda.</T>;
 
   return (
     <View className="mt-2">
-      <SectionTitle>Múltiplas</SectionTitle>
+      <SectionTitle>Rodadas</SectionTitle>
       {ligas.map((l) => {
         const [a, m, d] = l.data.split("-");
         const fechada = l.status === "finalizada";
@@ -1351,7 +1364,7 @@ function AbaHistorico({
                     run(async () => {
                       await api.admin.reativar(l.id);
                       await carregar();
-                      return `Múltipla de ${d}/${m} reativada: voucher cancelado e resultados limpos.`;
+                      return `Rodada de ${d}/${m} reativada: voucher cancelado e resultados limpos.`;
                     });
                   }}
                 />

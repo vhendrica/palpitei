@@ -57,6 +57,8 @@ export default function Cadastro() {
   const [dados, setDados] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Cadastro em 2 passos: conta primeiro, dados legais depois.
+  const [passo, setPasso] = useState(1);
 
   const olho = (
     <Pressable onPress={() => setMostrar((m) => !m)} hitSlop={8}>
@@ -67,6 +69,16 @@ export default function Cadastro() {
       />
     </Pressable>
   );
+
+  const avancar = () => {
+    setErro(null);
+    if (nome.trim().length < 2) return setErro("Conta seu nome.");
+    if (!/^\S+@\S+\.\S+$/.test(email)) return setErro("Confere o e-mail.");
+    if (!/^(?=.*[A-Za-z])(?=.*\d).{8,}$/.test(senha))
+      return setErro("A senha precisa de 8+ caracteres, com letras e números.");
+    if (senha !== senha2) return setErro("As senhas não são iguais.");
+    setPasso(2);
+  };
 
   const submit = async () => {
     setBusy(true);
@@ -124,6 +136,21 @@ export default function Cadastro() {
           <T className="font-odds text-2xl text-primary">+500</T>
         </View>
 
+        <View className="mb-4 flex-row items-center">
+          <View
+            className={`h-1.5 flex-1 rounded-full ${passo >= 1 ? "bg-primary" : "bg-cardAlt"}`}
+          />
+          <View className="w-2" />
+          <View
+            className={`h-1.5 flex-1 rounded-full ${passo >= 2 ? "bg-primary" : "bg-cardAlt"}`}
+          />
+        </View>
+        <T className="mb-4 text-center text-xs text-muted">
+          Passo {passo} de 2 · {passo === 1 ? "Sua conta" : "Seus dados"}
+        </T>
+
+        {passo === 1 ? (
+          <>
         <Linha desktop={desktop}>
           <Field
             label="Seu nome"
@@ -166,6 +193,9 @@ export default function Cadastro() {
             trailing={olho}
           />
         </Linha>
+          </>
+        ) : (
+          <>
         <Linha desktop={desktop}>
           <Field
             label="CPF"
@@ -204,15 +234,33 @@ export default function Cadastro() {
           label="Autorizo a coleta e o uso dos meus dados conforme a política"
         />
         <T className="text-[11px] text-muted">Somente maiores de 18 anos.</T>
+          </>
+        )}
 
         <ErrorBox erro={erro} />
-        <Button
-          title="Criar conta"
-          onPress={submit}
-          loading={busy}
-          disabled={!termos || !dados}
-          className="mt-6"
-        />
+        {passo === 1 ? (
+          <Button title="Continuar" onPress={avancar} className="mt-6" />
+        ) : (
+          <>
+            <Button
+              title="Voltar"
+              variant="ghost"
+              icon="chevron-back"
+              onPress={() => {
+                setErro(null);
+                setPasso(1);
+              }}
+              className="mt-6"
+            />
+            <Button
+              title="Criar conta"
+              onPress={submit}
+              loading={busy}
+              disabled={!termos || !dados}
+              className="mt-3"
+            />
+          </>
+        )}
         <T className="mt-3 text-center text-[11px] text-muted">
           Jogo recreativo. PONTOS e FICHAS não têm valor em dinheiro.
         </T>
