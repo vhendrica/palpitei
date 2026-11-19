@@ -40,6 +40,8 @@ export type JogoView = {
   comecou: boolean;
   finalizado: boolean;
   placar: { casa: number; fora: number } | null;
+  /** Estatísticas pós-jogo informadas (escanteios/cartões/1º tempo), cada uma [casa, fora]. */
+  estatisticas: Record<string, [number, number]>;
   mercados: MercadoView[];
 };
 
@@ -89,6 +91,7 @@ export async function jogosComMercados(db: Db, ligaId: string, userId?: string |
     comecou: !!j.comecou,
     finalizado: j.finalizado_em != null,
     placar: placarDoJogo(j),
+    estatisticas: (j.estatisticas as Record<string, [number, number]>) ?? {},
     mercados: mercados
       .filter((m) => m.jogo_id === j.id)
       .map((m) => ({
