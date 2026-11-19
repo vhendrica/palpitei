@@ -62,7 +62,7 @@ export function PremioBar({
   const faltam = premio.proxima?.faltam ?? faltam_meta;
 
   return (
-    <View className="rounded-2xl border border-gold/40 bg-card p-4">
+    <View className="rounded-2xl border border-gold/50 bg-gold/10 p-4">
       <View className="flex-row items-center">
         <Ionicons name="trophy" size={22} color={C.gold} />
         <View className="ml-2.5 flex-1">

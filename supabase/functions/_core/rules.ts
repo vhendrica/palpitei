@@ -460,14 +460,17 @@ export async function calcularRanking(db: Db, ligaId: string, quem?: string): Pr
   }));
   type L = (typeof lista)[number];
   const criterio = (a: L, b: L): string | null =>
-    a.maior !== b.maior
-      ? `maior multiplicador acertado: ${a.maior.toFixed(2)}`
-      : a.n !== b.n
-        ? `${a.n} ${a.n === 1 ? 'acerto' : 'acertos'}`
-        : null;
+    a.pot !== b.pot
+      ? `maior potencial: ${round2(Math.max(a.pot, b.pot))} pts`
+      : a.maior !== b.maior
+        ? `maior multiplicador acertado: ${a.maior.toFixed(2)}`
+        : a.n !== b.n
+          ? `${a.n} ${a.n === 1 ? 'acerto' : 'acertos'}`
+          : null;
   lista.sort(
     (a, b) =>
       b.pontos - a.pontos ||
+      b.pot - a.pot ||
       b.maior - a.maior ||
       b.n - a.n ||
       String(a.r.id).localeCompare(String(b.r.id)),

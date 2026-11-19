@@ -720,13 +720,20 @@ export default function HomeMultipla() {
                             <T className="font-mont-b text-[10px] tracking-widest text-muted">
                               SEU BILHETE
                             </T>
-                            <T className="mt-0.5 font-mont-xb text-sm">
-                              {meuBilhete.nPalpites}{" "}
-                              {meuBilhete.nPalpites === 1
-                                ? "palpite"
-                                : "palpites"}{" "}
-                              · {fmtPts(eu.fichas_usadas)} fichas
-                            </T>
+                            <View className="mt-0.5 flex-row items-center">
+                              <T className="font-mont-xb text-sm">
+                                {meuBilhete.nPalpites}{" "}
+                                {meuBilhete.nPalpites === 1
+                                  ? "palpite"
+                                  : "palpites"}
+                                {" · "}
+                                {fmtPts(eu.fichas_usadas)}{" "}
+                              </T>
+                              <Ficha size={13} />
+                              <T className="font-mont-xb text-sm">
+                                {" distribuídas"}
+                              </T>
+                            </View>
                           </View>
                           <Ionicons
                             name="chevron-forward"
@@ -746,9 +753,14 @@ export default function HomeMultipla() {
                             <T className="mt-0.5 font-mont-xb text-sm">
                               Você está em {eu.posicao ? `${eu.posicao}º` : "—"}{" "}
                               ·{" "}
-                              {meuBilhete.temDecidido
-                                ? `${fmtPts(eu.pontuacao)} pts`
-                                : `${fmtPts(Math.round(meuBilhete.potencial))} pts possíveis`}
+                              {meuBilhete.temDecidido ? (
+                                `${fmtPts(eu.pontuacao)} pts`
+                              ) : (
+                                <T className="font-mont-xb text-sm text-primary">
+                                  {fmtPts(Math.round(meuBilhete.potencial))} pts
+                                  potencial
+                                </T>
+                              )}
                             </T>
                           </View>
                           <Ionicons
