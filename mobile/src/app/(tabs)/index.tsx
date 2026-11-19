@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import * as Linking from "expo-linking";
 import {
   Animated,
+  Modal,
   Platform,
   Pressable,
   RefreshControl,
@@ -84,6 +85,7 @@ export default function HomeMultipla() {
     [draftState, draftKey],
   );
   const [resumo, setResumo] = useState(false);
+  const [verBilhete, setVerBilhete] = useState(false);
   const [abertos, setAbertos] = useState<string[]>([]);
   const setDraft = (fn: Draft | ((d: Draft) => Draft)) =>
     setDraftState({
@@ -143,6 +145,35 @@ export default function HomeMultipla() {
       Object.values(simples).reduce((s, f) => s + f, 0) +
       multiplas.reduce((s, m) => s + m.fichas, 0);
     return { simples, multiplas, fichas };
+  }, [home?.jogos, eu?.multiplas]);
+
+  // Bilhete confirmado (visão "SEU BILHETE"): todos os palpites com fichas,
+  // inclusive de jogos já começados.
+  const meuBilhete = useMemo(() => {
+    const simples = (home?.jogos ?? []).flatMap((j) =>
+      j.mercados
+        .filter((m) => (m.minhas_fichas ?? 0) > 0)
+        .map((m) => ({
+          jogo: `${j.time_casa} x ${j.time_fora}`,
+          descricao: m.descricao,
+          grupo: m.grupo,
+          fichas: m.minhas_fichas!,
+          odd: m.multiplicador,
+          decidido: !!m.decidido || j.finalizado,
+          certo: m.resultado_final,
+        })),
+    );
+    const multiplas = eu?.multiplas ?? [];
+    const nPalpites = simples.length + multiplas.length;
+    // Enquanto nenhum mercado decidido, o ranking mostra o potencial;
+    // depois, a pontuação ao vivo (fichas ganhas − reapostadas).
+    const temDecidido =
+      simples.some((s) => s.decidido) ||
+      multiplas.some((mu) => mu.pernas.some((p) => p.finalizado));
+    const potencial =
+      simples.reduce((s, p) => s + p.fichas * p.odd, 0) +
+      multiplas.reduce((s, m) => s + m.fichas * m.odd, 0);
+    return { simples, multiplas, nPalpites, temDecidido, potencial };
   }, [home?.jogos, eu?.multiplas]);
 
   const editarBilhete = () => {
@@ -680,28 +711,122 @@ export default function HomeMultipla() {
                   />
                 </View>
 
-                <Pressable onPress={() => router.push("/simulador")}>
-                  <Card className="mt-3 border-[#7C8DA6]">
-                    <View className="flex-row items-center justify-between">
-                      <View className="flex-1 pr-3">
-                        <T
-                          className="font-mont-b tracking-widest"
-                          style={{ color: "#7C8DA6", fontSize: 9 }}
-                        >
-                          SIMULADOR
-                        </T>
-                        <T className="mt-1 font-mont-b text-sm">
-                          Quanto você perderia apostando de verdade?
-                        </T>
-                        <T className="mt-1 text-xs text-muted">
-                          Dinheiro virtual, odds reais — acompanhe seu
-                          resultado.
-                        </T>
-                      </View>
-                      <Ionicons name="cash-outline" size={26} color="#7C8DA6" />
+                {palpitou && eu ? (
+                  <>
+                    <Pressable onPress={() => setVerBilhete(true)}>
+                      <Card className="mt-3">
+                        <View className="flex-row items-center justify-between">
+                          <View className="flex-1">
+                            <T className="font-mont-b text-[10px] tracking-widest text-muted">
+                              SEU BILHETE
+                            </T>
+                            <T className="mt-0.5 font-mont-xb text-sm">
+                              {meuBilhete.nPalpites}{" "}
+                              {meuBilhete.nPalpites === 1
+                                ? "palpite"
+                                : "palpites"}{" "}
+                              · {fmtPts(eu.fichas_usadas)} fichas
+                            </T>
+                          </View>
+                          <Ionicons
+                            name="chevron-forward"
+                            size={18}
+                            color={C.muted}
+                          />
+                        </View>
+                      </Card>
+                    </Pressable>
+                    <Pressable onPress={() => router.push("/palpiteiros")}>
+                      <Card className="mt-3">
+                        <View className="flex-row items-center justify-between">
+                          <View className="flex-1">
+                            <T className="font-mont-b text-[10px] tracking-widest text-muted">
+                              RANKING DE HOJE
+                            </T>
+                            <T className="mt-0.5 font-mont-xb text-sm">
+                              Você está em{" "}
+                              {eu.posicao ? `${eu.posicao}º` : "—"} ·{" "}
+                              {meuBilhete.temDecidido
+                                ? `${fmtPts(eu.pontuacao)} pts`
+                                : `${fmtPts(Math.round(meuBilhete.potencial))} pts possíveis`}
+                            </T>
+                          </View>
+                          <Ionicons
+                            name="chevron-forward"
+                            size={18}
+                            color={C.muted}
+                          />
+                        </View>
+                      </Card>
+                    </Pressable>
+                    <SectionTitle>Jogue de outro jeito</SectionTitle>
+                    <View className="flex-row" style={{ gap: 10 }}>
+                      <Pressable
+                        onPress={() => router.push("/desafio")}
+                        className="flex-1"
+                      >
+                        <Card>
+                          <Ionicons
+                            name="medal-outline"
+                            size={22}
+                            color={C.primary}
+                          />
+                          <T className="mt-1.5 font-mont-b text-sm">
+                            Desafie amigos
+                          </T>
+                          <T className="mt-0.5 text-xs text-muted">
+                            Duelo ou grupo: quem acerta mais leva
+                          </T>
+                        </Card>
+                      </Pressable>
+                      <Pressable
+                        onPress={() => router.push("/simulador")}
+                        className="flex-1"
+                      >
+                        <Card>
+                          <Ionicons
+                            name="cash-outline"
+                            size={22}
+                            color={C.primary}
+                          />
+                          <T className="mt-1.5 font-mont-b text-sm">
+                            Simulador
+                          </T>
+                          <T className="mt-0.5 text-xs text-muted">
+                            Odds reais, dinheiro virtual
+                          </T>
+                        </Card>
+                      </Pressable>
                     </View>
-                  </Card>
-                </Pressable>
+                  </>
+                ) : (
+                  <Pressable onPress={() => router.push("/simulador")}>
+                    <Card className="mt-3 border-[#7C8DA6]">
+                      <View className="flex-row items-center justify-between">
+                        <View className="flex-1 pr-3">
+                          <T
+                            className="font-mont-b tracking-widest"
+                            style={{ color: "#7C8DA6", fontSize: 9 }}
+                          >
+                            SIMULADOR
+                          </T>
+                          <T className="mt-1 font-mont-b text-sm">
+                            Quanto você perderia apostando de verdade?
+                          </T>
+                          <T className="mt-1 text-xs text-muted">
+                            Dinheiro virtual, odds reais — acompanhe seu
+                            resultado.
+                          </T>
+                        </View>
+                        <Ionicons
+                          name="cash-outline"
+                          size={26}
+                          color="#7C8DA6"
+                        />
+                      </View>
+                    </Card>
+                  </Pressable>
+                )}
 
                 <View
                   onLayout={(e) => (jogosY.current = e.nativeEvent.layout.y)}
@@ -827,6 +952,78 @@ export default function HomeMultipla() {
           <ErrorBox erro={erroBilhete} />
         </View>
       ) : null}
+      {/* SEU BILHETE › : distribuição das fichas confirmadas + editar.
+          Editar entra no mesmo rascunho do botão "Editar bilhete" do hero. */}
+      <Modal
+        visible={verBilhete}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setVerBilhete(false)}
+      >
+        <Pressable
+          className="flex-1 justify-end bg-black/50"
+          onPress={() => setVerBilhete(false)}
+        >
+          <Pressable
+            className="max-h-[80%] rounded-t-3xl bg-card p-4"
+            onPress={(e) => e.stopPropagation()}
+          >
+            <T className="mb-3 font-mont-xb text-base">Meu bilhete</T>
+            <ScrollView>
+              {meuBilhete.simples.map((p, i) => (
+                <View
+                  key={i}
+                  className="flex-row items-center justify-between border-b border-line py-2"
+                >
+                  <View className="flex-1 pr-2">
+                    <T className="font-mont-b text-sm">{p.descricao}</T>
+                    <T className="text-[11px] text-muted">
+                      {p.jogo} · {p.grupo}
+                    </T>
+                  </View>
+                  <T className="font-odds text-sm text-primary">
+                    {p.fichas} fichas · {fmtOdd(p.odd)}
+                  </T>
+                </View>
+              ))}
+              {meuBilhete.multiplas.map((m, i) => (
+                <View key={i} className="border-b border-line py-2">
+                  <View className="flex-row items-center justify-between">
+                    <T className="font-mont-b text-sm">
+                      Múltipla · {m.pernas.length} palpites
+                    </T>
+                    <T className="font-odds text-sm text-primary">
+                      {m.fichas} fichas · {fmtOdd(m.odd)}
+                    </T>
+                  </View>
+                  {m.pernas.map((p, j) => (
+                    <T key={j} className="mt-0.5 text-[11px] text-muted">
+                      {p.descricao} · {p.jogo}
+                    </T>
+                  ))}
+                </View>
+              ))}
+            </ScrollView>
+            {aberta ? (
+              <Button
+                title="Editar bilhete"
+                icon="create-outline"
+                className="mt-3"
+                onPress={() => {
+                  setVerBilhete(false);
+                  editarBilhete();
+                }}
+              />
+            ) : null}
+            <Button
+              title="Fechar"
+              variant="ghost"
+              className="mt-2"
+              onPress={() => setVerBilhete(false)}
+            />
+          </Pressable>
+        </Pressable>
+      </Modal>
       {toast.node}
     </View>
   );
