@@ -21,7 +21,7 @@ import { EntradaModal } from "../../components/EntradaModal";
 import { StreakModal } from "../../components/StreakModal";
 import { ErrorBox } from "../../components/Form";
 import { Ficha } from "../../components/Ficha";
-import { PremioBar } from "../../components/PremioBar";
+import { PremioBar, PremioLinha } from "../../components/PremioBar";
 import { useToast } from "../../components/Toast";
 import {
   Button,
@@ -446,24 +446,6 @@ export default function HomeMultipla() {
             ) : null}
           </View>
         ) : null}
-        {j.destaque && !eu ? (
-          <PulsoBrilho sinal={sinal}>
-            <Button
-              title={
-                user
-                  ? `Palpitar na rodada · ${home.regras.custo_entrada_pontos} pontos`
-                  : "Entrar e palpitar"
-              }
-              icon="football"
-              onPress={() =>
-                user ? setExplicando(true) : router.push("/entrar")
-              }
-              loading={busy}
-              disabled={!aberta}
-              className="mt-1"
-            />
-          </PulsoBrilho>
-        ) : null}
       </Card>
     );
   };
@@ -521,6 +503,12 @@ export default function HomeMultipla() {
                   </T>
                   <StatusBadge status={home.liga.status} />
                 </View>
+                <PremioLinha
+                  premio={home.premio}
+                  descricao={home.liga.premio_desc}
+                  finalizada={home.liga.status === "finalizada"}
+                />
+
                 {user && !eu ? (
                   <EntradaModal
                     visible={explicando}
@@ -533,15 +521,45 @@ export default function HomeMultipla() {
                     onFechar={() => setExplicando(false)}
                   />
                 ) : null}
-                {/* Hero = jogo do dia: quem não entrou ainda vê o card do
-                    destaque com o CTA dentro; quem entrou vê seu status. */}
-                {eu ? (
-                  <View
-                    onLayout={(e) => {
-                      palpitarY.current = e.nativeEvent.layout.y;
-                    }}
-                  >
-                    <Card className="mt-3">
+                <View
+                  onLayout={(e) => {
+                    palpitarY.current = e.nativeEvent.layout.y;
+                  }}
+                >
+                  <Card className="mt-3">
+                    {!user ? (
+                      <>
+                        <CarrosselJogos
+                          jogos={destaque ? [destaque, ...outros] : home.jogos}
+                          onOdd={chamarPalpitar}
+                        />
+                        <PulsoBrilho sinal={sinal}>
+                          <Button
+                            title="Palpitar"
+                            icon="football"
+                            onPress={() => router.push("/entrar")}
+                            className="mt-3"
+                          />
+                        </PulsoBrilho>
+                      </>
+                    ) : !eu ? (
+                      <>
+                        <CarrosselJogos
+                          jogos={destaque ? [destaque, ...outros] : home.jogos}
+                          onOdd={chamarPalpitar}
+                        />
+                        <PulsoBrilho sinal={sinal}>
+                          <Button
+                            title="Palpitar"
+                            icon="football"
+                            onPress={() => setExplicando(true)}
+                            loading={busy}
+                            disabled={!aberta}
+                            className="mt-3"
+                          />
+                        </PulsoBrilho>
+                      </>
+                    ) : (
                       <>
                         {(!valendo || editaveis.fichas > 0 || livres > 0) &&
                         livres + noDraft > 0 ? (
@@ -589,14 +607,10 @@ export default function HomeMultipla() {
                           />
                         </View>
                       </>
-                      <ErrorBox erro={erro} />
-                    </Card>
-                  </View>
-                ) : (
-                  <ErrorBox erro={erro} />
-                )}
-
-                {destaque ? renderJogo(destaque) : null}
+                    )}
+                    <ErrorBox erro={erro} />
+                  </Card>
+                </View>
 
                 <View className="mt-3">
                   <PremioBar
@@ -640,6 +654,7 @@ export default function HomeMultipla() {
                 >
                   <SectionTitle>Jogos</SectionTitle>
                 </View>
+                {destaque ? renderJogo(destaque) : null}
                 {desktop ? (
                   <View
                     style={{
@@ -833,6 +848,108 @@ function convidar(premio?: string | null) {
   }
 }
 
+function CarrosselJogos({
+  jogos,
+  onOdd,
+}: {
+  jogos: Jogo[];
+  onOdd: () => void;
+}) {
+  const [largura, setLargura] = useState(0);
+  const [atual, setAtual] = useState(0);
+  const carrossel = useRef<ScrollViewInstance>(null);
+  useEffect(() => {
+    if (jogos.length < 2 || !largura) return;
+    const t = setTimeout(() => {
+      carrossel.current?.scrollTo({
+        x: ((atual + 1) % jogos.length) * largura,
+        animated: true,
+      });
+    }, 5000);
+    return () => clearTimeout(t);
+  }, [atual, largura, jogos.length]);
+  return (
+    <View onLayout={(e) => setLargura(e.nativeEvent.layout.width)}>
+      <ScrollView
+        ref={carrossel}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onScroll={(e) =>
+          largura &&
+          setAtual(Math.round(e.nativeEvent.contentOffset.x / largura))
+        }
+        scrollEventThrottle={32}
+      >
+        {jogos.map((j) => (
+          <View key={j.id} style={{ width: largura || undefined }}>
+            <SlideJogo jogo={j} onOdd={onOdd} />
+          </View>
+        ))}
+      </ScrollView>
+      {jogos.length > 1 ? (
+        <View className="mt-2 flex-row justify-center">
+          {jogos.map((j, i) => (
+            <View
+              key={j.id}
+              className={`mx-0.5 h-1.5 rounded-full ${i === atual ? "w-4 bg-primary" : "w-1.5 bg-line"}`}
+            />
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function SlideJogo({ jogo, onOdd }: { jogo: Jogo; onOdd: () => void }) {
+  const { palette: C } = useTheme();
+  const resultado =
+    agruparMercados(jogo.mercados).find((g) => /RESULTADO/i.test(g.grupo)) ??
+    agruparMercados(jogo.mercados)[0];
+  return (
+    <View>
+      <View className="flex-row items-center">
+        <Ionicons name="football" size={12} color={C.primary} />
+        <T className="ml-1 flex-1 font-mont-b text-[10px] uppercase tracking-widest text-primary">
+          Rodada do dia • {fmtData(jogo.horario)}
+        </T>
+        <StatusJogo jogo={jogo} />
+        {jogo.destaque ? (
+          <Ionicons name="star" size={16} color={C.primary} />
+        ) : null}
+      </View>
+      <View className="my-3 flex-row items-center justify-between">
+        <Time nome={jogo.time_casa} />
+        <T className="font-mont-xb text-base text-muted">X</T>
+        <Time nome={jogo.time_fora} />
+      </View>
+      {resultado ? (
+        <View className="flex-row gap-1.5">
+          {resultado.opcoes.map((m) => (
+            <Pressable
+              key={m.id}
+              onPress={onOdd}
+              className="flex-1 items-center rounded-lg border border-line bg-cardAlt px-1 py-1.5 active:opacity-70"
+              style={{ minWidth: 0 }}
+            >
+              <T
+                className="text-[9px] font-mont-b uppercase"
+                numberOfLines={1}
+                style={{ maxWidth: "100%" }}
+              >
+                {m.descricao}
+              </T>
+              <T className="font-odds text-sm text-primary">
+                {m.multiplicador.toFixed(2)}x
+              </T>
+            </Pressable>
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
 function StatusJogo({ jogo }: { jogo: Jogo }) {
   if (jogo.finalizado) {
     return (
@@ -880,6 +997,20 @@ function AoVivo() {
       />
       <T className="ml-1 font-mont-xb text-[9px] tracking-widest text-primary">
         AO VIVO
+      </T>
+    </View>
+  );
+}
+
+function Time({ nome }: { nome: string }) {
+  return (
+    <View className="w-[42%] items-center">
+      <T
+        className={`text-center font-mont-xb ${nome.length > 14 ? "text-sm" : "text-base"}`}
+        numberOfLines={2}
+        style={{ maxWidth: "100%" }}
+      >
+        {nome}
       </T>
     </View>
   );
