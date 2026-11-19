@@ -691,7 +691,7 @@ function JogoAdmin({
         </View>
       </Pressable>
 
-      {jogo.comecou && !fechada ? <PlacarAdmin key={`${jogo.id}-${jogo.placar?.casa ?? ''}`} jogo={jogo} onSalvar={onPlacar} /> : null}
+      {jogo.comecou && !fechada && (jogo.finalizado || Date.now() > Date.parse(jogo.horario) + 105 * 60000) ? <PlacarAdmin key={`${jogo.id}-${jogo.placar?.casa ?? ''}`} jogo={jogo} onSalvar={onPlacar} /> : null}
       {!editando ? (
         recolhido ? null : (
           <View className="mt-2">
