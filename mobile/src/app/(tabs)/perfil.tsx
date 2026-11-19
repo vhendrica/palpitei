@@ -229,17 +229,17 @@ export default function Perfil() {
 
   const sairBtn = <Button title="Sair" variant="danger" onPress={sair} className="mt-4" />;
 
-  // Admin vive acá dentro del Perfil: la barra de abajo queda en 5 pestañas.
+  // Admin vive dentro do Perfil: a barra de baixo fica em 5 abas.
   const adminLink = user.is_admin ? (
     <>
-      <Titulo>Administración</Titulo>
+      <Titulo>Administração</Titulo>
       <Pressable onPress={() => router.push("/admin")}>
         <Card className="flex-row items-center py-3">
           <Ionicons name="construct-outline" size={20} color={C.primary} />
           <View className="ml-3 flex-1">
-            <T className="font-mont-b text-sm">Panel admin</T>
+            <T className="font-mont-b text-sm">Painel admin</T>
             <T className="text-[11px] text-muted">
-              Rodadas, juegos, importaciones y configuración.
+              Rodadas, jogos, importações e configuração.
             </T>
           </View>
           <Ionicons name="chevron-forward" size={18} color={C.muted} />

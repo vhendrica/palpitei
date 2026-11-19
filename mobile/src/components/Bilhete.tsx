@@ -364,8 +364,8 @@ export function Bilhete({
                   <View className="mb-1.5 flex-row items-center">
                     <Ionicons name="warning-outline" size={14} color={C.gold} />
                     <T className="ml-1 flex-1 font-mont-b text-[11px]">
-                      Agregá otro palpite: la múltipla multiplica las odds,
-                      pero solo vale si aciertan todos.
+                      Adicione outro palpite: a múltipla multiplica as odds,
+                      mas só vale se todas acertarem.
                     </T>
                   </View>
                 ) : null}

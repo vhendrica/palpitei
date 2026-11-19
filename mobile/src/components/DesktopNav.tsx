@@ -4,6 +4,7 @@ import { Pressable, View } from "react-native";
 import { fmtPts } from "../lib/format";
 import { useApp } from "../store/AppStore";
 import { useTheme } from "../store/Theme";
+import { ROTAS_AUTH } from "./AppHeader";
 import { T } from "./ui";
 
 const TABS = [
@@ -72,7 +73,7 @@ export function DesktopNav() {
               <T className="font-mont-xb text-xs text-onPrimary">{user.nome[0]?.toUpperCase()}</T>
             </Pressable>
           </View>
-        ) : (
+        ) : ROTAS_AUTH.test(pathname) ? null : (
           <Pressable onPress={() => router.push("/entrar")} className="ml-auto rounded-full bg-primary px-4 py-1.5">
             <T className="font-mont-xb text-xs text-onPrimary">ENTRAR</T>
           </Pressable>

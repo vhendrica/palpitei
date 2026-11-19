@@ -28,7 +28,7 @@ export function PontosPill() {
 }
 
 // Rotas de auth: o botão ENTRAR do header seria redundante ali.
-const ROTAS_AUTH = /^\/(entrar|cadastro|esqueci|nova-senha|codigo)/;
+export const ROTAS_AUTH = /^\/(entrar|cadastro|esqueci|nova-senha|codigo)/;
 
 export function AppHeader({
   title,
