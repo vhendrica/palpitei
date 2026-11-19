@@ -159,6 +159,7 @@ describe('pontuação e ranking', () => {
     await apostar(sql, cedo, ligaId, { simples: { [mercados[0]]: 120 } });
     await apostar(sql, tarde, ligaId, { simples: { [mercados[2]]: 120 } });
     await sql`update mercados set resultado_final = true where id in ${sql([mercados[0], mercados[2]])}`;
+    await sql`update mercados m set decidido_em = now() from jogos j where j.id = m.jogo_id and j.liga_id = ${ligaId}`;
 
     const r = await calcularRanking(sql, ligaId);
     assert.deepEqual(

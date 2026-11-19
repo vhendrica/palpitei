@@ -30,12 +30,11 @@ async function call(method: string, path: string, body?: unknown, token?: string
 
 async function registrar(whatsapp: string, cpf: string, nome = 'Fulano Teste') {
   const c = await call('POST', '/auth/cadastro', {
-    nome, whatsapp, cpf, data_nascimento: '1990-01-01', bairro: 'Benfica', aceita_termos: true, aceita_compartilhamento: true,
+    nome, email: `${whatsapp}@exemplo.com`, senha: 'senha1234', whatsapp, cpf, data_nascimento: '1990-01-01',
+    bairro: 'Benfica', aceita_termos: true, aceita_compartilhamento: true,
   });
   assert.equal(c.status, 200, JSON.stringify(c.body));
-  const r = await call('POST', '/auth/confirmar', { whatsapp, codigo: codigos.at(-1) });
-  assert.equal(r.status, 200);
-  return r.body.token as string;
+  return c.body.token as string;
 }
 
 test('fluxo completo: admin monta a múltipla, usuário entra, distribui, ranking e finalização', async () => {
@@ -103,9 +102,9 @@ test('fluxo completo: admin monta a múltipla, usuário entra, distribui, rankin
   const ap = await call('POST', '/liga/hoje/apostas', { distribuicao: { [mA]: 120, [mB]: 80 } }, userToken);
   assert.deepEqual(ap.body, { fichas_distribuidas: 200, fichas_livres: 0 });
 
-  // mercado com fichas não pode ser removido
+  // mercado com fichas sai da vitrine, mas a aposta continua valendo pra quem apostou
   const rm = await call('PUT', `/admin/jogos/${home.body.jogos[0].id}/mercados`, { mercados: [] }, adminToken);
-  assert.match(rm.body.error, /já recebeu fichas/);
+  assert.equal(rm.status, 200, JSON.stringify(rm.body));
 
   home = await call('GET', '/home', undefined, userToken);
   assert.equal(home.body.eu.fichas_livres, 0);
@@ -125,7 +124,7 @@ test('fluxo completo: admin monta a múltipla, usuário entra, distribui, rankin
   assert.equal(fin.body.voucher.valor, 50);
 
   const me = await call('GET', '/me', undefined, userToken);
-  assert.equal(me.body.user.saldo_pontos, 500);
+  assert.equal(me.body.user.saldo_pontos, 540, '500 + 40 do bônus de login do dia');
   assert.equal(me.body.vouchers[0].valor, 50);
   assert.equal(me.body.historico[0].data, HOJE);
 });

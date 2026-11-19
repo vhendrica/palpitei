@@ -9,7 +9,7 @@ export async function migrate(url: string, { reset = false } = {}) {
     if (reset) await sql.unsafe('drop schema if exists public cascade; create schema public;');
     const dir = join(import.meta.dirname, '..', 'migrations');
     for (const f of readdirSync(dir).filter((f) => f.endsWith('.sql')).sort()) {
-      await sql.unsafe(readFileSync(join(dir, f), 'utf8'));
+      await sql.unsafe(readFileSync(join(dir, f), 'utf8').replace(/^\uFEFF/, ''));
     }
   } finally {
     await sql.end();

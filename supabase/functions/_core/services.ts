@@ -56,7 +56,10 @@ export async function getConfig(db: Db) {
   };
 }
 
-/** Mercados da múltipla agrupados por jogo (destaque primeiro). Com userId, inclui as fichas já apostadas. */
+/**
+ * Mercados da múltipla agrupados por jogo (destaque primeiro). Com userId, inclui as fichas já apostadas.
+ * Mercado oculto só aparece pra quem já apostou nele (a aposta continua valendo e não some ao editar).
+ */
 export async function jogosComMercados(db: Db, ligaId: string, userId?: string | null): Promise<JogoView[]> {
   const jogos = await db`
     select j.*, f.externo_id, j.horario <= now() as comecou
@@ -68,7 +71,11 @@ export async function jogosComMercados(db: Db, ligaId: string, userId?: string |
   const mercados = await db`
     select m.*, coalesce((select sum(a.fichas_apostadas) from apostas a
                           where a.mercado_id = m.id and a.user_id = ${userId ?? null}::uuid), 0)::int as minhas
-    from mercados m where m.jogo_id in ${db(jogos.map((j) => j.id as string))} and m.oculto = false
+    from mercados m where m.jogo_id in ${db(jogos.map((j) => j.id as string))}
+      and (m.oculto = false
+           or exists (select 1 from apostas a where a.mercado_id = m.id and a.user_id = ${userId ?? null}::uuid)
+           or exists (select 1 from multipla_pernas p join multiplas mu on mu.id = p.multipla_id
+                      where p.mercado_id = m.id and mu.user_id = ${userId ?? null}::uuid))
     order by m.ordem, m.descricao`;
   return jogos.map((j) => ({
     id: j.id as string,

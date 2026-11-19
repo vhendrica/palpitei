@@ -234,7 +234,11 @@ export async function apostar(
           select m.id, m.grupo, m.descricao, m.multiplicador, m.jogo_id, j.time_casa, j.time_fora,
                  j.horario <= now() as comecou
           from mercados m join jogos j on j.id = m.jogo_id
-          where m.id in ${tx(ids)} and j.liga_id = ${ligaId} and m.oculto = false`
+          where m.id in ${tx(ids)} and j.liga_id = ${ligaId}
+            and (m.oculto = false
+                 or exists (select 1 from apostas a where a.mercado_id = m.id and a.user_id = ${userId})
+                 or exists (select 1 from multipla_pernas p join multiplas mu on mu.id = p.multipla_id
+                            where p.mercado_id = m.id and mu.user_id = ${userId}))`
       : [];
     if (mercados.length !== ids.length) throw new RuleError('Mercado inválido para esse palpite.');
     if (mercados.some((m) => m.comecou)) throw new RuleError('Esse jogo já começou. Apostas encerradas para ele.');
@@ -420,7 +424,7 @@ async function potencialPorUsuario(db: Db, ligaId: string) {
  * persistindo, a ordem entre eles é só técnica (id) e sem critério exibido.
  */
 export async function calcularRanking(db: Db, ligaId: string): Promise<RankingRow[]> {
-  const [rows, pontos, acertos, potencial] = await Promise.all([
+  const [rows, pontos, acertos, potencialAberto, [liga]] = await Promise.all([
     db`
       with ev as (
         select a.user_id, a.fichas_apostadas as f
@@ -436,7 +440,10 @@ export async function calcularRanking(db: Db, ligaId: string): Promise<RankingRo
     pontosPorUsuario(db, ligaId),
     acertosPorUsuario(db, ligaId),
     potencialPorUsuario(db, ligaId),
+    db`select status from ligas where id = ${ligaId}`,
   ]);
+  // Rodada finalizada: o que não foi decidido perdeu, então potencial não desempata nem soma.
+  const potencial = liga?.status === 'finalizada' ? new Map<string, number>() : potencialAberto;
   const lista = rows.map((r) => ({
     r,
     pontos: pontos.get(r.id as string) ?? 0,
