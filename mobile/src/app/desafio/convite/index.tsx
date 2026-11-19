@@ -46,7 +46,7 @@ export default function Convite() {
       setErro(errorMessage(e));
       setEntrando(false);
     }
-  }, [d]);
+  }, [d, token]);
 
   return (
     <View className="flex-1 bg-bg">

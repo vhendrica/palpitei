@@ -261,8 +261,8 @@ export async function perfil(db: Db, user: UserPublico) {
     db`select count(*)::int as n from entradas where user_id = ${user.id}`,
     // Palpites já decididos (mercado apurado ou rodada encerrada). Múltipla inteira conta 1.
     db`
-      select count(distinct a.mercado_id) filter (where m.resultado_final)::int as certos,
-             count(distinct a.mercado_id)::int as total
+      select count(*) filter (where m.resultado_final)::int as certos,
+             count(*)::int as total
       from apostas a join mercados m on m.id = a.mercado_id
       join jogos j on j.id = m.jogo_id join ligas l on l.id = j.liga_id
       where a.user_id = ${user.id} and (m.decidido_em is not null or l.status = 'finalizada')`,
@@ -411,7 +411,7 @@ export async function palpiteirosDaLiga(db: Db, user: UserPublico | null, liga: 
               ),
           );
       return {
-        nome: e.nome as string,
+        nome: eu ? (e.nome as string) : nomePublico(e.nome as string),
         entrou_em: iso(e.created_at)!,
         eu,
         posicao: r?.posicao ?? null,

@@ -1,4 +1,4 @@
-export const fmtOdd = (n: number) => `${n.toFixed(2)}x`;
+export const fmtOdd = (n: number | null | undefined) => (n == null ? '—' : `${n.toFixed(2)}x`);
 
 export const fmtPts = (n: number) => n.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
 

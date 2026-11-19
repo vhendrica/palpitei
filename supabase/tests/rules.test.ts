@@ -325,15 +325,17 @@ test('palpiteiros do dia lista quem entrou e as fichas de cada um', async () => 
   const [{ data }] = await sql`select to_char(data, 'YYYY-MM-DD') as data from ligas where id = ${ligaId}`;
   // Jogos ainda não começaram: os outros só veem quem entrou.
   const r = await palpiteirosDoDia(sql, null, data);
-  assert.deepEqual(r.palpiteiros.map((p) => [p.nome, p.palpites.length]), [['Ana', 0], ['Bia', 0]]);
+  // Antes do jogo ninguém pontua nem tem potencial público: a ordem não revela bilhete.
+  assert.deepEqual(r.palpiteiros.map((p) => [p.nome, p.palpites.length]).sort(), [['Ana', 0], ['Bia', 0]]);
   // A própria Ana vê o bilhete inteiro, com fichas.
   const eu = await palpiteirosDoDia(sql, { id: a } as never, data);
-  assert.deepEqual(eu.palpiteiros[0].palpites.map((p) => p.fichas).sort((x, y) => Number(y) - Number(x)), [50, 20]);
+  assert.deepEqual(eu.palpiteiros.find((p) => p.eu)!.palpites.map((p) => p.fichas).sort((x, y) => Number(y) - Number(x)), [50, 20]);
   // Jogo começou: aparecem mercado e odd, sem fichas.
   await sql`update jogos set horario = now() - interval '1 minute' where liga_id = ${ligaId}`;
   const r2 = await palpiteirosDoDia(sql, null, data);
-  assert.equal(r2.palpiteiros[0].palpites.length, 2);
-  assert.equal(r2.palpiteiros[0].palpites[0].fichas, undefined);
+  const ana = r2.palpiteiros.find((p) => p.nome === 'Ana')!;
+  assert.equal(ana.palpites.length, 2);
+  assert.equal(ana.palpites[0].fichas, undefined);
 });
 
 describe('salvarPremioEscada com prêmio inicial', () => {

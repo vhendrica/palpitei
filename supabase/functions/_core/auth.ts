@@ -183,6 +183,8 @@ export async function solicitarCodigo(d: AuthDeps, input: { whatsapp: unknown })
   return emitirCodigo(d, whatsapp);
 }
 
+const OTP_GLOBAL_POR_MINUTO = 30;
+
 async function emitirCodigo(d: AuthDeps, whatsapp: string) {
   const o = opts(d);
   const codigo = gerarOtp();
@@ -194,6 +196,9 @@ async function emitirCodigo(d: AuthDeps, whatsapp: string) {
       where whatsapp = ${whatsapp} and created_at > clock_timestamp() - make_interval(secs => ${o.reenvioMs / 1000})
       order by created_at desc limit 1`;
     if (ultimo) throw new RuleError('Aguarde um minuto para pedir um novo código.');
+    // Teto global contra disparo em massa pra números diferentes (custo no provedor).
+    const [{ n }] = await tx`select count(*)::int as n from otp_codes where created_at > clock_timestamp() - interval '1 minute'`;
+    if (n >= OTP_GLOBAL_POR_MINUTO) throw new RuleError('Muitos pedidos de código agora. Tente de novo em instantes.');
     await tx`update otp_codes set usado = true where whatsapp = ${whatsapp} and not usado`;
     const [r] = await tx`
       insert into otp_codes (whatsapp, codigo, expires_at)
