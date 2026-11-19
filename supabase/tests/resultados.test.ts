@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { after, before, beforeEach, test } from 'node:test';
 
-import { aplicarPlacar, atualizarResultados, fecharApostasIniciadas } from '../functions/_core/resultados.ts';
+import { aplicarPlacar, atualizarResultados, extrasDoCorpo, fecharApostasIniciadas } from '../functions/_core/resultados.ts';
 import {
   apostar,
   entrarNaLiga,
@@ -32,14 +32,13 @@ test('aplicarPlacar marca os mercados que bateram', async () => {
   assert.deepEqual([j.placar_casa, j.placar_fora, !!j.finalizado_em], [2, 1, true]);
 });
 
-const fx = (id: number, status: string, home: number, away: number) => ({
-  id,
-  league: { id: 1, name: 'England Premier League' },
-  teams: { home: { id: 1, name: 'Casa0' }, away: { id: 2, name: 'Fora0' } },
-  kickoff_utc: new Date().toISOString(),
-  kickoff_ts: 0,
-  status,
-  goals: { home, away },
+const fx = (status: string, home: number, away: number) => ({
+  scores: {
+    periods: {
+      result: { participant1Score: home, participant2Score: away },
+      ...(status === 'finished' ? { fulltime: { participant1Score: home, participant2Score: away } } : {}),
+    },
+  },
 });
 
 test('atualizarResultados só consulta a API com jogo rolando e aplica os finalizados', async () => {
@@ -47,7 +46,7 @@ test('atualizarResultados só consulta a API com jogo rolando e aplica os finali
   const urls: string[] = [];
   const fakeFetch = (async (u: string) => {
     urls.push(u);
-    return new Response(JSON.stringify({ data: [fx(1, 'finished', 1, 1)] }));
+    return new Response(JSON.stringify(fx('finished', 1, 1)));
   }) as unknown as typeof fetch;
   const cfg = { apiKey: 'k', fetch: fakeFetch };
   assert.equal((await atualizarResultados(sql, cfg)).consultados, 0);
@@ -55,11 +54,11 @@ test('atualizarResultados só consulta a API com jogo rolando e aplica os finali
 
   const [j] = await sql`select fixture_id from jogos where id = ${jogos[0]}`;
   await sql`insert into fixtures_dia (fixture_id, data, time_casa, time_fora, horario, campeonato, fonte, externo_id, externo_esporte)
-            values (${j.fixture_id}, '2030-01-01', 'Casa0', 'Fora0', now(), 'Série A', 'api_football', '1', 'England Premier League')`;
+            values (${j.fixture_id}, '2030-01-01', 'Casa0', 'Fora0', now(), 'Série A', 'oddspapi', 'id1', '325')`;
   await sql`update jogos set horario = now() - interval '2 hours' where id = ${jogos[0]}`;
   const r = await atualizarResultados(sql, cfg);
   assert.equal(r.finalizados.length, 1);
-  assert.match(urls[0], /\/fixtures\?start_time=\d+&end_time=\d+/);
+  assert.match(urls[0], /\/v4\/scores\?fixtureId=id1&apiKey=k$/);
   assert.deepEqual(await marcados(jogos[0]), ['EMPATE']);
   assert.equal((await atualizarResultados(sql, cfg)).consultados, 0);
 });
@@ -72,9 +71,9 @@ test('placar parcial marca na hora só os mercados que já não mudam', async ()
     (${jogo}, 'GOLS 4.5', 'Mais de 4.5', 5, 92)`;
   const [j] = await sql`select fixture_id from jogos where id = ${jogo}`;
   await sql`insert into fixtures_dia (fixture_id, data, time_casa, time_fora, horario, campeonato, fonte, externo_id, externo_esporte)
-            values (${j.fixture_id}, '2030-01-01', 'Casa0', 'Fora0', now(), 'Série A', 'api_football', '2', 'England Premier League')`;
+            values (${j.fixture_id}, '2030-01-01', 'Casa0', 'Fora0', now(), 'Série A', 'oddspapi', 'id2', '325')`;
   await sql`update jogos set horario = now() - interval '30 minutes' where id = ${jogo}`;
-  const fakeFetch = (async () => new Response(JSON.stringify({ data: [fx(2, 'live', 2, 1)] }))) as unknown as typeof fetch;
+  const fakeFetch = (async () => new Response(JSON.stringify(fx('live', 2, 1)))) as unknown as typeof fetch;
   const r = await atualizarResultados(sql, { apiKey: 'k', fetch: fakeFetch });
   assert.equal(r.finalizados.length, 0);
   const ms = await sql`select descricao, resultado_final, decidido_em is not null as decidido from mercados
@@ -154,4 +153,34 @@ test('fecha as apostas sozinho só quando o último jogo da rodada começou', as
   await sql`update jogos set horario = now() - interval '1 minute' where liga_id = ${ligaId}`;
   assert.equal(await fecharApostasIniciadas(sql), 1);
   assert.equal(await status(), 'em_andamento');
+});
+
+test('escanteios e cartões do admin liquidam os mercados de contagem; o resto pelo placar', async () => {
+  const { jogos } = await criarLiga(sql);
+  const jogo = jogos[0];
+  await sql`insert into mercados (jogo_id, grupo, descricao, multiplicador, ordem) values
+    (${jogo}, 'ESCANTEIOS 9.5', 'MAIS DE 9.5', 2, 90),
+    (${jogo}, 'ESCANTEIOS CASA0 4.5', 'CASA0 MAIS DE 4.5', 2, 91),
+    (${jogo}, 'CARTÕES FORA0 2.5', 'FORA0 MENOS DE 2.5', 2, 92),
+    (${jogo}, 'PLACAR EXATO', '2 x 1', 8, 93),
+    (${jogo}, 'GOLS FORA0 0.5', 'FORA0 MAIS DE 0.5', 1.5, 94),
+    (${jogo}, 'INTERVALO / FINAL', 'EMPATE / CASA0', 5, 95),
+    (${jogo}, 'MARCA NO JOGO', 'NEYMAR', 3, 96)`;
+  await aplicarPlacar(sql, jogo, 2, 1);
+  const estado = async () =>
+    (await sql`select descricao, decidido_em is not null as d, resultado_final as r from mercados
+               where jogo_id = ${jogo} and ordem >= 90 order by ordem`).map((m) => [m.descricao, m.d, m.r]);
+  // Escanteio de gols não pode decidir "MAIS DE 9.5" escanteios.
+  assert.deepEqual((await estado()).filter((m) => m[1]).map((m) => m[0]), ['2 x 1', 'FORA0 MAIS DE 0.5']);
+  await aplicarPlacar(sql, jogo, 2, 1, extrasDoCorpo({ escanteios: [6, 5], cartoes: [1, 3], gols1t: [0, 0] }));
+  assert.deepEqual(await estado(), [
+    ['MAIS DE 9.5', true, true],
+    ['CASA0 MAIS DE 4.5', true, true],
+    ['FORA0 MENOS DE 2.5', true, false],
+    ['2 x 1', true, true],
+    ['FORA0 MAIS DE 0.5', true, true],
+    ['EMPATE / CASA0', true, true],
+    ['NEYMAR', false, false],
+  ]);
+  assert.throws(() => extrasDoCorpo({ escanteios: [1] }), /inválida/);
 });

@@ -4,8 +4,7 @@ import * as desafios from './desafios.ts';
 import type { Db } from './db.ts';
 import { ForbiddenError, NotFoundError, RuleError } from './errors.ts';
 import { importarOdds, mercadosDaApi, mercadosDaFixture, type OddsConfig } from './odds.ts';
-import { propsDoJogo, type OddsPapiConfig } from './oddspapi.ts';
-import { aplicarPlacar, atualizarResultados } from './resultados.ts';
+import { aplicarPlacar, atualizarResultados, extrasDoCorpo } from './resultados.ts';
 import * as sim from './sim.ts';
 import { apostar, type MultiplaInput, entrarNaLiga, finalizarLiga, getLiga, getLigaAtual, reativarLiga } from './rules.ts';
 import { home, historico, jogosComMercados, meuBilhete, palpiteirosDaLiga, palpiteirosDoDia, perfil, rankingDoDia } from './services.ts';
@@ -23,7 +22,6 @@ export type ApiDeps = {
   hoje?: () => string;
   corsOrigin?: string;
   odds?: OddsConfig;
-  oddsPapi?: OddsPapiConfig;
   /** Segredo do agendador (pg_cron) para POST /cron/resultados. */
   cronSecret?: string;
 };
@@ -74,7 +72,7 @@ export function createApi(deps: ApiDeps) {
       // fixture_id numérico = id da Football API; fontes antigas/manuais já devolvem [].
       const sugeridos = (f.mercados_sugeridos ?? []) as { grupo?: string }[];
       const legado = sugeridos.some((m) => /^(ESCANTEIOS|CARTÕES|ESCANTEIOS 1º TEMPO)$/.test(m.grupo ?? ''));
-      if ((!sugeridos.length || legado) && f.fonte === 'api_football') {
+      if ((!sugeridos.length || legado) && f.fonte === 'oddspapi') {
         try {
           f.mercados_sugeridos = (await mercadosDaFixture(sql, deps.odds, String(f.fixture_id))) as never;
           buscados++;
@@ -158,7 +156,7 @@ export function createApi(deps: ApiDeps) {
         const sugeridos = (f.mercados_sugeridos ?? []) as { grupo?: string }[];
         // Refaz quando vazio OU quando o cache está no formato antigo (grupo sem linha, ex.: "ESCANTEIOS").
         const legado = sugeridos.some((m) => /^(ESCANTEIOS|CARTÕES|ESCANTEIOS 1º TEMPO)$/.test(m.grupo ?? ''));
-        if ((!sugeridos.length || legado) && f.fonte === 'api_football') {
+        if ((!sugeridos.length || legado) && f.fonte === 'oddspapi') {
           try {
             f.mercados_sugeridos = (await mercadosDaFixture(sql, deps.odds, String(f.fixture_id))) as never;
             buscados++;
@@ -217,7 +215,7 @@ export function createApi(deps: ApiDeps) {
     ['POST', /^\/admin\/jogos\/([^/]+)\/placar$/, async (c) => {
       await c.requireAdmin();
       const b = await c.body();
-      return aplicarPlacar(sql, c.params[0], Number(b.casa), Number(b.fora));
+      return aplicarPlacar(sql, c.params[0], Number(b.casa), Number(b.fora), extrasDoCorpo(b));
     }],
     ['GET', /^\/me$/, async (c) => perfil(sql, await c.requireUser())],
 
@@ -278,7 +276,11 @@ export function createApi(deps: ApiDeps) {
     ['POST', /^\/admin\/mercados\/([^/]+)\/resultado$/, async (c) =>
       (await c.requireAdmin(), admin.definirResultadoMercado(sql, c.params[0], (await c.body()).resultado))],
     ['GET', /^\/admin\/jogos\/([^/]+)\/mercados-api$/, async (c) => (await c.requireAdmin(), mercadosDaApi(sql, deps.odds, c.params[0]))],
-    ['GET', /^\/admin\/jogos\/([^/]+)\/props-api$/, async (c) => (await c.requireAdmin(), propsDoJogo(sql, deps.oddsPapi, c.params[0]))],
+    ['GET', /^\/admin\/jogos\/([^/]+)\/props-api$/, async (c) => {
+      await c.requireAdmin();
+      const { mercados } = await mercadosDaApi(sql, deps.odds, c.params[0]);
+      return { mercados: mercados.filter((m) => m.categoria === 'JOGADOR') };
+    }],
     ['PUT', /^\/admin\/jogos\/([^/]+)\/mercados$/, async (c) => {
       await c.requireAdmin();
       return admin.definirMercados(sql, c.params[0], (await c.body()).mercados);
