@@ -28,9 +28,10 @@ async function call(method: string, path: string, body?: unknown, token?: string
   return { status: res.status, body: (await res.json()) as any };
 }
 
+let userSeq = 0;
 async function registrar(whatsapp: string, cpf: string, nome = 'Fulano Teste') {
   const c = await call('POST', '/auth/cadastro', {
-    nome, email: `${whatsapp}@exemplo.com`, senha: 'senha1234', whatsapp, cpf, data_nascimento: '1990-01-01',
+    nome, username: `user${++userSeq}`, email: `${whatsapp}@exemplo.com`, senha: 'senha1234', whatsapp, cpf, data_nascimento: '1990-01-01',
     bairro: 'Benfica', aceita_termos: true, aceita_compartilhamento: true,
   });
   assert.equal(c.status, 200, JSON.stringify(c.body));
@@ -115,7 +116,7 @@ test('fluxo completo: admin monta a múltipla, usuário entra, distribui, rankin
   assert.equal(home.body.premio.proxima.faltam, 2);
 
   const rk = await call('GET', '/liga/hoje/ranking', undefined, userToken);
-  assert.equal(rk.body.ranking[0].nome, 'Maria S.');
+  assert.equal(rk.body.ranking[0].nome, 'user2');
   assert.equal(rk.body.ranking[0].eu, true);
   assert.equal(rk.body.ranking[0].user_id, undefined);
 

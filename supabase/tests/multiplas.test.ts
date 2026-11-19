@@ -116,8 +116,8 @@ describe('bilhete com Simples e Múltiplas', () => {
     assert.equal(await pontuacaoUsuario(sql, b, ligaId), 0);
     const r = await calcularRanking(sql, ligaId);
     assert.deepEqual(r.map((x) => [x.nome, x.pontuacao, x.fichas_apostadas]), [
-      ['Ana L.', 200, 50],
-      ['Bia S.', 0, 50],
+      ['ana.lima', 200, 50],
+      ['bia.souza', 0, 50],
     ]);
   });
 

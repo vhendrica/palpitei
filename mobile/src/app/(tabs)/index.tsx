@@ -46,7 +46,7 @@ import { errorMessage, useApp } from "../../store/AppStore";
 import { useTheme } from "../../store/Theme";
 import { agruparMercados } from "../../types";
 import { GrupoTitulo } from "../../components/GrupoTitulo";
-import { secaoDo } from "../../lib/secoes";
+import { rankSecao, secaoDo } from "../../lib/secoes";
 import type { Jogo, MinhaSituacao, MultiplaView } from "../../types";
 
 const MERCADOS_VISIVEIS = 2;
@@ -87,6 +87,8 @@ export default function HomeMultipla() {
   const [resumo, setResumo] = useState(false);
   const [verBilhete, setVerBilhete] = useState(false);
   const [abertos, setAbertos] = useState<string[]>([]);
+  // Seções recolhidas por jogo: chave "<jogoId>|<SEÇÃO>".
+  const [secoesOcultas, setSecoesOcultas] = useState<Record<string, boolean>>({});
   const setDraft = (fn: Draft | ((d: Draft) => Draft)) =>
     setDraftState({
       key: draftKey,
@@ -379,30 +381,58 @@ export default function HomeMultipla() {
         </Pressable>
         {!j.finalizado || j.mercados.some((m) => (m.minhas_fichas ?? 0) > 0) ? (
           <View className="mt-3">
-            {agruparMercados(
-              j.finalizado
-                ? j.mercados.filter((m) => (m.minhas_fichas ?? 0) > 0)
-                : j.mercados,
-            )
-              .filter(
-                (_, gi) => gi < MERCADOS_VISIVEIS || abertos.includes(j.id),
+            {(() => {
+              const gruposVis = agruparMercados(
+                j.finalizado
+                  ? j.mercados.filter((m) => (m.minhas_fichas ?? 0) > 0)
+                  : j.mercados,
               )
-              .map((g, gi, arr) => {
+                .filter(
+                  (_, gi) => gi < MERCADOS_VISIVEIS || abertos.includes(j.id),
+                )
+                .sort(
+                  (a, b) =>
+                    rankSecao(a.opcoes[0]?.secao ?? secaoDo(a.grupo)) -
+                    rankSecao(b.opcoes[0]?.secao ?? secaoDo(b.grupo)),
+                );
+              const secoesJogo: { nome: string; grupos: typeof gruposVis }[] = [];
+              for (const g of gruposVis) {
                 const sec = g.opcoes[0]?.secao ?? secaoDo(g.grupo);
-                const novaSecao =
-                  gi === 0 ||
-                  (arr[gi - 1].opcoes[0]?.secao ??
-                    secaoDo(arr[gi - 1].grupo)) !== sec;
+                const s = secoesJogo[secoesJogo.length - 1];
+                if (s?.nome === sec) s.grupos.push(g);
+                else secoesJogo.push({ nome: sec, grupos: [g] });
+              }
+              return secoesJogo.map((s) => {
+                const chave = `${j.id}|${s.nome}`;
+                const oculta = !!secoesOcultas[chave];
                 return (
-                  <View key={g.grupo} className="mb-3">
-                    {novaSecao && sec !== "PRINCIPAL" ? (
-                      <T className="mb-1 mt-1 font-mont-xb text-sm text-primary">
-                        {sec}
+                  <View key={s.nome}>
+                    <Pressable
+                      onPress={() =>
+                        setSecoesOcultas((o) => ({ ...o, [chave]: !oculta }))
+                      }
+                      className="mb-1 mt-1 flex-row items-center active:opacity-70"
+                      accessibilityLabel={`${oculta ? "Expandir" : "Recolher"} seção ${s.nome}`}
+                    >
+                      <Ionicons
+                        name={oculta ? "chevron-forward" : "chevron-down"}
+                        size={14}
+                        color={C.primary}
+                      />
+                      <T className="ml-1 font-mont-xb text-sm text-primary">
+                        {s.nome}
                       </T>
-                    ) : null}
-                    {g.grupo ? <GrupoTitulo grupo={g.grupo} /> : null}
-                    <View className="flex-row flex-wrap" style={{ gap: 6 }}>
-                      {g.opcoes.map((m) => {
+                    </Pressable>
+                    {oculta
+                      ? null
+                      : s.grupos.map((g) => (
+                          <View key={g.grupo} className="mb-3">
+                            {g.grupo ? <GrupoTitulo grupo={g.grupo} /> : null}
+                            <View
+                              className="flex-row flex-wrap"
+                              style={{ gap: 6 }}
+                            >
+                              {g.opcoes.map((m) => {
                         const minhas =
                           editando && !j.comecou ? 0 : (m.minhas_fichas ?? 0);
                         const noBilhete = draft.itens.includes(m.id);
@@ -444,11 +474,14 @@ export default function HomeMultipla() {
                             />
                           </View>
                         );
-                      })}
-                    </View>
+                              })}
+                            </View>
+                          </View>
+                        ))}
                   </View>
                 );
-              })}
+              });
+            })()}
             {agruparMercados(j.mercados).length > MERCADOS_VISIVEIS ? (
               <Pressable
                 onPress={() =>
@@ -659,7 +692,7 @@ export default function HomeMultipla() {
                     <View className="mb-2 flex-row items-center">
                       <View className="mr-2 h-4 w-1 rounded-full bg-primary" />
                       <T className="font-mont-xb text-sm uppercase tracking-wide">
-                        Especiais do dia
+                        Especiais em destaque
                       </T>
                     </View>
                     <ScrollView
@@ -678,7 +711,7 @@ export default function HomeMultipla() {
                                 ? setDraft((d) => alternarOdd(d, e.id))
                                 : chamarPalpitar()
                             }
-                            className={`w-36 rounded-xl border p-3 ${
+                            className={`h-44 w-36 justify-between rounded-xl border p-3 ${
                               selecionado
                                 ? "border-primary bg-cardAlt"
                                 : "border-line bg-card"
@@ -699,8 +732,8 @@ export default function HomeMultipla() {
                               </T>
                             ) : null}
                             <T
-                              className="mt-1 font-mont-b text-xs"
-                              numberOfLines={2}
+                              className="mt-1 flex-1 font-mont-b text-xs"
+                              numberOfLines={3}
                             >
                               {e.descricao}
                             </T>

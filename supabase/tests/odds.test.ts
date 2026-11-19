@@ -85,7 +85,7 @@ test('mercadosDasOdds: só a 1xBet, nomes no formato que liquida pelo placar e p
   ]);
   const grupos = [...new Set(ms.map((m) => m.grupo))];
   // linha asiática (2.25) e 2º tempo ficam fora
-  assert.deepEqual(grupos, ['RESULTADO', 'AMBOS MARCAM', 'GOLS 2.5', 'ESCANTEIOS 9.5', 'MARCA NO JOGO']);
+  assert.deepEqual(grupos, ['RESULTADO', 'AMBOS MARCAM', 'GOLS 2.5', 'MARCA NO JOGO', 'ESCANTEIOS 9.5']);
   assert.deepEqual(ms.find((m) => m.grupo === 'MARCA NO JOGO'), {
     grupo: 'MARCA NO JOGO', descricao: 'GUILHERME PEDRO', multiplicador: 2.4, casas: 1, real: undefined, categoria: 'JOGADOR',
   });

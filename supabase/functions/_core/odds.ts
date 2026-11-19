@@ -387,7 +387,7 @@ export function mercadosDasOdds(
   return ordenar(limpar(out));
 }
 
-const ORDEM_CAT: Categoria[] = ['RESULTADO', 'GOLS', 'HANDICAP', 'ESCANTEIOS', 'CARTÕES', 'JOGADOR', 'OUTROS'];
+const ORDEM_CAT: Categoria[] = ['RESULTADO', 'GOLS', 'JOGADOR', 'ESCANTEIOS', 'CARTÕES', 'HANDICAP', 'OUTROS'];
 const ORDEM_GRUPO = ['RESULTADO', 'AMBOS MARCAM', 'DUPLA CHANCE', 'EMPATE ANULA', 'GOLS 2.5'];
 const linhaDoGrupo = (g: string) => Number(g.match(/(\d+(?:\.\d+)?)$/)?.[1] ?? 0);
 

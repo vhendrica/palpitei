@@ -439,7 +439,7 @@ export async function calcularRanking(db: Db, ligaId: string, quem?: string): Pr
         union all
         select user_id, fichas_apostadas from multiplas where liga_id = ${ligaId}
       )
-      select u.id, u.nome, u.bairro, e.fichas_total,
+      select u.id, u.nome, u.username, u.bairro, e.fichas_total,
              coalesce((select sum(ev.f) from ev where ev.user_id = e.user_id), 0)::int as fichas
       from entradas e join users u on u.id = e.user_id
       where e.liga_id = ${ligaId}`,
@@ -529,7 +529,7 @@ export async function calcularRanking(db: Db, ligaId: string, quem?: string): Pr
     return {
       posicao: i + 1,
       user_id: x.r.id as string,
-      nome: nomePublico(x.r.nome as string),
+      nome: (x.r.username as string | null) ?? nomePublico(x.r.nome as string),
       bairro: x.r.bairro as string,
       pontuacao: x.pontos,
       fichas_apostadas: num(x.r.fichas),

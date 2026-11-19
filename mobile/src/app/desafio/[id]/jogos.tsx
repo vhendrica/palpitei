@@ -9,6 +9,7 @@ import { GrupoTitulo } from "../../../components/GrupoTitulo";
 import { api } from "../../../lib/api";
 import { errorMessage } from "../../../store/AppStore";
 import { agruparMercados, type DesafioDetalhe } from "../../../types";
+import { rankSecao, secaoDo } from "../../../lib/secoes";
 
 /** Jogos do desafio com mercados e o que bateu (✓) — tela separada, aberta pelo card "Jogos ›". */
 export default function JogosDesafio() {
@@ -54,7 +55,9 @@ export default function JogosDesafio() {
               ) : null}
             </View>
             <View className="mt-2">
-              {agruparMercados(j.mercados).map((g) => (
+              {agruparMercados(j.mercados)
+                .sort((a, b) => rankSecao(a.opcoes[0]?.secao ?? secaoDo(a.grupo)) - rankSecao(b.opcoes[0]?.secao ?? secaoDo(b.grupo)))
+                .map((g) => (
                 <View key={g.grupo || "_"} className="mt-2">
                   {g.grupo ? <GrupoTitulo grupo={g.grupo} /> : null}
                   <View className="flex-row flex-wrap" style={{ gap: 6 }}>

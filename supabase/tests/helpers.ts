@@ -18,10 +18,12 @@ export async function criarUser(
 ) {
   seq++;
   const [u] = await sql`
-    insert into users (nome, whatsapp, cpf, data_nascimento, bairro, saldo_pontos, is_admin,
+    insert into users (nome, username, whatsapp, cpf, data_nascimento, bairro, saldo_pontos, is_admin,
                        terms_accepted_at, terms_version, data_consent_accepted_at, data_consent_version, ativado_em,
                        created_at)
-    values (${over.nome ?? `User ${seq}`}, ${String(85900000000 + seq)}, ${String(10000000000 + seq)}, '1990-01-01',
+    values (${over.nome ?? `User ${seq}`},
+            ${(over.nome ?? `user${seq}`).normalize('NFD').replace(/[^a-zA-Z0-9]+/g, '.').toLowerCase().replace(/^\.|\.$/g, '')},
+            ${String(85900000000 + seq)}, ${String(10000000000 + seq)}, '1990-01-01',
             'Aldeota', ${over.saldo_pontos ?? 500}, ${over.is_admin ?? false}, now(), 'v1', now(), 'v1', now(),
             ${over.created_at ?? new Date(Date.now() + seq).toISOString()})
     returning id`;
