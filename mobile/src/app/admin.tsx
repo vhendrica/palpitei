@@ -5,7 +5,9 @@ import { Alert, Pressable, ScrollView, TextInput, View } from "react-native";
 
 import { AppHeader } from "../components/AppHeader";
 import { Checkbox, ErrorBox, Field } from "../components/Form";
+import { PlacarAdmin } from "../components/PlacarAdmin";
 import { fmtReais } from "../components/PremioBar";
+import { SeletorMercados } from "../components/SeletorMercados";
 import {
   Button,
   Card,
@@ -301,6 +303,13 @@ function AbaLiga({ data, run }: { data: string; run: Run }) {
               }
             })
           }
+          onPlacar={(body) =>
+            run(async () => {
+              const r = await api.admin.placar(j.id, body);
+              setLa(await api.admin.liga(data));
+              return `Placar salvo: ${r.mercados_certos} mercado(s) bateram.`;
+            })
+          }
           onRenovarMercados={() =>
             run(async () => {
               const r = await api.admin.renovarMercados(j.id);
@@ -377,6 +386,7 @@ function JogoAdmin({
   onResultado,
   onSalvarMercados,
   onRenovarMercados,
+  onPlacar,
 }: {
   jogo: Jogo;
   fechada: boolean;
@@ -386,6 +396,7 @@ function JogoAdmin({
   onEspecial: (mercadoId: string) => void;
   onResultado: (mercadoId: string, resultado: 'certo' | 'errado' | 'pendente') => void;
   onRenovarMercados: () => void;
+  onPlacar: (body: Parameters<typeof api.admin.placar>[1]) => void;
   onSalvarMercados: (
     ms: {
       id?: string;
@@ -414,33 +425,6 @@ function JogoAdmin({
       setErroApi(errorMessage(e));
     } finally {
       setBuscando(false);
-    }
-  };
-
-  const [buscandoProps, setBuscandoProps] = useState(false);
-  const buscarProps = async () => {
-    setBuscandoProps(true);
-    setErroApi(null);
-    try {
-      const r = await api.admin.propsApi(jogo.id);
-      setDaApi((atual) => {
-        const base = atual ?? { mercados: [], creditos_restantes: null };
-        const chaves = new Set(
-          base.mercados.map(
-            (m) => `${m.grupo.toUpperCase()}|${normDescricao(m.descricao)}`,
-          ),
-        );
-        const novos = r.mercados
-          .filter(
-            (m) => !chaves.has(`${m.grupo.toUpperCase()}|${normDescricao(m.descricao)}`),
-          )
-          .map((m) => ({ ...m, casas: 1 }));
-        return { ...base, mercados: [...base.mercados, ...novos] };
-      });
-    } catch (e) {
-      setErroApi(errorMessage(e));
-    } finally {
-      setBuscandoProps(false);
     }
   };
 
@@ -707,6 +691,7 @@ function JogoAdmin({
         </View>
       </Pressable>
 
+      {jogo.comecou && !fechada ? <PlacarAdmin key={`${jogo.id}-${jogo.placar?.casa ?? ''}`} jogo={jogo} onSalvar={onPlacar} /> : null}
       {!editando ? (
         recolhido ? null : (
           <View className="mt-2">
@@ -987,7 +972,7 @@ function JogoAdmin({
           {!daApi ? (
             <Button
               title={
-                buscando ? "Buscando…" : "Ver mais mercados da API (4 créditos)"
+                buscando ? "Buscando…" : "Buscar mercados da 1xBet"
               }
               variant="outline"
               icon="cloud-download-outline"
@@ -997,7 +982,7 @@ function JogoAdmin({
           ) : (
             <View className="mt-2 rounded-lg border border-line p-2">
               <T className="mb-1 text-[11px] uppercase tracking-widest text-muted">
-                Mercados da API — marque os que vão pro ar e salve
+                Mercados da 1xBet — marque os que vão pro ar e salve
                 {daApi.creditos_restantes != null
                   ? ` • ${daApi.creditos_restantes} créditos`
                   : ""}
@@ -1007,30 +992,14 @@ function JogoAdmin({
                   A API não tem mercados extras para esse jogo.
                 </T>
               ) : null}
-              {[...agruparMercados(daApi.mercados), ...outros].map((g) => {
-                const ja = estaMarcado(g);
-                return (
-                  <Pressable
-                    key={g.grupo}
-                    onPress={() => toggleGrupo(g)}
-                    className="border-b border-line py-2"
-                  >
-                    <View className="flex-row items-center">
-                      <T className="flex-1 font-mont-xb text-xs">{g.grupo}</T>
-                      <Ionicons
-                        name={ja ? "checkmark-circle" : "ellipse-outline"}
-                        size={18}
-                        color={ja ? C.primary : C.muted}
-                      />
-                    </View>
-                    <T className="mt-0.5 text-sm">
-                      {g.opcoes
-                        .map((o) => `${o.descricao} ${fmtOdd(o.multiplicador)}`)
-                        .join("  |  ")}
-                    </T>
-                  </Pressable>
-                );
-              })}
+              <SeletorMercados
+                grupos={[...agruparMercados(daApi.mercados), ...outros]}
+                marcado={estaMarcado}
+                onToggle={toggleGrupo}
+                onMarcar={(gs) =>
+                  setMarcados((st) => ({ ...st, ...Object.fromEntries(gs.map((g) => [g.grupo, true])) }))
+                }
+              />
               <Button
                 title="Salvar mercados (só os marcados)"
                 className="mt-2"
@@ -1038,13 +1007,6 @@ function JogoAdmin({
               />
             </View>
           )}
-          <Button
-            title={buscandoProps ? "Buscando props…" : "Player props (OddsPapi)"}
-            variant="outline"
-            icon="person-outline"
-            className="mt-1"
-            onPress={buscandoProps ? undefined : buscarProps}
-          />
           <ErrorBox erro={erroApi} />{" "}
         </View>
       ) : null}

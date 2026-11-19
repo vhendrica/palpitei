@@ -60,6 +60,7 @@ export type Jogo = {
   comecou: boolean;
   finalizado: boolean;
   placar: { casa: number; fora: number } | null;
+  estatisticas?: Partial<Record<'gols1t' | 'escanteios' | 'escanteios1t' | 'cartoes', [number, number]>>;
   mercados: Mercado[];
 };
 
