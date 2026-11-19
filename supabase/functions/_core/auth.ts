@@ -197,6 +197,7 @@ async function emitirCodigo(d: AuthDeps, whatsapp: string) {
       order by created_at desc limit 1`;
     if (ultimo) throw new RuleError('Aguarde um minuto para pedir um novo código.');
     // Teto global contra disparo em massa pra números diferentes (custo no provedor).
+    await tx`select pg_advisory_xact_lock(hashtext('otp:global'))`;
     const [{ n }] = await tx`select count(*)::int as n from otp_codes where created_at > clock_timestamp() - interval '1 minute'`;
     if (n >= OTP_GLOBAL_POR_MINUTO) throw new RuleError('Muitos pedidos de código agora. Tente de novo em instantes.');
     await tx`update otp_codes set usado = true where whatsapp = ${whatsapp} and not usado`;
