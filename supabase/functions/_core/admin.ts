@@ -272,6 +272,7 @@ export async function definirMercados(sql: Db, jogoId: string, mercadosInput: un
     // Item com id nunca é descartado; só os novos (sem id) colapsam entre si ou com um existente.
     const vistos = new Set<string>();
     const usados = new Set(itens.filter((i) => i.id).map((i) => i.id as string));
+    const chavesComId = new Set(itens.filter((i) => i.id).map((i) => chave(i.grupo, i.descricao)));
     const itensFinais = [];
     for (const it of itens) {
       if (it.id) {
@@ -282,8 +283,8 @@ export async function definirMercados(sql: Db, jogoId: string, mercadosInput: un
       if (vistos.has(k)) continue;
       vistos.add(k);
       const exato = porChave.get(k);
-      // Já está na lista com o id dele: o item novo é repetido.
-      if (exato && usados.has(exato.id as string)) continue;
+      // Igual a um item já listado com id (como está na lista agora): o item novo é repetido.
+      if (chavesComId.has(k)) continue;
       const cand = exato ?? porChave.get(`|${normDesc(it.descricao, casaNome, foraNome)}`);
       const existente = cand && !usados.has(cand.id as string) ? cand : null;
       if (existente) usados.add(existente.id as string);

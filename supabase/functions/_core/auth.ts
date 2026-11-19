@@ -322,16 +322,20 @@ export async function pedirRecuperacao(d: AuthDeps, input: { email: unknown }) {
     return true;
   });
   if (!criado) return ok;
+  const esc = (t: string) =>
+    t.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
   const base = (d.appUrl ?? 'https://vhendrica.github.io/palpitei/app').replace(/\/$/, '');
   const link = `${base}/nova-senha?token=${token}`;
   try {
     await d.email?.(
       email,
       'PALPIT: crie sua senha nova',
-      `<p>Oi, ${String(u.nome).split(' ')[0]}!</p><p>Pra criar uma senha nova, toque no link abaixo. Ele vale por ${RESET_MIN} minutos.</p><p><a href="${link}">Criar senha nova</a></p><p>Se não foi você, é só ignorar este e-mail.</p>`,
+      `<p>Oi, ${esc(String(u.nome).split(' ')[0])}!</p><p>Pra criar uma senha nova, toque no link abaixo. Ele vale por ${RESET_MIN} minutos.</p><p><a href="${link}">Criar senha nova</a></p><p>Se não foi você, é só ignorar este e-mail.</p>`,
     );
   } catch (e) {
     console.error('[reset] falha no envio', e);
+    // Sem envio, o link novo não vale e não bloqueia um novo pedido.
+    await d.sql`delete from senha_resets where token_hash = ${await sha256(token)}`;
   }
   return ok;
 }
@@ -342,11 +346,16 @@ export async function redefinirSenha(d: AuthDeps, input: { token: unknown; senha
   const senha = validarSenha(input.senha);
   if (token.length < 20) throw new RuleError('Link inválido. Peça um novo.');
   const hash = await sha256(token);
+  const erroLink = 'Link expirado ou já usado. Peça um novo.';
+  // Confere o link antes do hash da senha (que é caro).
+  const [valido] = await d.sql`
+    select 1 from senha_resets where token_hash = ${hash} and not usado and expires_at > now()`;
+  if (!valido) throw new RuleError(erroLink);
   const senhaHash = await hashSenha(senha);
   const res = await d.sql.begin(async (tx: Tx) => {
     const [r] = await tx`
       select user_id, usado, expires_at <= now() as expirado from senha_resets where token_hash = ${hash} for update`;
-    if (!r || r.usado || r.expirado) return { erro: 'Link expirado ou já usado. Peça um novo.' } as const;
+    if (!r || r.usado || r.expirado) return { erro: erroLink } as const;
     await tx`update senha_resets set usado = true where token_hash = ${hash}`;
     await tx`update users set senha_hash = ${senhaHash}, senha_erros = 0, bloqueado_ate = null where id = ${r.user_id}`;
     await tx`delete from sessions where user_id = ${r.user_id}`;

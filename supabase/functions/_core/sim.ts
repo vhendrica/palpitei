@@ -59,7 +59,7 @@ async function liquidar(tx: Tx, userId: string) {
                 and m.decidido_em is not null and m.resultado_final = false
             ) then 0 else round(mu.valor * (
               -- Perna anulada (empate anula) vale 1.0.
-              select exp(sum(ln(case when m.anulado then 1 else p.odd end)))
+              select round(exp(sum(ln(case when m.anulado then 1 else p.odd end)))::numeric, 2)
               from sim_multipla_perna p join mercados m on m.id = p.mercado_id
               where p.multipla_id = mu.id))::int end,
           resolvida_em = now()

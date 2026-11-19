@@ -6,6 +6,7 @@ import { createServer } from 'node:http';
 import postgres from 'postgres';
 
 import { createApi } from './functions/_core/http.ts';
+import { createEmailSender } from './functions/_core/email.ts';
 import { createWhatsappSender, otpMockAtivo } from './functions/_core/whatsapp.ts';
 
 const env = (k: string) => process.env[k];
@@ -16,6 +17,8 @@ const sql = postgres(url, { onnotice: () => {} });
 const handle = createApi({
   sql,
   send: createWhatsappSender(env),
+  email: createEmailSender(env),
+  appUrl: env('APP_URL'),
   otp: { expor: otpMockAtivo(env) && env('OTP_EXPOR_CODIGO') !== 'false' },
   cronSecret: env('CRON_SECRET'),
   odds: env('FOOTBALL_API_KEY')
