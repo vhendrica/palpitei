@@ -139,10 +139,10 @@ export async function cadastrar(d: AuthDeps, input: CadastroInput) {
 
     const [u] = await tx`
       insert into users (nome, username, email, senha_hash, whatsapp, cpf, data_nascimento, bairro,
-                         ativado_em,
+                         ativado_em, ultimo_login,
                          terms_accepted_at, terms_version, data_consent_accepted_at, data_consent_version)
       select ${nome}, ${username}, ${email}, ${senhaHash}, ${whatsapp}, ${cpf}, ${nascimento}, ${bairro},
-             clock_timestamp(),
+             clock_timestamp(), ${(d.hoje ?? hojeISO)()}::date,
              clock_timestamp(), c.termos_versao, clock_timestamp(), c.consentimento_versao
       from config c where c.id = 1
       returning *`;
