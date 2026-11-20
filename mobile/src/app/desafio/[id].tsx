@@ -557,7 +557,7 @@ export default function Detalhe() {
                   {g.opcoes.map((m) => {
                     const pode = !!(aberta && !j.comecou && eu);
                     const resultado =
-                      j.finalizado || m.decidido
+                      encerrada || m.decidido
                         ? m.resultado_final
                           ? "green"
                           : (m.minhas_fichas ?? 0) > 0 || minhasPernas.has(m.id)

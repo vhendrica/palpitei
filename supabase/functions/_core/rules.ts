@@ -492,12 +492,15 @@ export async function calcularRanking(db: Db, ligaId: string, quem?: string): Pr
     const excesso = Math.max(0, invTotal - num(r.fichas_total));
     potExibido.set(uid, (grossS.get(uid) ?? 0) + (grossMult.get(uid) ?? 0) - excesso);
   }
+  // Rodada finalizada: nada mais a ganhar — o potencial não conta na ordenação nem no desempate
+  // (mercados não apurados ficam com resultado_final=false e não podem inflar o potencial).
+  const fechada = liga?.status === 'finalizada';
   const lista = rows.map((r) => ({
     r,
     pontos: pontos.get(r.id as string) ?? 0,
     maior: acertos.get(r.id as string)?.maior ?? 0,
     n: acertos.get(r.id as string)?.n ?? 0,
-    pot: potExibido.get(r.id as string) ?? 0,
+    pot: fechada ? 0 : (potExibido.get(r.id as string) ?? 0),
   }));
   type L = (typeof lista)[number];
   const criterio = (a: L, b: L): string | null =>

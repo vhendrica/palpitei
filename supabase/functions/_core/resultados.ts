@@ -2,6 +2,7 @@ import { decidido, type ExDados, predicado, predicadoEx } from './compat.ts';
 import { type Db, num, type Tx } from './db.ts';
 import { NotFoundError, RuleError } from './errors.ts';
 import { type OddsConfig, placarDoJogo as placarDaApi } from './odds.ts';
+import { finalizarLiga } from './rules.ts';
 import { isUuid } from './validation.ts';
 
 
@@ -98,6 +99,7 @@ export async function aplicarParcial(sql: Db, jogoId: string, casa: number, fora
  */
 export async function atualizarResultados(sql: Db, cfg: OddsConfig | undefined) {
   await fecharApostasIniciadas(sql);
+  const fechadas = await fecharLigasApuradas(sql);
   const pendentes = await sql`
     select j.id, f.externo_id, f.data
     from jogos j
@@ -106,7 +108,7 @@ export async function atualizarResultados(sql: Db, cfg: OddsConfig | undefined) 
     where l.status <> 'finalizada' and j.finalizado_em is null and f.externo_id is not null and f.fonte = 'oddspapi'
       and j.horario <= now() and j.horario > now() - interval '3 days'`;
   // Sem jogo pendente, zero requests.
-  if (pendentes.length === 0) return { consultados: 0, finalizados: [], mercados_decididos: 0, creditos_restantes: null };
+  if (pendentes.length === 0) return { consultados: 0, finalizados: [], mercados_decididos: 0, ligas_fechadas: fechadas, creditos_restantes: null };
   if (!cfg?.apiKey) throw new RuleError('Integração de odds não configurada (ODDS_PAPI_KEY).');
 
   // 1 request por jogo pendente. O placar da OddsPapi só traz gols (jogo e 1º tempo):
@@ -132,13 +134,38 @@ export async function atualizarResultados(sql: Db, cfg: OddsConfig | undefined) 
       finalizados.push(await aplicarPlacar(sql, jogo.id as string, casa, fora, extra));
     } else if (ev.status === 'live') decididos += await aplicarParcial(sql, jogo.id as string, casa, fora);
   }
-  // Desafios fecham sozinhos quando todos os jogos já têm placar final.
-  await sql`
-    update ligas l set status = 'finalizada', finalizada_em = coalesce(finalizada_em, now())
+  const fechadas2 = await fecharLigasApuradas(sql);
+  return { consultados: pendentes.length, finalizados, mercados_decididos: decididos, ligas_fechadas: [...fechadas, ...fechadas2], creditos_restantes: restantes };
+}
+
+/**
+ * Fecha o que já pode fechar, sem chamar a OddsPapi: desafios quando todos os jogos têm placar
+ * final; rodada oficial quando além disso todos os mercados foram apurados (props/escanteios/
+ * cartões pendentes seguram a rodada em "ao vivo" até o admin apurar). Retorna os ids fechados.
+ */
+export async function fecharLigasApuradas(sql: Db): Promise<string[]> {
+  const fechadas: string[] = [];
+  const desafios = await sql`
+    select l.id from ligas l
     where l.owner_id is not null and l.status <> 'finalizada'
       and exists (select 1 from jogos j where j.liga_id = l.id)
       and not exists (select 1 from jogos j where j.liga_id = l.id and j.finalizado_em is null)`;
-  return { consultados: pendentes.length, finalizados, mercados_decididos: decididos, creditos_restantes: restantes };
+  const oficiais = await sql`
+    select l.id from ligas l
+    where l.owner_id is null and l.status <> 'finalizada'
+      and exists (select 1 from jogos j where j.liga_id = l.id)
+      and not exists (select 1 from jogos j where j.liga_id = l.id and j.finalizado_em is null)
+      and not exists (select 1 from mercados m join jogos j on j.id = m.jogo_id
+                      where j.liga_id = l.id and m.decidido_em is null)`;
+  for (const l of [...desafios, ...oficiais]) {
+    try {
+      await finalizarLiga(sql, l.id as string, []);
+      fechadas.push(l.id as string);
+    } catch (e) {
+      console.error('[resultados] finalizar liga', l.id, e);
+    }
+  }
+  return fechadas;
 }
 
 export const placarDoJogo = (j: Record<string, unknown>) =>
