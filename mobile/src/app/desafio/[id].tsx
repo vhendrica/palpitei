@@ -97,6 +97,7 @@ export default function Detalhe() {
   const [finalizando, setFinalizando] = useState(false);
   const [rankingCompleto, setRankingCompleto] = useState(false);
   const [secoesOcultas, setSecoesOcultas] = useState<Record<string, boolean>>({});
+  const [gruposOcultos, setGruposOcultos] = useState<Record<string, boolean>>({});
 
   const toggleBilhete = useCallback(
     async (posicao: number) => {
@@ -526,9 +527,32 @@ export default function Detalhe() {
                   </Pressable>
                   {oculta
                     ? null
-                    : s.grupos.map((g) => (
+                    : s.grupos.map((g) => {
+              const gchave = `${j.id}|${g.grupo}`;
+              const goculto = !!gruposOcultos[gchave];
+              return (
               <View key={g.grupo || "_"} className="mt-2.5">
-                {g.grupo ? <GrupoTitulo grupo={g.grupo} /> : null}
+                {g.grupo ? (
+                  <View className="flex-row items-center">
+                    <Pressable
+                      onPress={() =>
+                        setGruposOcultos((o) => ({ ...o, [gchave]: !goculto }))
+                      }
+                      hitSlop={8}
+                      accessibilityLabel={`${goculto ? "Expandir" : "Recolher"} mercado ${g.grupo}`}
+                    >
+                      <Ionicons
+                        name={goculto ? "chevron-forward" : "chevron-down"}
+                        size={11}
+                        color={C.muted}
+                      />
+                    </Pressable>
+                    <View className="ml-0.5 flex-1">
+                      <GrupoTitulo grupo={g.grupo} />
+                    </View>
+                  </View>
+                ) : null}
+                {goculto ? null : (
                 <View className="flex-row flex-wrap" style={{ gap: 6 }}>
                   {g.opcoes.map((m) => {
                     const pode = !!(aberta && !j.comecou && eu);
@@ -564,8 +588,10 @@ export default function Detalhe() {
                     );
                   })}
                 </View>
+                )}
               </View>
-                        ))}
+              );
+                        })}
                 </View>
               );
             })}

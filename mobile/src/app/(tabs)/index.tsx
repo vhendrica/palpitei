@@ -89,6 +89,7 @@ export default function HomeMultipla() {
   const [abertos, setAbertos] = useState<string[]>([]);
   // Seções recolhidas por jogo: chave "<jogoId>|<SEÇÃO>".
   const [secoesOcultas, setSecoesOcultas] = useState<Record<string, boolean>>({});
+  const [gruposOcultos, setGruposOcultos] = useState<Record<string, boolean>>({});
   const setDraft = (fn: Draft | ((d: Draft) => Draft)) =>
     setDraftState({
       key: draftKey,
@@ -425,9 +426,35 @@ export default function HomeMultipla() {
                     </Pressable>
                     {oculta
                       ? null
-                      : s.grupos.map((g) => (
+                      : s.grupos.map((g) => {
+                          const gchave = `${j.id}|${g.grupo}`;
+                          const goculto = !!gruposOcultos[gchave];
+                          return (
                           <View key={g.grupo} className="mb-3">
-                            {g.grupo ? <GrupoTitulo grupo={g.grupo} /> : null}
+                            {g.grupo ? (
+                              <View className="flex-row items-center">
+                                <Pressable
+                                  onPress={() =>
+                                    setGruposOcultos((o) => ({
+                                      ...o,
+                                      [gchave]: !goculto,
+                                    }))
+                                  }
+                                  hitSlop={8}
+                                  accessibilityLabel={`${goculto ? "Expandir" : "Recolher"} mercado ${g.grupo}`}
+                                >
+                                  <Ionicons
+                                    name={goculto ? "chevron-forward" : "chevron-down"}
+                                    size={12}
+                                    color={C.muted}
+                                  />
+                                </Pressable>
+                                <View className="ml-0.5 flex-1">
+                                  <GrupoTitulo grupo={g.grupo} />
+                                </View>
+                              </View>
+                            ) : null}
+                            {goculto ? null : (
                             <View
                               className="flex-row flex-wrap"
                               style={{ gap: 6 }}
@@ -476,8 +503,10 @@ export default function HomeMultipla() {
                         );
                               })}
                             </View>
+                            )}
                           </View>
-                        ))}
+                          );
+                        })}
                   </View>
                 );
               });
