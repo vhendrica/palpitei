@@ -12,13 +12,20 @@ import { validarDataISO } from './validation.ts';
  */
 export type OddsConfig = { apiKey: string; ligas?: string[]; fetch?: typeof fetch };
 
-/** Ligas do MVP no plano FREE — migrando pro Pro basta trocar esta lista (ou FOOTBALL_LIGAS). */
+/**
+ * Ligas cobertas: os 3 nacionais + os 5 grandes da Europa + Champions League.
+ * Padrão usado quando FOOTBALL_LIGAS não está definida; o env sobrescreve esta lista.
+ */
 export const LIGAS_MVP = [
+  'Brasileirão Série A',
+  'Brasileirão Série B',
+  'Copa do Brasil',
   'England Premier League',
   'Spain La Liga',
   'Italy Serie A',
   'Germany Bundesliga I',
   'France Ligue 1',
+  'UEFA Champions League',
 ];
 export const ESPORTES_PADRAO = LIGAS_MVP;
 
@@ -72,7 +79,12 @@ export async function fixturesDoDia(cfg: OddsConfig, data: string): Promise<Fixt
   const { inicio, fim } = janelaDia(data);
   const d = await req(cfg, `/fixtures?start_time=${inicio}&end_time=${fim}&per_page=100`);
   const ligas = (cfg.ligas?.length ? cfg.ligas : LIGAS_MVP).map((s) => s.toUpperCase());
-  return ((d ?? []) as FixtureApi[]).filter((j) => ligas.includes(j.league?.name?.toUpperCase() ?? ''));
+  // Contém (e não igualdade): a API prefixa o país ("Europe UEFA Champions League") e
+  // às vezes muda o nome da liga; o trecho configurado só precisa aparecer no nome.
+  return ((d ?? []) as FixtureApi[]).filter((j) => {
+    const nome = j.league?.name?.toUpperCase() ?? '';
+    return ligas.some((l) => nome.includes(l));
+  });
 }
 
 /** Importa os jogos do dia pro pool (fixtures_dia). Odds ficam sob demanda (mercadosDaApi). */
