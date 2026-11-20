@@ -1,6 +1,6 @@
 /** Seções de mercado (UI) + explicações (?) em português pros mercados não triviais. */
 
-export const SECOES = ['PRINCIPAL', 'GOLS', 'GOLS DO TIME', 'JOGADOR', 'ESCANTEIOS', 'CARTÕES', '1º TEMPO', 'HANDICAP'] as const;
+export const SECOES = ['PRINCIPAL', 'GOLS', 'GOLS DO TIME', 'JOGADOR', 'ESCANTEIOS', 'ESCANTEIOS DO TIME', 'ESCANTEIOS 1º TEMPO', 'CARTÕES', 'CARTÕES DO TIME', 'CARTÕES 1º TEMPO', '1º TEMPO', 'HANDICAP'] as const;
 
 /** Grupos de player props que aparecem na seção JOGADOR. */
 const PROPS_JOGADOR = [
@@ -24,7 +24,7 @@ export function secaoDo(grupo: string): (typeof SECOES)[number] {
     g.includes('1º TEMPO') ||
     g.includes('PRIMEIRO TEMPO') ||
     g.endsWith(' 1T');
-  if (t1) return '1º TEMPO';
+  const porTime = /\b(CASA|FORA)\b/.test(g);
   // Props de jogador: checa antes de GOLS/CARTÕES ("GOLS DO JOGADOR" começa com GOLS).
   // O grupo pode vir com a linha no fim ("DEFESAS DO GOLEIRO 3.5"), então é contains, não endsWith.
   if (
@@ -34,9 +34,17 @@ export function secaoDo(grupo: string): (typeof SECOES)[number] {
   ) {
     return 'JOGADOR';
   }
-  if (g.startsWith('ESCANTEIO')) return 'ESCANTEIOS';
-  if (g.startsWith('CART')) return 'CARTÕES';
+  // Mercados por time têm seção própria em qualquer período (a seção é do time, não do período).
+  if (g.startsWith('ESCANTEIO')) {
+    if (porTime) return 'ESCANTEIOS DO TIME';
+    return t1 ? 'ESCANTEIOS 1º TEMPO' : 'ESCANTEIOS';
+  }
+  if (g.startsWith('CART')) {
+    if (porTime) return 'CARTÕES DO TIME';
+    return t1 ? 'CARTÕES 1º TEMPO' : 'CARTÕES';
+  }
   if (g.startsWith('GOLS CASA') || g.startsWith('GOLS FORA')) return 'GOLS DO TIME';
+  if (t1) return '1º TEMPO';
   if (g.startsWith('GOLS')) return 'GOLS';
   if (g.startsWith('HANDICAP')) return 'HANDICAP';
   return 'PRINCIPAL';
