@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import * as Linking from "expo-linking";
 import {
   Animated,
+  Image,
   Modal,
   Platform,
   Pressable,
@@ -33,6 +34,7 @@ import {
   T,
 } from "../../components/ui";
 import { track } from "../../lib/analytics";
+import { logoDoTimeUrl } from "../../lib/api";
 import {
   alternarOdd,
   corMultipla,
@@ -408,7 +410,8 @@ export default function HomeMultipla() {
               }
               return secoesJogo.map((s) => {
                 const chave = `${j.id}|${s.nome}`;
-                const oculta = !!secoesOcultas[chave];
+                // Só PRINCIPAL abre de cara ao expandir; o resto fica recolhido até o toque.
+              const oculta = secoesOcultas[chave] ?? s.nome !== "PRINCIPAL";
                 return (
                   <View key={s.nome}>
                     <Pressable
@@ -733,6 +736,8 @@ export default function HomeMultipla() {
                       {home.especiais!.map((e) => {
                         const selecionado = draft.itens.includes(e.id);
                         const pode = !!eu && aberta && !e.comecou;
+                        const logoCasa = logoDoTimeUrl(e.p1_id);
+                        const logoFora = logoDoTimeUrl(e.p2_id);
                         return (
                           <Pressable
                             key={e.id}
@@ -747,7 +752,38 @@ export default function HomeMultipla() {
                                 : "border-line bg-card"
                             }`}
                           >
-                            <IconeMercado grupo={e.grupo} color={C.primary} />
+                            <View className="flex-row items-start justify-between">
+                              <IconeMercado grupo={e.grupo} color={C.primary} />
+                              {logoCasa || logoFora ? (
+                                <View className="flex-row items-center">
+                                  {logoCasa ? (
+                                    <Image
+                                      source={{ uri: logoCasa }}
+                                      style={{
+                                        width: 18,
+                                        height: 18,
+                                        borderRadius: 9,
+                                      }}
+                                    />
+                                  ) : null}
+                                  {logoFora ? (
+                                    <Image
+                                      source={{ uri: logoFora }}
+                                      style={{
+                                        width: 18,
+                                        height: 18,
+                                        borderRadius: 9,
+                                        marginLeft: -6,
+                                        borderWidth: 1,
+                                        borderColor: selecionado
+                                          ? C.cardAlt
+                                          : C.card,
+                                      }}
+                                    />
+                                  ) : null}
+                                </View>
+                              ) : null}
+                            </View>
                             <T
                               className="mt-2 font-mont-xb text-[9px] uppercase tracking-widest text-muted"
                               numberOfLines={1}

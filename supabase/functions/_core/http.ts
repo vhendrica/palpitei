@@ -3,7 +3,7 @@ import * as auth from './auth.ts';
 import * as desafios from './desafios.ts';
 import type { Db } from './db.ts';
 import { ForbiddenError, NotFoundError, RuleError } from './errors.ts';
-import { importarOdds, marcarImport, mercadosDaApi, mercadosDaFixture, type OddsConfig } from './odds.ts';
+import { importarOdds, logoDoTime, marcarImport, mercadosDaApi, mercadosDaFixture, type OddsConfig } from './odds.ts';
 import { aplicarPlacar, atualizarResultados, extrasDoCorpo } from './resultados.ts';
 import * as sim from './sim.ts';
 import { apostar, type MultiplaInput, entrarNaLiga, finalizarLiga, getLiga, getLigaAtual, reativarLiga } from './rules.ts';
@@ -90,6 +90,15 @@ export function createApi(deps: ApiDeps) {
       return { ok: true };
     }],
     ['GET', /^\/home$/, async (c) => home(sql, await c.user(), hoje())],
+    // Escudo do time: redireciona pra CDN da OddsPapi (URL cacheada em time_logo).
+    ['GET', /^\/media\/time\/(\d+)$/, async (c) => {
+      const url = await logoDoTime(sql, deps.odds, Number(c.params[0]));
+      if (!url) throw new NotFoundError('Escudo não encontrado.');
+      return new Response(null, {
+        status: 302,
+        headers: { ...cors, Location: url, 'Cache-Control': 'public, max-age=604800, immutable' },
+      });
+    }],
     ['GET', /^\/liga\/hoje\/mercados$/, async (c) => {
       const liga = await ligaDeHoje();
       return { liga, jogos: await jogosComMercados(sql, liga.id, (await c.user())?.id) };
@@ -331,7 +340,8 @@ export function createApi(deps: ApiDeps) {
           methodMismatch = true;
           continue;
         }
-        return json(200, await handler({ ...ctxBase, params: m.slice(1).map(decodeURIComponent) }));
+        const out = await handler({ ...ctxBase, params: m.slice(1).map(decodeURIComponent) });
+        return out instanceof Response ? out : json(200, out);
       }
       return json(methodMismatch ? 405 : 404, { error: methodMismatch ? 'Método não permitido.' : 'Rota não encontrada.' });
     } catch (e) {
