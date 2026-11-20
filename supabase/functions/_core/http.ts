@@ -3,7 +3,7 @@ import * as auth from './auth.ts';
 import * as desafios from './desafios.ts';
 import type { Db } from './db.ts';
 import { ForbiddenError, NotFoundError, RuleError } from './errors.ts';
-import { importarOdds, mercadosDaApi, mercadosDaFixture, type OddsConfig } from './odds.ts';
+import { importarOdds, marcarImport, mercadosDaApi, mercadosDaFixture, type OddsConfig } from './odds.ts';
 import { aplicarPlacar, atualizarResultados, extrasDoCorpo } from './resultados.ts';
 import * as sim from './sim.ts';
 import { apostar, type MultiplaInput, entrarNaLiga, finalizarLiga, getLiga, getLigaAtual, reativarLiga } from './rules.ts';
@@ -64,25 +64,6 @@ export function createApi(deps: ApiDeps) {
     return liga;
   };
 
-  // Lazy: preenche mercados_sugeridos pela Football API (1 req/fixture, cacheado). Cap pra não estourar o FREE.
-  const atualizarSugeridosLazy = async (fixtures: Awaited<ReturnType<typeof admin.listarFixtures>>) => {
-    let buscados = 0;
-    for (const f of fixtures) {
-      if (buscados >= 8) break;
-      // fixture_id numérico = id da Football API; fontes antigas/manuais já devolvem [].
-      const sugeridos = (f.mercados_sugeridos ?? []) as { grupo?: string }[];
-      const legado = sugeridos.some((m) => /^(ESCANTEIOS|CARTÕES|ESCANTEIOS 1º TEMPO)$/.test(m.grupo ?? ''));
-      if ((!sugeridos.length || legado) && f.fonte === 'oddspapi') {
-        try {
-          f.mercados_sugeridos = (await mercadosDaFixture(sql, deps.odds, String(f.fixture_id))) as never;
-          buscados++;
-        } catch {
-          /* sem odds pra esse jogo */
-        }
-      }
-    }
-  };
-
   const routes: Route[] = [
     // ---- público / usuário
     ['GET', /^\/health$/, async () => ({ ok: true })],
@@ -140,13 +121,17 @@ export function createApi(deps: ApiDeps) {
       await c.requireUser();
       const data = c.query.get('data') ?? hoje();
       let fixtures = await admin.listarFixtures(sql, data);
-      // Sem pool pra essa data: puxa da API e cacheia em fixtures_dia (1 req por dia, não por jogo).
+      // Sem pool pra essa data: puxa da API e cacheia em fixtures_dia (1 req por campeonato).
+      // Debounce de 20min — sem isso cada acesso a um dia vazio reimportava todos os campeonatos.
       if (fixtures.length === 0 && deps.odds) {
-        try {
-          await importarOdds(sql, deps.odds, data);
-          fixtures = await admin.listarFixtures(sql, data);
-        } catch (e) {
-          console.error('[fixtures] import on-demand falhou', e);
+        const [tentativa] = await sql`select importado_em < now() - interval '20 minutes' as velho from pool_import where data = ${data}`;
+        if (!tentativa || tentativa.velho) {
+          try {
+            await importarOdds(sql, deps.odds, data);
+            fixtures = await admin.listarFixtures(sql, data);
+          } catch (e) {
+            console.error('[fixtures] import on-demand falhou', e);
+          }
         }
       }
       // Lazy: preenche mercados_sugeridos pela API (1 req/fixture, cacheado). Limite pra não estourar o FREE.

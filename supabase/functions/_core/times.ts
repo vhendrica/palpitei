@@ -76,6 +76,19 @@ const TIMES_BR: Record<string, string> = {
   'fsv mainz 05': 'Mainz',
   '1. fc koln': 'Köln',
   'fc koln': 'Köln',
+  'koln': 'Köln',
+  'cologne': 'Köln',
+  '1. fc cologne': 'Köln',
+  'fc cologne': 'Köln',
+  '1. fc union berlin': 'Union Berlim',
+  '1. fc heidenheim': 'Heidenheim',
+  'fc heidenheim': 'Heidenheim',
+  'heidenheim': 'Heidenheim',
+  '1. fc nurnberg': 'Nuremberga',
+  '1. fc magdeburg': 'Magdeburg',
+  'fc magdeburg': 'Magdeburg',
+  '1. fc kaiserslautern': 'Kaiserslautern',
+  'fc kaiserslautern': 'Kaiserslautern',
   'eintracht frankfurt': 'Eintracht Frankfurt',
   'fc augsburg': 'Augsburg',
   'hannover 96': 'Hannover 96',
@@ -129,10 +142,12 @@ const UFS =
 // Clube de Regatas, Sociedade Esportiva, Futebol Clube...). CA/AA/AC ficam — Atlético faz parte do nome.
 const SIGLA = 'EC|SC|CR|SE|FC|CF|FB|FR|CD|GE|IF|RC|XV';
 
-/** Limpa "EC Vitoria BA" → "Vitoria": UF no fim, sigla de clube nas pontas e no meio. */
+/** Limpa "EC Vitoria BA" → "Vitoria": UF no fim, sigla de clube nas pontas e no meio.
+ * Times numerados ("1. FC Cologne"): tira o "1." antes das siglas pra sobrar a cidade. */
 const limpaClube = (nome: string) =>
   nome
     .trim()
+    .replace(/^\d+\.\s*/, '')
     .replace(new RegExp(`\\s+(?:${UFS})$`, 'i'), '')
     .replace(new RegExp(`^(?:${SIGLA})\\s+`, 'i'), '')
     .replace(new RegExp(`\\s+(?:${SIGLA})$`, 'i'), '')
