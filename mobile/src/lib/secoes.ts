@@ -26,10 +26,11 @@ export function secaoDo(grupo: string): (typeof SECOES)[number] {
     g.endsWith(' 1T');
   if (t1) return '1º TEMPO';
   // Props de jogador: checa antes de GOLS/CARTÕES ("GOLS DO JOGADOR" começa com GOLS).
+  // O grupo pode vir com a linha no fim ("DEFESAS DO GOLEIRO 3.5"), então é contains, não endsWith.
   if (
     PROPS_JOGADOR.some((p) => g.startsWith(p)) ||
-    g.endsWith('DO JOGADOR') ||
-    g.endsWith('DO GOLEIRO')
+    g.includes('DO JOGADOR') ||
+    g.includes('DO GOLEIRO')
   ) {
     return 'JOGADOR';
   }
@@ -93,7 +94,7 @@ export function explicacaoDo(grupo: string): string | null {
   for (const [p, texto] of PROPS_AJUDA) {
     if (g.startsWith(p)) return texto;
   }
-  if (g.endsWith('DO JOGADOR') || g.endsWith('DO GOLEIRO')) {
+  if (g.includes('DO JOGADOR') || g.includes('DO GOLEIRO')) {
     return `Estatística individual do jogador no jogo inteiro.${linhaAjuda(grupo, 'vezes')}`;
   }
   if (g.startsWith('INTERVALO / FINAL')) {
