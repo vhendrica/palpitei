@@ -162,7 +162,9 @@ export default function HomeMultipla() {
           grupo: m.grupo,
           fichas: m.minhas_fichas!,
           odd: m.multiplicador,
-          decidido: !!m.decidido || j.finalizado,
+          // Mercado só mostra resultado quando foi apurado (decidido) ou a rodada fechou
+          // (aí o pendente conta como perdido). Jogo acabado sem apuração fica pendente.
+          decidido: !!m.decidido || home?.liga?.status === "finalizada",
           certo: m.resultado_final,
         })),
     );
@@ -177,7 +179,7 @@ export default function HomeMultipla() {
       simples.reduce((s, p) => s + p.fichas * p.odd, 0) +
       multiplas.reduce((s, m) => s + m.fichas * m.odd, 0);
     return { simples, multiplas, nPalpites, temDecidido, potencial };
-  }, [home?.jogos, eu?.multiplas]);
+  }, [home?.jogos, home?.liga?.status, eu?.multiplas]);
 
   const editarBilhete = () => {
     const ms = editaveis.multiplas.map((m) => ({
@@ -464,9 +466,7 @@ export default function HomeMultipla() {
                           editando && !j.comecou ? 0 : (m.minhas_fichas ?? 0);
                         const noBilhete = draft.itens.includes(m.id);
                         const resultado =
-                          home.liga?.status === "finalizada" ||
-                          j.finalizado ||
-                          m.decidido
+                          home.liga?.status === "finalizada" || m.decidido
                             ? m.resultado_final
                               ? "green"
                               : minhas > 0

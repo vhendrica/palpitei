@@ -126,7 +126,7 @@ test('fluxo completo: admin monta a múltipla, usuário entra, distribui, rankin
   assert.equal(fin.body.voucher.valor, 50);
 
   const me = await call('GET', '/me', undefined, userToken);
-  assert.equal(me.body.user.saldo_pontos, 540, '500 + 40 do bônus de login do dia');
+  assert.equal(me.body.user.saldo_pontos, 500, 'bônus de login só no dia seguinte ao cadastro');
   assert.equal(me.body.vouchers[0].valor, 50);
   assert.equal(me.body.historico[0].data, HOJE);
 });
