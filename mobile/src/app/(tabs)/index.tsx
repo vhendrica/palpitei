@@ -756,7 +756,7 @@ export default function HomeMultipla() {
                             </T>
                             <T
                               className="mt-1 flex-1 font-mont-b text-xs"
-                              numberOfLines={3}
+                              numberOfLines={2}
                             >
                               {e.descricao}
                             </T>
