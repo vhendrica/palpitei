@@ -245,7 +245,7 @@ export async function home(db: Db, user: UserPublico | null, data = hojeISO()) {
     user ? minhaSituacao(db, user.id, liga) : Promise.resolve(null),
     db`
       select m.id, m.grupo, m.descricao, m.multiplicador, j.time_casa, j.time_fora, j.campeonato,
-             j.horario <= now() as comecou
+             j.p1_id, j.p2_id, j.horario <= now() as comecou
       from mercados m join jogos j on j.id = m.jogo_id
       where j.liga_id = ${liga.id} and m.especial and m.oculto = false
       order by m.especial_ordem nulls last, j.destaque desc, j.horario, j.ordem, m.ordem
@@ -265,6 +265,8 @@ export async function home(db: Db, user: UserPublico | null, data = hojeISO()) {
       time_casa: e.time_casa as string,
       time_fora: e.time_fora as string,
       campeonato: e.campeonato as string,
+      p1_id: e.p1_id == null ? null : num(e.p1_id),
+      p2_id: e.p2_id == null ? null : num(e.p2_id),
       comecou: !!e.comecou,
     })),
   };

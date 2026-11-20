@@ -23,6 +23,10 @@ export const API_URL = (
   process.env.EXPO_PUBLIC_API_URL ?? 'https://mkhpkguwjwtoxsgwcgmm.supabase.co/functions/v1/api'
 ).replace(/\/+$/, '');
 
+/** Escudo do time pelo participant id da OddsPapi (a API redireciona pro PNG). */
+export const logoDoTimeUrl = (participantId?: number | null) =>
+  participantId == null ? null : `${API_URL}/media/time/${participantId}`;
+
 export class ApiError extends Error {
   constructor(
     message: string,

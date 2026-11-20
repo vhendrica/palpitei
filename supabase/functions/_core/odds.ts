@@ -33,6 +33,8 @@ export type FixtureApi = {
   tournamentName: string;
   casa: string;
   fora: string;
+  p1Id: number | null;
+  p2Id: number | null;
   startTime: string;
   hasOdds: boolean;
 };
@@ -98,6 +100,27 @@ const req = async (cfg: OddsConfig, path: string, notFoundNull = false) => {
 
 const semChave = () => new RuleError('Integração de odds não configurada (ODDS_PAPI_KEY).');
 
+/** URL do escudo (PNG) na CDN da OddsPapi — resolve 1x por time e guarda em time_logo
+ *  ('' = time sem imagem, não tenta de novo). null = indisponível agora. */
+export async function logoDoTime(db: Db, cfg: OddsConfig | undefined, participantId: number): Promise<string | null> {
+  const [row] = await db`select url from time_logo where participant_id = ${participantId}`;
+  if (row) return (row.url as string) || null;
+  if (!cfg?.apiKey) return null;
+  try {
+    const res = await (cfg.fetch ?? fetch)(
+      `${BASE}/media/participants/${participantId}?apiKey=${encodeURIComponent(cfg.apiKey)}`,
+      { redirect: 'manual' },
+    );
+    const loc = res.headers.get('location');
+    const url = loc && /^https:\/\//.test(loc) ? loc : '';
+    await db`insert into time_logo (participant_id, url) values (${participantId}, ${url})
+             on conflict (participant_id) do update set url = excluded.url`;
+    return url || null;
+  } catch {
+    return null; // falha de rede/API: não cacheia, tenta na próxima visita
+  }
+}
+
 /** "id1000032566887160" ⇄ 1000032566887160 (fixture_id bigint do pool). */
 export const fixtureNumerico = (externoId: string) => Number(externoId.replace(/^id/, ''));
 export const externoDe = (fixtureId: string | number) => {
@@ -135,6 +158,8 @@ export async function fixturesDoDia(cfg: OddsConfig, data: string): Promise<Fixt
         tournamentName: String(f.tournamentName ?? ''),
         casa: String(f.participant1Name ?? ''),
         fora: String(f.participant2Name ?? ''),
+        p1Id: Number.isSafeInteger(Number(f.participant1Id)) ? Number(f.participant1Id) : null,
+        p2Id: Number.isSafeInteger(Number(f.participant2Id)) ? Number(f.participant2Id) : null,
         startTime: String(f.startTime),
         hasOdds: f.hasOdds === true,
       });
@@ -158,13 +183,15 @@ export async function importarOdds(db: Db, cfg: OddsConfig | undefined, dataInpu
     const fora = nomeBR(j.fora);
     const [row] = await db`
       insert into fixtures_dia (fixture_id, data, time_casa, time_fora, horario, campeonato, fonte, externo_id,
-                                externo_esporte, mercados_sugeridos)
+                                externo_esporte, mercados_sugeridos, p1_id, p2_id)
       values (${fixtureNumerico(j.id)}, ${data}, ${casa}, ${fora}, ${j.startTime},
-              ${nomeTorneio(j)}, 'oddspapi', ${j.id}, ${String(j.tournamentId)}, '[]'::jsonb)
+              ${nomeTorneio(j)}, 'oddspapi', ${j.id}, ${String(j.tournamentId)}, '[]'::jsonb,
+              ${j.p1Id}, ${j.p2Id})
       on conflict (externo_id) do update set
         data = excluded.data, time_casa = excluded.time_casa, time_fora = excluded.time_fora,
         horario = excluded.horario, campeonato = excluded.campeonato,
         externo_esporte = excluded.externo_esporte,
+        p1_id = excluded.p1_id, p2_id = excluded.p2_id,
         -- Nome do time mudou: as sugestões em cache citam o nome antigo e são refeitas.
         mercados_sugeridos = case
           when fixtures_dia.time_casa is distinct from excluded.time_casa
