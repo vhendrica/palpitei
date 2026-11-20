@@ -876,34 +876,7 @@ export default function HomeMultipla() {
                       </Pressable>
                     </View>
                   </>
-                ) : (
-                  <Pressable onPress={() => router.push("/simulador")}>
-                    <Card className="mt-3 border-[#7C8DA6]">
-                      <View className="flex-row items-center justify-between">
-                        <View className="flex-1 pr-3">
-                          <T
-                            className="font-mont-b tracking-widest"
-                            style={{ color: "#7C8DA6", fontSize: 9 }}
-                          >
-                            SIMULADOR
-                          </T>
-                          <T className="mt-1 font-mont-b text-sm">
-                            Quanto você perderia apostando de verdade?
-                          </T>
-                          <T className="mt-1 text-xs text-muted">
-                            Dinheiro virtual, odds reais — acompanhe seu
-                            resultado.
-                          </T>
-                        </View>
-                        <Ionicons
-                          name="cash-outline"
-                          size={26}
-                          color="#7C8DA6"
-                        />
-                      </View>
-                    </Card>
-                  </Pressable>
-                )}
+                ) : null}
 
                 <View
                   onLayout={(e) => (jogosY.current = e.nativeEvent.layout.y)}
