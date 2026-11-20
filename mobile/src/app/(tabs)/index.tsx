@@ -90,6 +90,7 @@ export default function HomeMultipla() {
   // Seções recolhidas por jogo: chave "<jogoId>|<SEÇÃO>".
   const [secoesOcultas, setSecoesOcultas] = useState<Record<string, boolean>>({});
   const [gruposOcultos, setGruposOcultos] = useState<Record<string, boolean>>({});
+  const [jogExpandidos, setJogExpandidos] = useState<Record<string, boolean>>({});
   const setDraft = (fn: Draft | ((d: Draft) => Draft)) =>
     setDraftState({
       key: draftKey,
@@ -432,6 +433,11 @@ export default function HomeMultipla() {
                       : s.grupos.map((g) => {
                           const gchave = `${j.id}|${g.grupo}`;
                           const goculto = !!gruposOcultos[gchave];
+                          const ehJogador = s.nome === "JOGADOR";
+                          const opcoesVis =
+                            ehJogador && !jogExpandidos[gchave]
+                              ? g.opcoes.slice(0, 9)
+                              : g.opcoes;
                           return (
                           <View key={g.grupo} className="mb-3">
                             {g.grupo ? (
@@ -462,7 +468,7 @@ export default function HomeMultipla() {
                               className="flex-row flex-wrap"
                               style={{ gap: 6 }}
                             >
-                              {g.opcoes.map((m) => {
+                              {opcoesVis.map((m) => {
                         const minhas =
                           editando && !j.comecou ? 0 : (m.minhas_fichas ?? 0);
                         const noBilhete = draft.itens.includes(m.id);
@@ -505,6 +511,32 @@ export default function HomeMultipla() {
                               })}
                             </View>
                             )}
+                            {!goculto && ehJogador && g.opcoes.length > 9 ? (
+                              <Pressable
+                                onPress={() =>
+                                  setJogExpandidos((o) => ({
+                                    ...o,
+                                    [gchave]: !o[gchave],
+                                  }))
+                                }
+                                className="mt-0.5 flex-row items-center active:opacity-70"
+                              >
+                                <Ionicons
+                                  name={
+                                    jogExpandidos[gchave]
+                                      ? "chevron-up"
+                                      : "chevron-down"
+                                  }
+                                  size={12}
+                                  color={C.muted}
+                                />
+                                <T className="ml-1 font-mont-b text-[11px] text-muted">
+                                  {jogExpandidos[gchave]
+                                    ? "Ver menos"
+                                    : `Ver + ${g.opcoes.length - 9}`}
+                                </T>
+                              </Pressable>
+                            ) : null}
                           </View>
                           );
                         })}
