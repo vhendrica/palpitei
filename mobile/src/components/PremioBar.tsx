@@ -1,6 +1,6 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { useEffect, useState } from "react";
-import { Animated, Easing, Pressable, Text, View } from "react-native";
+import { Animated, Easing, Pressable, View } from "react-native";
 
 import { fmtPts } from "../lib/format";
 import { useTheme } from "../store/Theme";
@@ -64,8 +64,7 @@ export function PremioBar({
   return (
     <View className="rounded-2xl border border-gold/50 bg-gold/10 p-4">
       <View className="flex-row items-center">
-        {/* Emoji fora do <T> pra usar a fonte de emoji do sistema, não a Montserrat. */}
-        <Text style={{ fontSize: 26 }}>🏆</Text>
+        <Ionicons name="trophy" size={26} color="#E8B84B" />
         <View className="ml-2.5 flex-1">
           <T className="font-mont-b text-[10px] uppercase tracking-widest text-muted">
             {finalizada ? "Prêmio final" : "Prêmio do campeão"}
@@ -270,7 +269,7 @@ export function PremioLinha({
   if (!valor) return null;
   return (
     <View className="flex-row items-center rounded-xl border border-gold/40 bg-gold/10 px-3 py-2">
-      <T className="text-sm">🏆</T>
+      <Ionicons name="trophy" size={15} color="#E8B84B" />
       <T className="ml-2 flex-1 text-sm" numberOfLines={1}>
         {finalizada ? "Prêmio da rodada: " : "Campeão leva "}
         <T className="font-mont-xb text-sm text-gold">{valor}</T>

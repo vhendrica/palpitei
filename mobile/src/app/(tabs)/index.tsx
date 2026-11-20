@@ -1154,6 +1154,12 @@ function DistribuicaoBilhete({
               <T className="mr-2 font-odds text-base text-primary">
                 {fmtOdd(p.odd)}
               </T>
+              <T className="mr-2 text-[11px] text-muted">
+                →{" "}
+                <T className="font-mont-xb text-xs text-primary">
+                  {fmtPts(Math.round(p.fichas * p.odd * 100) / 100)}
+                </T>
+              </T>
               {icone(p.decidido, p.certo)}
             </View>
           ))}
@@ -1190,8 +1196,13 @@ function DistribuicaoBilhete({
                 {fmtPts(m.fichas)} FICHAS · MULTIPLICADOR TOTAL
               </T>
               <T className="font-odds text-lg" style={{ color: cor }}>
-                <T className="text-xs text-muted">= </T>
                 {fmtOdd(m.odd).slice(0, -1)}
+              </T>
+              <T className="ml-1 text-[11px] text-muted">
+                →{" "}
+                <T className="font-mont-xb text-sm" style={{ color: cor }}>
+                  {fmtPts(Math.round(m.fichas * m.odd * 100) / 100)}
+                </T>
               </T>
             </View>
           </BlocoBilhete>
