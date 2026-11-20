@@ -45,6 +45,8 @@ type Market = {
 };
 type PlayerPrice = { active?: boolean; price?: number; playerName?: string | null };
 export type OddsResp = {
+  participant1Id?: number;
+  participant2Id?: number;
   bookmakerOdds?: Record<
     string,
     {
@@ -190,7 +192,32 @@ async function catalogoMercados(db: Db, cfg: OddsConfig): Promise<Map<number, Ma
   return catalogo;
 }
 /** Só para testes. */
-export const _limparCatalogo = () => (catalogo = null);
+export const _limparCatalogo = () => (catalogo = null, jogadores = null);
+
+// Mapa jogador → time (participantId): usado pra etiquetar props com o time ("FÁBIO (FLUMINENSE)").
+// Resposta é grande (~2MB); cache em memória + odds_catalogo (sport_id 11) por 7 dias.
+let jogadores: Map<number, number> | null = null;
+async function timesDosJogadores(db: Db, cfg: OddsConfig): Promise<Map<number, number>> {
+  if (jogadores) return jogadores;
+  const [salvo] = await db`select mercados from odds_catalogo
+    where sport_id = 11 and atualizado_em > now() - interval '7 days'`;
+  if (salvo) {
+    jogadores = new Map(Object.entries(salvo.mercados as Record<string, number>).map(([k, v]) => [Number(k), v]));
+    return jogadores;
+  }
+  type PlayersResp = { participants?: Record<string, { players?: { playerId: number }[] }> };
+  const resp = (await req(cfg, '/players?sportId=10')) as PlayersResp | null;
+  const mapa = new Map<number, number>();
+  for (const [pid, t] of Object.entries(resp?.participants ?? {})) {
+    for (const p of t.players ?? []) mapa.set(p.playerId, Number(pid));
+  }
+  if (mapa.size) {
+    jogadores = mapa;
+    await db`insert into odds_catalogo (sport_id, mercados) values (11, ${db.json(Object.fromEntries(mapa))})
+             on conflict (sport_id) do update set mercados = excluded.mercados, atualizado_em = now()`;
+  }
+  return jogadores ?? mapa;
+}
 
 const linhaMeia = (h: number) => Math.abs(Math.abs(h % 1) - 0.5) < 1e-9;
 const sinal = (h: number) => (h > 0 ? `+${h}` : `${h}`);
@@ -238,7 +265,7 @@ type Opcao = { grupo: string; descricao: string; categoria: Categoria; real?: bo
  * "GOLS 1º TEMPO"...). Mercados que o placar não resolve usam descrições fora desse formato e ficam
  * pra liquidação manual. 2º tempo e prorrogação ficam de fora (o placar não separa esses períodos).
  */
-function traduzir(m: Market, saida: string, jogador: string | null, C: string, F: string): Opcao {
+function traduzir(m: Market, saida: string, jogador: string | null, C: string, F: string, tag?: string | null): Opcao {
   const tipo = m.marketType ?? '';
   const h = Number(m.handicap ?? 0);
   const periodo = m.period ?? '';
@@ -249,7 +276,7 @@ function traduzir(m: Market, saida: string, jogador: string | null, C: string, F
   if (m.playerProp) {
     const nome = PROPS[tipo];
     if (!nome || !jogador || !['result', 'fulltime'].includes(periodo)) return null;
-    const j = nomeJogador(jogador);
+    const j = tag ? `${nomeJogador(jogador)} (${tag})` : nomeJogador(jogador);
     if (tipo.startsWith('players-')) {
       // "Sim" é o mercado que interessa; o "Não" do jogador tem odd baixa e confunde.
       // Mercados de contagem vêm "1+", "2+", "3+"... — cada tipo tem a linha que faz
@@ -359,6 +386,7 @@ export function mercadosDasOdds(
   casa: string,
   fora: string,
   bookmaker = CASA_PADRAO,
+  times?: Map<number, number>,
 ): MercadoApi[] {
   const book = resp.bookmakerOdds?.[bookmaker];
   if (!book?.markets || book.bookmakerIsActive === false) return [];
@@ -371,11 +399,15 @@ export function mercadosDasOdds(
     if (!meta || mk.marketActive === false) continue;
     for (const [oid, oc] of Object.entries(mk.outcomes ?? {})) {
       const saida = meta.outcomes?.find((o) => o.outcomeId === Number(oid))?.outcomeName ?? '';
-      for (const p of Object.values(oc.players ?? {})) {
+      for (const [pid, p] of Object.entries(oc.players ?? {})) {
         if (p.active === false || !p.price) continue;
         const v = Math.round(p.price * 100) / 100;
         if (!(v >= 1.01 && v <= (meta.playerProp ? 50 : 30))) continue;
-        const t = traduzir(meta, saida, p.playerName ?? null, C, F);
+        const timeDoJogador = times?.get(Number(pid));
+        const tag = timeDoJogador == null
+          ? null
+          : timeDoJogador === resp.participant1Id ? C : timeDoJogador === resp.participant2Id ? F : null;
+        const t = traduzir(meta, saida, p.playerName ?? null, C, F, tag);
         if (!t) continue;
         const k = `${t.grupo}|${t.descricao}`;
         if (vistos.has(k)) continue;
@@ -424,7 +456,13 @@ async function buscarMercados(db: Db, cfg: OddsConfig, externoId: string, casa: 
     req(cfg, `/odds?fixtureId=${encodeURIComponent(externoId)}&bookmakers=${bookmaker}`, true) as Promise<OddsResp | null>,
     catalogoMercados(db, cfg),
   ]);
-  return resp ? mercadosDasOdds(resp, cat, casa, fora, bookmaker) : [];
+  if (!resp) return [];
+  // Só busca o mapa de times quando o jogo tem props (economiza a chamada de /players nos demais).
+  const temProps = Object.values(resp.bookmakerOdds?.[bookmaker]?.markets ?? {}).some((m) =>
+    Object.values(m.outcomes ?? {}).some((o) =>
+      Object.values(o.players ?? {}).some((p) => p.playerName)));
+  const times = temProps ? await timesDosJogadores(db, cfg) : undefined;
+  return mercadosDasOdds(resp, cat, casa, fora, bookmaker, times);
 }
 
 /**
