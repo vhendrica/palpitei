@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import * as Linking from "expo-linking";
 import {
   Animated,
-  Image,
   Modal,
   Platform,
   Pressable,
@@ -34,7 +33,6 @@ import {
   T,
 } from "../../components/ui";
 import { track } from "../../lib/analytics";
-import { logoDoTimeUrl } from "../../lib/api";
 import {
   alternarOdd,
   corMultipla,
@@ -48,7 +46,6 @@ import { errorMessage, useApp } from "../../store/AppStore";
 import { useTheme } from "../../store/Theme";
 import { agruparMercados } from "../../types";
 import { GrupoTitulo } from "../../components/GrupoTitulo";
-import { IconeMercado } from "../../components/IconeMercado";
 import { rankSecao, secaoDo } from "../../lib/secoes";
 import type { Jogo, MinhaSituacao, MultiplaView } from "../../types";
 
@@ -736,8 +733,6 @@ export default function HomeMultipla() {
                       {home.especiais!.map((e) => {
                         const selecionado = draft.itens.includes(e.id);
                         const pode = !!eu && aberta && !e.comecou;
-                        const logoCasa = logoDoTimeUrl(e.p1_id);
-                        const logoFora = logoDoTimeUrl(e.p2_id);
                         return (
                           <Pressable
                             key={e.id}
@@ -746,72 +741,45 @@ export default function HomeMultipla() {
                                 ? setDraft((d) => alternarOdd(d, e.id))
                                 : chamarPalpitar()
                             }
-                            className={`w-36 justify-between self-stretch rounded-xl border p-3 ${
+                            className={`w-36 flex-row self-stretch overflow-hidden rounded-xl border ${
                               selecionado
                                 ? "border-primary bg-cardAlt"
                                 : "border-line bg-card"
                             }`}
                           >
-                            <View className="flex-row items-start justify-between">
-                              <IconeMercado grupo={e.grupo} color={C.primary} />
-                              {logoCasa || logoFora ? (
-                                <View className="flex-row items-center">
-                                  {logoCasa ? (
-                                    <Image
-                                      source={{ uri: logoCasa }}
-                                      style={{
-                                        width: 18,
-                                        height: 18,
-                                        borderRadius: 9,
-                                      }}
-                                    />
-                                  ) : null}
-                                  {logoFora ? (
-                                    <Image
-                                      source={{ uri: logoFora }}
-                                      style={{
-                                        width: 18,
-                                        height: 18,
-                                        borderRadius: 9,
-                                        marginLeft: -6,
-                                        borderWidth: 1,
-                                        borderColor: selecionado
-                                          ? C.cardAlt
-                                          : C.card,
-                                      }}
-                                    />
-                                  ) : null}
-                                </View>
-                              ) : null}
-                            </View>
-                            <T
-                              className="mt-2 font-mont-xb text-[9px] uppercase tracking-widest text-muted"
-                              numberOfLines={1}
-                            >
-                              {e.grupo}
-                            </T>
-                            <T
-                              className="mt-1 flex-1 font-mont-b text-xs"
-                              numberOfLines={2}
-                            >
-                              {e.descricao}
-                            </T>
-                            <View
-                              className={`mt-2 rounded-lg border px-2 py-1.5 ${
-                                selecionado
-                                  ? "border-primary bg-primary"
-                                  : "border-line bg-cardAlt"
-                              }`}
-                            >
-                              <T
-                                className={`text-center font-odds text-sm ${
+                            <View className="w-1 bg-primary" />
+                            <View className="flex-1 justify-between p-3">
+                              <View>
+                                <T
+                                  className="font-mont-xb text-[10px] uppercase tracking-widest"
+                                  numberOfLines={2}
+                                >
+                                  {e.grupo}
+                                </T>
+                                <T
+                                  className="mt-1 font-mont text-xs text-muted"
+                                  numberOfLines={2}
+                                >
+                                  {e.descricao}
+                                </T>
+                              </View>
+                              <View
+                                className={`mt-2 rounded-lg border px-2 py-1.5 ${
                                   selecionado
-                                    ? "text-onPrimary"
-                                    : "text-primary"
+                                    ? "border-primary bg-primary"
+                                    : "border-line bg-cardAlt"
                                 }`}
                               >
-                                {fmtOdd(e.multiplicador)}
-                              </T>
+                                <T
+                                  className={`text-center font-odds text-sm ${
+                                    selecionado
+                                      ? "text-onPrimary"
+                                      : "text-primary"
+                                  }`}
+                                >
+                                  {fmtOdd(e.multiplicador)}
+                                </T>
+                              </View>
                             </View>
                           </Pressable>
                         );

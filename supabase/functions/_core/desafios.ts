@@ -135,9 +135,8 @@ export async function criarDesafio(sql: Db, user: UserPublico, input: Record<str
       const jogo = `${f.time_casa} x ${f.time_fora}`;
       const mercados = validarMercados(escolhido.mercados, jogo);
       const [j] = await tx`
-        insert into jogos (liga_id, fixture_id, time_casa, time_fora, horario, campeonato, ordem, p1_id, p2_id)
-        values (${ligaId}, ${f.fixture_id}, ${f.time_casa}, ${f.time_fora}, ${f.horario}, ${f.campeonato}, ${i},
-                ${f.p1_id}, ${f.p2_id})
+        insert into jogos (liga_id, fixture_id, time_casa, time_fora, horario, campeonato, ordem)
+        values (${ligaId}, ${f.fixture_id}, ${f.time_casa}, ${f.time_fora}, ${f.horario}, ${f.campeonato}, ${i})
         returning id`;
       await tx`insert into mercados ${tx(
         mercados.map((m, ordem) => ({ jogo_id: j.id, grupo: m.grupo, descricao: m.descricao, multiplicador: m.multiplicador, ordem })),

@@ -149,13 +149,11 @@ export async function selecionarJogos(sql: Db, input: { data: unknown; fixture_i
     await tx`delete from jogos where liga_id = ${liga.id} and not (fixture_id = any(${ids}::bigint[]))`;
     for (const [i, f] of pool.entries()) {
       await tx`
-        insert into jogos (liga_id, fixture_id, time_casa, time_fora, horario, campeonato, ordem, p1_id, p2_id)
-        values (${liga.id}, ${f.fixture_id}, ${f.time_casa}, ${f.time_fora}, ${f.horario}, ${f.campeonato}, ${i},
-                ${f.p1_id}, ${f.p2_id})
+        insert into jogos (liga_id, fixture_id, time_casa, time_fora, horario, campeonato, ordem)
+        values (${liga.id}, ${f.fixture_id}, ${f.time_casa}, ${f.time_fora}, ${f.horario}, ${f.campeonato}, ${i})
         on conflict (liga_id, fixture_id) do update set
           time_casa = excluded.time_casa, time_fora = excluded.time_fora, horario = excluded.horario,
-          campeonato = excluded.campeonato,
-          p1_id = coalesce(excluded.p1_id, jogos.p1_id), p2_id = coalesce(excluded.p2_id, jogos.p2_id)`;
+          campeonato = excluded.campeonato`;
       // Jogo novo com sugestões em cache já nasce com os mercados (a rodada nunca abre vazia).
       const sug = (f.mercados_sugeridos as { grupo: string; descricao: string; multiplicador: number }[] | null) ?? [];
       if (sug.length) {
