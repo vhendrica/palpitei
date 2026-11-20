@@ -147,6 +147,8 @@ export async function fixturesDoDia(cfg: OddsConfig, data: string): Promise<Fixt
 export async function importarOdds(db: Db, cfg: OddsConfig | undefined, dataInput: unknown) {
   if (!cfg?.apiKey) throw semChave();
   const data = validarDataISO(dataInput);
+  // Marca a tentativa mesmo sem jogos: dia vazio não reimporta a cada acesso.
+  await marcarImport(db, data);
   const jogos = await fixturesDoDia(cfg, data);
   if (jogos.length === 0)
     throw new RuleError('Nenhum jogo da Série A, Série B ou Copa do Brasil nessa data. Tenta outro dia.');
@@ -172,6 +174,12 @@ export async function importarOdds(db: Db, cfg: OddsConfig | undefined, dataInpu
     importados.push({ fixture_id: Number(row.fixture_id), time_casa: casa, time_fora: fora });
   }
   return { importados, total: importados.length };
+}
+
+/** Marca a tentativa de import do dia — o auto-import da lista de fixtures usa pra não reimportar toda hora. */
+export async function marcarImport(db: Db, data: string) {
+  await db`insert into pool_import (data) values (${data})
+           on conflict (data) do update set importado_em = now()`;
 }
 
 const NOMES_TORNEIO: Record<number, string> = {
