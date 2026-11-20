@@ -505,6 +505,14 @@ async function buscarMercados(db: Db, cfg: OddsConfig, externoId: string, casa: 
     catalogoMercados(db, cfg),
   ]);
   if (!resp) return [];
+  // Backfill grátis dos participant ids (escudos): a resposta de odds já os traz.
+  if (resp.participant1Id || resp.participant2Id) {
+    const p1 = resp.participant1Id ?? null;
+    const p2 = resp.participant2Id ?? null;
+    await db`update fixtures_dia set p1_id = ${p1}, p2_id = ${p2} where externo_id = ${externoId}`;
+    await db`update jogos j set p1_id = ${p1}, p2_id = ${p2}
+             where j.fixture_id = ${fixtureNumerico(externoId)} and (j.p1_id is null or j.p2_id is null)`;
+  }
   // Só busca o mapa de times quando o jogo tem props (economiza a chamada de /players nos demais).
   const temProps = Object.values(resp.bookmakerOdds?.[bookmaker]?.markets ?? {}).some((m) =>
     Object.values(m.outcomes ?? {}).some((o) =>
