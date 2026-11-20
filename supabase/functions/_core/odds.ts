@@ -15,8 +15,11 @@ import { validarDataISO } from './validation.ts';
  */
 export type OddsConfig = { apiKey: string; bookmaker?: string; torneios?: number[]; fetch?: typeof fetch };
 
-/** Brasileirão Série A, Série B e Copa do Brasil (tournamentId da OddsPapi). */
-export const TORNEIOS_PADRAO = [325, 390, 373];
+/**
+ * Campeonatos do pool (tournamentId da OddsPapi): os 3 nacionais, os 5 grandes da Europa
+ * e a Champions League. ODDS_PAPI_TORNEIOS (csv) sobrescreve esta lista.
+ */
+export const TORNEIOS_PADRAO = [325, 390, 373, 17, 8, 23, 35, 34, 7];
 const CASA_PADRAO = '1xbet';
 const BASE = 'https://api.oddspapi.io/v4';
 
@@ -171,7 +174,17 @@ export async function importarOdds(db: Db, cfg: OddsConfig | undefined, dataInpu
   return { importados, total: importados.length };
 }
 
-const NOMES_TORNEIO: Record<number, string> = { 325: 'Brasileirão Série A', 390: 'Brasileirão Série B', 373: 'Copa do Brasil' };
+const NOMES_TORNEIO: Record<number, string> = {
+  325: 'Brasileirão Série A',
+  390: 'Brasileirão Série B',
+  373: 'Copa do Brasil',
+  17: 'Premier League',
+  8: 'La Liga',
+  23: 'Serie A',
+  35: 'Bundesliga',
+  34: 'Ligue 1',
+  7: 'Champions League',
+};
 const nomeTorneio = (j: FixtureApi) => NOMES_TORNEIO[j.tournamentId] ?? j.tournamentName;
 
 // Catálogo de mercados do futebol: muda raramente. Cache em memória (isolate) + banco
