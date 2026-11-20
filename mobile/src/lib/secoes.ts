@@ -1,6 +1,6 @@
 /** Seções de mercado (UI) + explicações (?) em português pros mercados não triviais. */
 
-export const SECOES = ['PRINCIPAL', 'GOLS', 'GOLS DO TIME', 'JOGO', 'JOGADOR', 'ESCANTEIOS', 'CARTÕES', '1º TEMPO', 'HANDICAP'] as const;
+export const SECOES = ['PRINCIPAL', 'GOLS', 'GOLS DO TIME', 'JOGADOR', 'ESCANTEIOS', 'CARTÕES', '1º TEMPO', 'HANDICAP'] as const;
 
 /** Grupos de player props que aparecem na seção JOGADOR. */
 const PROPS_JOGADOR = [
@@ -37,16 +37,7 @@ export function secaoDo(grupo: string): (typeof SECOES)[number] {
   if (g.startsWith('ESCANTEIO')) return 'ESCANTEIOS';
   if (g.startsWith('CART')) return 'CARTÕES';
   if (g.startsWith('GOLS CASA') || g.startsWith('GOLS FORA')) return 'GOLS DO TIME';
-  if (g.startsWith('GOLS') || g.startsWith('AMBOS')) return 'GOLS';
-  if (
-    g.startsWith('INTERVALO') ||
-    g.startsWith('VIRA O JOGO') ||
-    g.startsWith('VENCE SEM SOFRER') ||
-    g.startsWith('ESPECIAL') ||
-    g.includes('EXATO')
-  ) {
-    return 'JOGO';
-  }
+  if (g.startsWith('GOLS')) return 'GOLS';
   if (g.startsWith('HANDICAP')) return 'HANDICAP';
   return 'PRINCIPAL';
 }
