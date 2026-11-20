@@ -46,9 +46,6 @@ export type Especial = {
   time_casa: string;
   time_fora: string;
   campeonato: string;
-  /** Participant ids da OddsPapi — escudo via /media/time/<id>. */
-  p1_id?: number | null;
-  p2_id?: number | null;
   comecou: boolean;
 };
 
