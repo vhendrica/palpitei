@@ -93,7 +93,7 @@ function validarMercados(raw: unknown, jogo: string): MercadoInput[] {
     if (!Number.isFinite(multiplicador) || multiplicador <= 0 || multiplicador > 999.99) {
       throw new RuleError(`Mercado "${descricao}": multiplicador inválido.`);
     }
-    const grupo = String(m?.grupo ?? '').trim().slice(0, 40);
+    const grupo = String(m?.grupo ?? '').trim().slice(0, 60);
     return { grupo, descricao, multiplicador };
   });
 }

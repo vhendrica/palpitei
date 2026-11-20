@@ -313,7 +313,7 @@ export async function definirMercados(sql: Db, jogoId: string, mercadosInput: un
     }
     if (m?.id != null && !isUuid(m.id)) throw new RuleError('Mercado inválido para esse palpite.');
     const grupo = m?.grupo == null ? '' : String(m.grupo).trim().toUpperCase();
-    if (grupo.length > 40) throw new RuleError('Nome do mercado muito longo.');
+    if (grupo.length > 60) throw new RuleError('Nome do mercado muito longo.');
     return { id: (m?.id as string) ?? null, grupo, descricao: texto(m?.descricao, 'Descrição').toUpperCase(), multiplicador, ordem: i, secao: (m?.secao as string) ?? null };
   });
 
