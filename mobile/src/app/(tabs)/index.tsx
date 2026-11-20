@@ -711,7 +711,7 @@ export default function HomeMultipla() {
                                 ? setDraft((d) => alternarOdd(d, e.id))
                                 : chamarPalpitar()
                             }
-                            className={`h-44 w-36 justify-between rounded-xl border p-3 ${
+                            className={`w-36 justify-between self-stretch rounded-xl border p-3 ${
                               selecionado
                                 ? "border-primary bg-cardAlt"
                                 : "border-line bg-card"
