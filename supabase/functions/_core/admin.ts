@@ -363,37 +363,52 @@ export async function definirMercados(sql: Db, jogoId: string, mercadosInput: un
     );
 
     const manter = new Set(itensFinais.filter((i) => i.id).map((i) => i.id as string));
-    for (const m of atuais) {
-      if (!manter.has(m.id as string)) {
-        // Com ficha apostada o mercado não sai: a aposta precisa aparecer pra ser decidida.
-        if (m.tem_apostas) {
-          throw new RuleError(`"${m.descricao}" já tem aposta e não pode ser removido.`);
-        }
-        await tx`delete from mercados where id = ${m.id}`;
-      } else if (m.oculto) {
-        await tx`update mercados set oculto = false where id = ${m.id}`;
-      }
-    }
+    const remover = atuais.filter((m) => !manter.has(m.id as string));
+    // Com ficha apostada o mercado não sai: a aposta precisa aparecer pra ser decidida.
+    const travado = remover.find((m) => m.tem_apostas);
+    if (travado) throw new RuleError(`"${travado.descricao}" já tem aposta e não pode ser removido.`);
+    if (remover.length)
+      await tx`delete from mercados where id = any(${remover.map((m) => m.id as string)}::uuid[])`;
+    await tx`update mercados set oculto = false where jogo_id = ${jogoId} and oculto`;
+
+    // Em lote: um UPDATE por unnest + um INSERT multi-linha (era 1 query por mercado — lento com props).
+    const alterar: typeof itensFinais = [];
+    const inserir: typeof itensFinais = [];
     for (const it of itensFinais) {
       const atual = it.id ? porId.get(it.id) : null;
-      if (atual) {
-        const mudou =
-          atual.grupo !== it.grupo ||
-          normDesc(atual.descricao as string, casaNome, foraNome) !== normDesc(it.descricao, casaNome, foraNome) ||
-          num(atual.multiplicador) !== it.multiplicador;
-        if (mudou && atual.tem_apostas) {
-          throw new RuleError(`O mercado "${atual.descricao}" já recebeu fichas e não pode ser alterado.`);
-        }
-        await tx`
-          update mercados set grupo = ${it.grupo}, descricao = ${it.descricao}, multiplicador = ${it.multiplicador}, ordem = ${it.ordem}, secao = coalesce(${it.secao}, secao)
-          where id = ${it.id}`;
-      } else {
-        await tx`
-          insert into mercados (jogo_id, grupo, descricao, multiplicador, ordem, secao)
-          values (${jogoId}, ${it.grupo}, ${it.descricao}, ${it.multiplicador}, ${it.ordem},
-                  ${it.secao ?? secaoDoGrupo.get(it.grupo) ?? null})`;
+      if (!atual) {
+        inserir.push(it);
+        continue;
+      }
+      const mudou =
+        atual.grupo !== it.grupo ||
+        normDesc(atual.descricao as string, casaNome, foraNome) !== normDesc(it.descricao, casaNome, foraNome) ||
+        num(atual.multiplicador) !== it.multiplicador;
+      if (mudou && atual.tem_apostas) {
+        throw new RuleError(`O mercado "${atual.descricao}" já recebeu fichas e não pode ser alterado.`);
+      }
+      // ordem/secao são cosméticos: atualiza mesmo com ficha apostada.
+      if (mudou || num(atual.ordem) !== it.ordem || (it.secao != null && it.secao !== atual.secao)) {
+        alterar.push(it);
       }
     }
+    if (alterar.length)
+      await tx`update mercados m
+               set grupo = v.grupo, descricao = v.descricao, multiplicador = v.multiplicador,
+                   ordem = v.ordem, secao = coalesce(v.secao, m.secao)
+               from unnest(${alterar.map((i) => i.id)}::uuid[], ${alterar.map((i) => i.grupo)}::text[],
+                           ${alterar.map((i) => i.descricao)}::text[], ${alterar.map((i) => i.multiplicador)}::numeric[],
+                           ${alterar.map((i) => i.ordem)}::int[], ${alterar.map((i) => i.secao)}::text[]
+                          ) as v(id, grupo, descricao, multiplicador, ordem, secao)
+               where m.id = v.id`;
+    if (inserir.length)
+      await tx`insert into mercados ${tx(
+        inserir.map((it) => ({
+          jogo_id: jogoId, grupo: it.grupo, descricao: it.descricao, multiplicador: it.multiplicador,
+          ordem: it.ordem, secao: it.secao ?? secaoDoGrupo.get(it.grupo) ?? null,
+        })),
+        'jogo_id', 'grupo', 'descricao', 'multiplicador', 'ordem', 'secao',
+      )}`;
     return j.liga_id as string;
   });
   return ligaAdmin(sql, ligaId);
