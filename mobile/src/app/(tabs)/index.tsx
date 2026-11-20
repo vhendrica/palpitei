@@ -46,6 +46,7 @@ import { errorMessage, useApp } from "../../store/AppStore";
 import { useTheme } from "../../store/Theme";
 import { agruparMercados } from "../../types";
 import { GrupoTitulo } from "../../components/GrupoTitulo";
+import { IconeMercado } from "../../components/IconeMercado";
 import { rankSecao, secaoDo } from "../../lib/secoes";
 import type { Jogo, MinhaSituacao, MultiplaView } from "../../types";
 
@@ -746,29 +747,36 @@ export default function HomeMultipla() {
                                 : "border-line bg-card"
                             }`}
                           >
+                            <IconeMercado grupo={e.grupo} color={C.primary} />
                             <T
-                              className="font-mont-xb text-[9px] uppercase tracking-widest text-muted"
+                              className="mt-2 font-mont-xb text-[9px] uppercase tracking-widest text-muted"
                               numberOfLines={1}
                             >
-                              {e.time_casa} x {e.time_fora}
+                              {e.grupo}
                             </T>
-                            {e.grupo ? (
-                              <T
-                                className="mt-1 font-mont-xb text-[9px] uppercase tracking-widest text-primary"
-                                numberOfLines={2}
-                              >
-                                {e.grupo}
-                              </T>
-                            ) : null}
                             <T
                               className="mt-1 flex-1 font-mont-b text-xs"
                               numberOfLines={3}
                             >
                               {e.descricao}
                             </T>
-                            <T className="mt-1 font-odds text-base text-primary">
-                              {fmtOdd(e.multiplicador)}
-                            </T>
+                            <View
+                              className={`mt-2 rounded-lg border px-2 py-1.5 ${
+                                selecionado
+                                  ? "border-primary bg-primary"
+                                  : "border-line bg-cardAlt"
+                              }`}
+                            >
+                              <T
+                                className={`text-center font-odds text-sm ${
+                                  selecionado
+                                    ? "text-onPrimary"
+                                    : "text-primary"
+                                }`}
+                              >
+                                {fmtOdd(e.multiplicador)}
+                              </T>
+                            </View>
                           </Pressable>
                         );
                       })}
