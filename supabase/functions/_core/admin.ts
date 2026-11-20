@@ -418,7 +418,7 @@ export async function metaMercados(sql: Db, jogoId: string, mercadosInput: unkno
     if (j.status === 'finalizada') throw new RuleError('Palpite já finalizado.');
     await tx`
       update mercados m set ordem = v.ordem, secao = v.secao
-      from (select * from jsonb_to_recordset(${JSON.stringify(itens)}::jsonb) as v(id uuid, ordem int, secao text)) v
+      from unnest(${itens.map((i) => i.id)}::uuid[], ${itens.map((i) => i.ordem)}::int[], ${itens.map((i) => i.secao)}::text[]) as v(id, ordem, secao)
       where m.id = v.id and m.jogo_id = ${jogoId}`;
     return j.liga_id as string;
   });
