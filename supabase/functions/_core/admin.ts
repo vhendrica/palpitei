@@ -399,6 +399,32 @@ export async function definirMercados(sql: Db, jogoId: string, mercadosInput: un
   return ligaAdmin(sql, ligaId);
 }
 
+/**
+ * Atualiza só seção e ordem dos mercados (opção cosmética — não toca multiplicador, não cria nem remove).
+ * Um único UPDATE em vez de regravar a lista inteira, como faz definirMercados.
+ */
+export async function metaMercados(sql: Db, jogoId: string, mercadosInput: unknown) {
+  if (!isUuid(jogoId)) throw new NotFoundError('Jogo não encontrado.');
+  if (!Array.isArray(mercadosInput)) throw new RuleError('Envie a lista de mercados.');
+  const itens = mercadosInput.map((m, i) => {
+    if (!isUuid(m?.id)) throw new RuleError('Mercado inválido para esse palpite.');
+    const secao = m?.secao == null ? null : String(m.secao).trim().toUpperCase().slice(0, 40);
+    return { id: m.id as string, ordem: i, secao };
+  });
+  const ligaId = await sql.begin(async (tx: Tx) => {
+    const [j] = await tx`
+      select j.liga_id, l.status from jogos j join ligas l on l.id = j.liga_id where j.id = ${jogoId} for update of j`;
+    if (!j) throw new NotFoundError('Jogo não encontrado.');
+    if (j.status === 'finalizada') throw new RuleError('Palpite já finalizado.');
+    await tx`
+      update mercados m set ordem = v.ordem, secao = v.secao
+      from (select * from jsonb_to_recordset(${JSON.stringify(itens)}::jsonb) as v(id uuid, ordem int, secao text)) v
+      where m.id = v.id and m.jogo_id = ${jogoId}`;
+    return j.liga_id as string;
+  });
+  return ligaAdmin(sql, ligaId);
+}
+
 /** Abre/fecha a múltipla para entradas e apostas ('aberta' ↔ 'em_andamento'). Finalizar é outro endpoint. */
 /** Refaz os mercados de um jogo com as odds atuais da OddsPapi (só os mercados principais). Só antes de alguém entrar na rodada. */
 export async function renovarMercadosJogo(sql: Db, cfg: OddsConfig | undefined, jogoId: string, forcar = false) {

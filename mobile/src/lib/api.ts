@@ -223,6 +223,8 @@ export const api = {
     ) => req<{ jogo_id: string; placar: [number, number]; mercados_certos: number }>('POST', `/admin/jogos/${jogoId}/placar`, body),
     mercados: (jogoId: string, mercados: { id?: string; grupo: string; descricao: string; multiplicador: number }[]) =>
       req<LigaAdmin>('PUT', `/admin/jogos/${jogoId}/mercados`, { mercados }),
+    mercadosMeta: (jogoId: string, mercados: { id: string; secao: string | null }[]) =>
+      req<LigaAdmin>('PATCH', `/admin/jogos/${jogoId}/mercados-meta`, { mercados }),
     renovarMercados: (jogoId: string) =>
       req<{ jogo_id: string; mercados: number }>('POST', `/admin/jogos/${jogoId}/mercados-renovar`),
     ligas: () => req<{ ligas: LigaHistorico[] }>('GET', '/admin/ligas'),

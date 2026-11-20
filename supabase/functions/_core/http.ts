@@ -288,6 +288,11 @@ export function createApi(deps: ApiDeps) {
       await c.requireAdmin();
       return admin.definirMercados(sql, c.params[0], (await c.body()).mercados);
     }],
+    // Só seção/ordem — leve, não regrava a lista inteira.
+    ['PATCH', /^\/admin\/jogos\/([^/]+)\/mercados-meta$/, async (c) => {
+      await c.requireAdmin();
+      return admin.metaMercados(sql, c.params[0], (await c.body()).mercados);
+    }],
     ['POST', /^\/admin\/jogos\/([^/]+)\/mercados-renovar$/, async (c) => {
       await c.requireAdmin();
       return admin.renovarMercadosJogo(sql, deps.odds, c.params[0], true);

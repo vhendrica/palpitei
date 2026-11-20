@@ -374,6 +374,17 @@ function AbaLiga({ data, run }: { data: string; run: Run }) {
               }
             })
           }
+          onSalvarMeta={(ms) =>
+            run(async () => {
+              try {
+                setLa(await api.admin.mercadosMeta(j.id, ms));
+                return "Seções salvas.";
+              } catch (e) {
+                Alert.alert("Não salvou", errorMessage(e));
+                throw e;
+              }
+            })
+          }
           onPlacar={(body) =>
             run(async () => {
               const r = await api.admin.placar(j.id, body);
@@ -456,6 +467,7 @@ function JogoAdmin({
   onEspecial,
   onResultado,
   onSalvarMercados,
+  onSalvarMeta,
   onRenovarMercados,
   onPlacar,
 }: {
@@ -477,6 +489,7 @@ function JogoAdmin({
       secao?: string | null;
     }[],
   ) => Promise<boolean>;
+  onSalvarMeta: (ms: { id: string; secao: string | null }[]) => Promise<boolean>;
 }) {
   const { palette: C } = useTheme();
   const [agora] = useState(() => Date.now());
@@ -608,12 +621,9 @@ function JogoAdmin({
     const atual = secaoAtual(g);
     setSecaoDraft((s) => ({ ...s, [g.grupo]: nome }));
     if (!nome || nome === atual) return;
-    onSalvarMercados(
+    onSalvarMeta(
       jogo.mercados.map((m) => ({
         id: m.id,
-        grupo: m.grupo,
-        descricao: m.descricao,
-        multiplicador: m.multiplicador,
         secao:
           (m.secao ?? secaoDo(m.grupo ?? "")) === atual
             ? nome
@@ -639,14 +649,9 @@ function JogoAdmin({
     [ord[gi], ord[alvo]] = [ord[alvo], ord[gi]];
     setOrdOverride(ord.flatMap((g) => g.opcoes));
     ordemSalvando.current = true;
-    const ok = await onSalvarMercados(
+    const ok = await onSalvarMeta(
       ord.flatMap((g) =>
-        g.opcoes.map((m) => ({
-          id: m.id,
-          grupo: m.grupo,
-          descricao: m.descricao,
-          multiplicador: m.multiplicador,
-        })),
+        g.opcoes.map((m) => ({ id: m.id, secao: m.secao ?? null })),
       ),
     );
     ordemSalvando.current = false;
@@ -697,12 +702,9 @@ function JogoAdmin({
       fim < 0
         ? [...resto, ...jogo.mercados.filter(doGrupo)]
         : [...resto.slice(0, fim + 1), ...jogo.mercados.filter(doGrupo), ...resto.slice(fim + 1)];
-    const ok = await onSalvarMercados(
+    const ok = await onSalvarMeta(
       ordem.map((m) => ({
         id: m.id,
-        grupo: m.grupo,
-        descricao: m.descricao,
-        multiplicador: m.multiplicador,
         secao:
           (m.grupo ?? "").trim().toUpperCase() === g.grupo &&
           descs.has(normDescricao(m.descricao))
