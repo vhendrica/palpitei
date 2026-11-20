@@ -1,6 +1,6 @@
 /** Seções de mercado (UI) + explicações (?) em português pros mercados não triviais. */
 
-export const SECOES = ['PRINCIPAL', 'GOLS', 'JOGO', 'JOGADOR', 'ESCANTEIOS', 'CARTÕES', '1º TEMPO', 'HANDICAP'] as const;
+export const SECOES = ['PRINCIPAL', 'GOLS', 'GOLS DO TIME', 'JOGO', 'JOGADOR', 'ESCANTEIOS', 'CARTÕES', '1º TEMPO', 'HANDICAP'] as const;
 
 /** Grupos de player props que aparecem na seção JOGADOR. */
 const PROPS_JOGADOR = [
@@ -35,6 +35,7 @@ export function secaoDo(grupo: string): (typeof SECOES)[number] {
   }
   if (g.startsWith('ESCANTEIO')) return 'ESCANTEIOS';
   if (g.startsWith('CART')) return 'CARTÕES';
+  if (g.startsWith('GOLS CASA') || g.startsWith('GOLS FORA')) return 'GOLS DO TIME';
   if (g.startsWith('GOLS') || g.startsWith('AMBOS')) return 'GOLS';
   if (
     g.startsWith('INTERVALO') ||
@@ -87,7 +88,7 @@ const PROPS_AJUDA: [prefixo: string, texto: string][] = [
 export function explicacaoDo(grupo: string): string | null {
   const g = grupo.toUpperCase();
   if (g.startsWith('GOLS PAR OU ÍMPAR') || g.includes('PAR OU ÍMPAR')) {
-    return 'Vale o total de gols do jogo ser PAR ou ÍMPAR.\n\nEx.: 2x1 = 3 gols → "TOTAL ÍMPAR" acerta. 1x1 = 2 gols → "TOTAL PAR". Atenção: 0x0 conta como par.';
+    return 'É o total de gols DO JOGO (somando os dois times): saiu número par ou ímpar de gols?\n\nEx.: 2x1 = 3 gols → "TOTAL ÍMPAR" acerta. 1x1 = 2 gols → "TOTAL PAR". Atenção: 0x0 conta como par.';
   }
   for (const [p, texto] of PROPS_AJUDA) {
     if (g.startsWith(p)) return texto;
