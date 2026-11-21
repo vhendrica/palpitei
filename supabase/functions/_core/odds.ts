@@ -474,32 +474,39 @@ function ordenar(ms: MercadoApi[]): MercadoApi[] {
 
 async function buscarMercados(db: Db, cfg: OddsConfig, externoId: string, casa: string, fora: string) {
   const bookmaker = cfg.bookmaker ?? CASA_PADRAO;
-  // Casa de props (padrão Betano, cobre mais jogadores nos jogos BR) vem junto na mesma chamada.
-  const bookProps = cfg.bookmakerProps ?? 'betano';
+  // Casas de props (padrão Betano+Betsson, as que mais cobrem jogadores nos jogos BR)
+  // vêm juntas na mesma chamada — 1 request conta 1 independente das casas.
+  const casasProps = (cfg.bookmakerProps ?? 'betano,betsson')
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s && s !== bookmaker);
+  const casas = [bookmaker, ...casasProps];
   const [resp, cat] = await Promise.all([
-    req(cfg, `/odds?fixtureId=${encodeURIComponent(externoId)}&bookmakers=${bookmaker},${bookProps}`, true) as Promise<OddsResp | null>,
+    req(cfg, `/odds?fixtureId=${encodeURIComponent(externoId)}&bookmakers=${casas.join(',')}`, true) as Promise<OddsResp | null>,
     catalogoMercados(db, cfg),
   ]);
   if (!resp) return [];
   // Só busca o mapa de times quando o jogo tem props (economiza a chamada de /players nos demais).
-  const temProps = [bookmaker, bookProps].some((b) =>
+  const temProps = casas.some((b) =>
     Object.values(resp.bookmakerOdds?.[b]?.markets ?? {}).some((m) =>
       Object.values(m.outcomes ?? {}).some((o) =>
         Object.values(o.players ?? {}).some((p) => p.playerName))));
   const times = temProps ? await timesDosJogadores(db, cfg) : undefined;
   const base = mercadosDasOdds(resp, cat, casa, fora, bookmaker, times);
-  if (bookProps === bookmaker) return base;
-  // União das duas casas em JOGADOR: a de props primeiro (cobre mais jogadores),
-  // e a padrão completa os jogadores que a outra não tem (mesmo jogador = a odd da casa de props).
-  const jogadorProps = mercadosDasOdds(resp, cat, casa, fora, bookProps, times).filter(
-    (m) => m.categoria === 'JOGADOR',
-  );
-  const chaves = new Set(jogadorProps.map((m) => `${m.grupo}|${m.descricao}`));
-  const complemento = base.filter(
-    (m) => m.categoria === 'JOGADOR' && !chaves.has(`${m.grupo}|${m.descricao}`),
-  );
-  const props = [...jogadorProps, ...complemento];
-  // Nenhuma das duas trouxe props: fica tudo da casa padrão.
+  if (!casasProps.length) return base;
+  // União de JOGADOR entre casas de props (na ordem configurada) + casa padrão por último:
+  // a primeira casa da lista fica com a odd quando duas cotam o mesmo palpite.
+  const chaves = new Set<string>();
+  const props = [];
+  for (const m of [
+    ...casasProps.flatMap((b) => mercadosDasOdds(resp, cat, casa, fora, b, times)),
+    ...base,
+  ]) {
+    if (m.categoria !== 'JOGADOR' || chaves.has(`${m.grupo}|${m.descricao}`)) continue;
+    chaves.add(`${m.grupo}|${m.descricao}`);
+    props.push(m);
+  }
+  // Nenhuma casa trouxe props: fica tudo da casa padrão.
   if (!props.length) return base;
   return ordenar([...base.filter((m) => m.categoria !== 'JOGADOR'), ...props]);
 }
