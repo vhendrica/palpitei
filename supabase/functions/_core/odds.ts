@@ -19,7 +19,7 @@ export type OddsConfig = { apiKey: string; bookmaker?: string; torneios?: number
  * Campeonatos do pool (tournamentId da OddsPapi): os 3 nacionais, os 5 grandes da Europa
  * e a Champions League. ODDS_PAPI_TORNEIOS (csv) sobrescreve esta lista.
  */
-export const TORNEIOS_PADRAO = [325, 390, 373, 17, 8, 23, 35, 34, 7];
+export const TORNEIOS_PADRAO = [325, 390, 373, 17, 8, 23, 35, 34, 7, 480];
 const CASA_PADRAO = '1xbet';
 const BASE = 'https://api.oddspapi.io/v4';
 
@@ -192,6 +192,7 @@ const NOMES_TORNEIO: Record<number, string> = {
   35: 'Bundesliga',
   34: 'Ligue 1',
   7: 'Champions League',
+  480: 'Copa Sul-Americana',
 };
 const nomeTorneio = (j: FixtureApi) => NOMES_TORNEIO[j.tournamentId] ?? j.tournamentName;
 
