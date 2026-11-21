@@ -91,10 +91,12 @@ export function RankingDoDia({ voltar }: { voltar?: boolean }) {
           ) : null}
           {rows?.map((p, i) => {
             const nada = p.palpites.length === 0 && p.multiplas.length === 0;
-            // Ao vivo (jogos começaram = palpites visíveis): mostra os dois —
-            // conquistado (o que já bateu) e potencial (o máximo possível).
+            // Ao vivo (jogos começaram = palpites visíveis) E já houve retorno:
+            // mostra os dois — conquistado (o que já bateu) e potencial.
             const aoVivo = rows.some(
-              (o) => o.palpites.length > 0 || o.multiplas.length > 0,
+              (o) =>
+                (o.palpites.length > 0 || o.multiplas.length > 0) &&
+                o.pontuacao > 0,
             );
             return (
               <Card
