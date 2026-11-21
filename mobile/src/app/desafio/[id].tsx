@@ -436,9 +436,11 @@ export default function Detalhe() {
     const secoesJogo: { nome: string; grupos: typeof gruposVis }[] = [];
     for (const g of gruposVis) {
       const sec = g.opcoes[0]?.secao ?? secaoDo(g.grupo);
+      // Seções finas: fora do PRINCIPAL cada tipo/linha vira seção própria.
+      const nome = sec === "PRINCIPAL" ? "PRINCIPAL" : g.grupo;
       const ult = secoesJogo[secoesJogo.length - 1];
-      if (ult?.nome === sec) ult.grupos.push(g);
-      else secoesJogo.push({ nome: sec, grupos: [g] });
+      if (ult?.nome === nome) ult.grupos.push(g);
+      else secoesJogo.push({ nome, grupos: [g] });
     }
     const alternar = () =>
       setAbertos((a) =>
@@ -532,7 +534,7 @@ export default function Detalhe() {
               const goculto = !!gruposOcultos[gchave];
               return (
               <View key={g.grupo || "_"} className="mt-2.5">
-                {g.grupo ? (
+                {g.grupo && g.grupo !== s.nome ? (
                   <View className="flex-row items-center">
                     <Pressable
                       onPress={() =>
