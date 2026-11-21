@@ -40,7 +40,7 @@ import {
   DRAFT_VAZIO,
   fichasNoDraft,
 } from "../../lib/bilhete";
-import { copiar, linkIndicacao } from "../../lib/convite";
+import { copiar, compartilhar, linkIndicacao, mensagemConvite } from "../../lib/convite";
 import { useDesktop } from "../../lib/desktop";
 import { fmtData, fmtOdd, fmtPts, rotuloPalpite } from "../../lib/format";
 import { errorMessage, useApp } from "../../store/AppStore";
@@ -99,6 +99,7 @@ export default function HomeMultipla() {
   );
   const [resumo, setResumo] = useState(false);
   const [verBilhete, setVerBilhete] = useState(false);
+  const [conviteModal, setConviteModal] = useState(false);
   const [abertos, setAbertos] = useState<string[]>([]);
   // Seções recolhidas por jogo: chave "<jogoId>|<SEÇÃO>".
   const [secoesOcultas, setSecoesOcultas] = useState<Record<string, boolean>>({});
@@ -677,7 +678,7 @@ export default function HomeMultipla() {
                     eu ? undefined : () => router.push("/palpiteiros")
                   }
                   semContagem={!!eu}
-                  onConvidar={() => convidar(home.liga?.premio_desc)}
+                  onConvidar={() => convidar(home.liga?.premio_desc, user?.username)}
                   completo={palpitou}
                 />
 
@@ -934,56 +935,22 @@ export default function HomeMultipla() {
                           </T>
                         </Card>
                       </Pressable>
-                      <Pressable
-                        onPress={() => router.push("/simulador")}
-                        className="flex-1"
-                      >
-                        <Card>
-                          <Ionicons
-                            name="cash-outline"
-                            size={22}
-                            color={C.primary}
-                          />
-                          <T className="mt-1.5 font-mont-b text-sm">
-                            Simulador
-                          </T>
-                          <T className="mt-0.5 text-xs text-muted">
-                            Odds reais, dinheiro virtual
-                          </T>
-                        </Card>
-                      </Pressable>
                       {user?.username ? (
                         <Pressable
-                          onPress={async () => {
-                            await copiarIndicacao(user.username);
-                            toast.show("Link de convite copiado!");
-                          }}
+                          onPress={() => setConviteModal(true)}
                           className="flex-1"
                         >
                           <Card>
-                            <View className="flex-row items-start justify-between">
-                              <Ionicons
-                                name="people-outline"
-                                size={22}
-                                color={C.primary}
-                              />
-                              <Pressable
-                                hitSlop={8}
-                                onPress={() => convidarIndicacao(user.username, home.liga?.premio_desc)}
-                                accessibilityLabel="Compartilhar convite"
-                              >
-                                <Ionicons
-                                  name="share-social-outline"
-                                  size={18}
-                                  color={C.muted}
-                                />
-                              </Pressable>
-                            </View>
+                            <Ionicons
+                              name="people-outline"
+                              size={22}
+                              color={C.primary}
+                            />
                             <T className="mt-1.5 font-mont-b text-sm">
                               Convide & ganhe
                             </T>
                             <T className="mt-0.5 text-xs text-muted">
-                              {`+${home.regras.pontos_indicacao ?? 100} pts por amigo — toque pra copiar o link`}
+                              {`Ganhe até ${home.regras.pontos_indicacao_max ?? 500} pts por amigo`}
                             </T>
                           </Card>
                         </Pressable>
@@ -1155,6 +1122,53 @@ export default function HomeMultipla() {
               variant="ghost"
               className="mt-2"
               onPress={() => setVerBilhete(false)}
+            />
+          </Pressable>
+        </Pressable>
+      </Modal>
+      {/* CONVIDE & GANHE › regras do programa + copiar mensagem / mandar no WhatsApp. */}
+      <Modal
+        visible={conviteModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setConviteModal(false)}
+      >
+        <Pressable
+          className="flex-1 justify-center bg-black/50 p-5"
+          onPress={() => setConviteModal(false)}
+        >
+          <Pressable
+            className="rounded-3xl bg-card p-5"
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View className="flex-row items-center" style={{ gap: 8 }}>
+              <Ionicons name="people" size={22} color={C.primary} />
+              <T className="font-mont-xb text-base">Convide & ganhe</T>
+            </View>
+            <T className="mt-3 text-sm text-muted">
+              {`Ganhe pontos para cada amigo que entrar pelo seu link:\n\n+ ${home.regras.pontos_indicacao ?? 50} pts quando ele se cadastrar\n+ ${home.regras.indicacao_palpite ?? 50} pts se ele palpitar no mesmo dia\n+ ${home.regras.indicacao_login ?? 100} pts a cada dia que ele voltar (3 dias)\n+ ${home.regras.indicacao_bonus ?? 100} pts de bônus se completar os 3 logins\n\nTotal: até ${home.regras.pontos_indicacao_max ?? 500} pts por amigo!`}
+            </T>
+            <Button
+              title="Mandar no WhatsApp"
+              icon="logo-whatsapp"
+              className="mt-4"
+              onPress={() => {
+                setConviteModal(false);
+                if (user?.username) convidarIndicacao(user.username, home.liga?.premio_desc);
+              }}
+            />
+            <Button
+              title="Copiar mensagem"
+              variant="outline"
+              icon="copy-outline"
+              className="mt-2"
+              onPress={async () => {
+                if (!user?.username) return;
+                const ok = await copiar(mensagemConvite(linkIndicacao(user.username), home.liga?.premio_desc));
+                if (!ok) await compartilhar(mensagemConvite(linkIndicacao(user.username), home.liga?.premio_desc));
+                setConviteModal(false);
+                toast.show("Mensagem copiada!");
+              }}
             />
           </Pressable>
         </Pressable>
@@ -1388,13 +1402,11 @@ function SituacaoFichas({
   );
 }
 
-const mensagemConvite = (url: string, premio?: string | null) =>
-  `Bora palpitar comigo no PALPIT? É de graça${premio ? ` e o campeão leva ${premio}` : ""}! ${url}`;
-
-function convidar(premio?: string | null) {
-  const url =
-    process.env.EXPO_PUBLIC_APP_URL ??
-    "https://vhendrica.github.io/palpitei/app/";
+function convidar(premio?: string | null, username?: string) {
+  // O convite carrega o ref do usuário: quem se cadastra por ele conta como indicação.
+  const url = username
+    ? linkIndicacao(username)
+    : (process.env.EXPO_PUBLIC_APP_URL ?? "https://vhendrica.github.io/palpitei/app/");
   const msg = mensagemConvite(url, premio);
   if (Platform.OS === "web") {
     Linking.openURL(`https://wa.me/?text=${encodeURIComponent(msg)}`);
@@ -1413,10 +1425,6 @@ function convidarIndicacao(username: string, premio?: string | null) {
   }
 }
 
-/** Copia o link de indicação pro clipboard (o toast vem da tela). */
-async function copiarIndicacao(username: string) {
-  await copiar(linkIndicacao(username));
-}
 
 function CarrosselJogos({
   jogos,

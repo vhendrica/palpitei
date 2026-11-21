@@ -50,3 +50,7 @@ export function enviarWhatsApp(mensagem: string) {
   if (Platform.OS === "web") return Linking.openURL(`https://wa.me/?text=${encodeURIComponent(mensagem)}`);
   return Share.share({ message: mensagem });
 }
+
+/** Texto padrão do convite: usado na home, no desafio e no perfil. */
+export const mensagemConvite = (url: string, premio?: string | null) =>
+  `Bora palpitar comigo no PALPIT? É de graça${premio ? ` e o campeão leva ${premio}` : ""}! ${url}`;

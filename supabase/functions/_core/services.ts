@@ -15,6 +15,7 @@ import {
   getPremioInicial,
   type LigaRow,
 } from './rules.ts';
+import { marcarIndicacao } from './indicacao.ts';
 import { placarDoJogo } from './resultados.ts';
 import { ForbiddenError } from './errors.ts';
 import { hojeISO, nomePublico } from './validation.ts';
@@ -53,6 +54,9 @@ export async function getConfig(db: Db) {
     custo_entrada_pontos: num(c.custo_entrada_pontos),
     pontos_boas_vindas: num(c.pontos_boas_vindas),
     pontos_indicacao: num(c.pontos_indicacao),
+    indicacao_palpite: num(c.indicacao_palpite),
+    indicacao_login: num(c.indicacao_login),
+    indicacao_bonus: num(c.indicacao_bonus),
     premio_inicial: num(c.premio_inicial),
     termos_versao: c.termos_versao as string,
     consentimento_versao: c.consentimento_versao as string,
@@ -215,6 +219,11 @@ async function claimLoginBonus(db: Db, userId: string, hoje: string) {
     update users set saldo_pontos = saldo_pontos + ${pontos}, login_streak = ${dia}, ultimo_login = ${hoje}::date,
       maior_streak = greatest(maior_streak, ${dia})
     where id = ${userId}`;
+  // Indicação: logins seguidos nos dias 2-4 pagam 100/dia ao indicador; o 3º dá bônus.
+  if (dia >= 2 && dia <= 4) {
+    await marcarIndicacao(db, userId, `login_d${dia}` as 'login_d2' | 'login_d3' | 'login_d4');
+    if (dia === 4) await marcarIndicacao(db, userId, 'bonus');
+  }
   return { dia, pontos, quebrou };
 }
 
@@ -227,6 +236,12 @@ export async function home(db: Db, user: UserPublico | null, data = hojeISO()) {
       custo_entrada_pontos: liga?.custo_entrada ?? config.custo_entrada_pontos,
       fichas_por_entrada: liga?.fichas_por_entrada ?? config.fichas_por_entrada,
       pontos_indicacao: config.pontos_indicacao,
+      indicacao_palpite: config.indicacao_palpite,
+      indicacao_login: config.indicacao_login,
+      indicacao_bonus: config.indicacao_bonus,
+      // Teto do programa de indicação (exibido no card 'Convide & ganhe').
+      pontos_indicacao_max:
+        config.pontos_indicacao + config.indicacao_palpite + 3 * config.indicacao_login + config.indicacao_bonus,
     },
     usuario: user
       ? {

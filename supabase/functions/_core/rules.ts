@@ -2,6 +2,7 @@ import { exato, incompativeis, oddTotal } from './compat.ts';
 import { gerarCodigoVoucher } from './crypto.ts';
 import { type Db, iso, num, type Tx } from './db.ts';
 import { NotFoundError, RuleError } from './errors.ts';
+import { marcarIndicacao } from './indicacao.ts';
 import { type Faixa, resolverPremio } from './premio.ts';
 import { isUuid, nomePublico } from './validation.ts';
 
@@ -300,6 +301,10 @@ export async function apostar(
       const pernas = m.mercados.map((mercado_id) => ({ multipla_id: mu.id, mercado_id, odd: porId.get(mercado_id)!.odd }));
       await tx`insert into multipla_pernas ${tx(pernas, 'multipla_id', 'mercado_id', 'odd')}`;
     }
+    // Indicação: palpite no mesmo dia do cadastro paga o marco 'palpite' ao indicador (1x).
+    const [ind] = await tx`
+      select indicado_por, created_at::date = current_date as hoje from users where id = ${userId}`;
+    if (ind?.indicado_por && ind.hoje) await marcarIndicacao(tx, userId, 'palpite');
     return { fichas_distribuidas: total, fichas_livres: disponiveis - total };
   });
 }
