@@ -965,6 +965,7 @@ export default function HomeMultipla() {
                   draft={draft}
                   opcoes={opcoes}
                   fichasLivres={fichasLivresBase}
+                  fichasGanhas={eu?.fichas_ganhas ?? 0}
                   offsetMultiplas={offsetMultiplas}
                   onChange={setDraft}
                   rail
@@ -1014,6 +1015,7 @@ export default function HomeMultipla() {
           draft={draft}
           opcoes={opcoes}
           fichasLivres={fichasLivresBase}
+          fichasGanhas={eu?.fichas_ganhas ?? 0}
           offsetMultiplas={offsetMultiplas}
           busy={busy}
           erro={erroBilhete}
@@ -1027,6 +1029,7 @@ export default function HomeMultipla() {
           draft={draft}
           opcoes={opcoes}
           fichasLivres={fichasLivresBase}
+          fichasGanhas={eu?.fichas_ganhas ?? 0}
           offsetMultiplas={offsetMultiplas}
           onChange={setDraft}
           onResumo={() => {
