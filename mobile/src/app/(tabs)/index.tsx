@@ -717,14 +717,16 @@ export default function HomeMultipla() {
                         </>
                       ) : (
                         <>
-                          {(!valendo || editaveis.fichas > 0 || livres > 0) &&
+                          {home.liga.status !== "finalizada" &&
+                          (!valendo || editaveis.fichas > 0 || livres > 0) &&
                           livres + noDraft > 0 ? (
                             <SituacaoFichas
                               livres={livres}
                               noBilhete={noDraft}
                             />
                           ) : null}
-                          {(eu.fichas_ganhas ?? 0) > 0 ? (
+                          {home.liga.status !== "finalizada" &&
+                          (eu.fichas_ganhas ?? 0) > 0 ? (
                             <T className="mb-2 text-center text-xs text-muted">
                               Seus acertos já devolveram{" "}
                               {fmtPts(eu.fichas_ganhas!)} fichas. Dá pra
