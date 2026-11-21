@@ -442,14 +442,16 @@ export async function metaMercados(sql: Db, jogoId: string, mercadosInput: unkno
 }
 
 /** Abre/fecha a múltipla para entradas e apostas ('aberta' ↔ 'em_andamento'). Finalizar é outro endpoint. */
-/** Refaz os mercados de um jogo com as odds atuais da OddsPapi (só os mercados principais). Só antes de alguém entrar na rodada. */
+/** Refaz os mercados de um jogo com as odds atuais da OddsPapi (feed inteiro). Só antes de alguém entrar na rodada. */
 export async function renovarMercadosJogo(sql: Db, cfg: OddsConfig | undefined, jogoId: string, forcar = false) {
   if (!isUuid(jogoId)) throw new NotFoundError('Jogo não encontrado.');
   const [j] = await sql`select j.id, j.liga_id, j.time_casa, j.time_fora from jogos j where j.id = ${jogoId}`;
   if (!j) throw new NotFoundError('Jogo não encontrado.');
   const [{ n }] = await sql`select count(*)::int as n from entradas where liga_id = ${j.liga_id}`;
   if (n > 0) throw new RuleError('Já tem palpiteiro nessa rodada; os mercados estão travados.');
-  const mercados = principais((await mercadosDaApi(sql, cfg, jogoId, forcar)).mercados);
+  // Renovar = reimporta o feed inteiro do jogo (props/escanteios/cartões inclusos),
+  // não só o cardápio principal — a rodada já nasce com a lista completa.
+  const mercados = (await mercadosDaApi(sql, cfg, jogoId, forcar)).mercados;
   if (!mercados.length) throw new RuleError('A API não devolveu mercados para esse jogo.');
   const vistos = new Set<string>();
   const dedup = mercados.filter((m) => {
