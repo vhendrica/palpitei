@@ -122,6 +122,9 @@ export async function atualizarResultados(sql: Db, cfg: OddsConfig | undefined) 
       ev = await placarDaApi(cfg, String(jogo.externo_id));
     } catch (e) {
       console.error('[resultados] falha', jogo.externo_id, e);
+      // 429 = cota esgotada: cada tentativa também conta na cota, então para a rodada
+      // inteira em vez de multiplicar o gasto tentando os outros jogos.
+      if (e instanceof Error && e.message.includes('Limite de requisições')) return { consultados: pendentes.length, finalizados, mercados_decididos: decididos, ligas_fechadas: fechadas, creditos_restantes: null, cota_esgotada: true };
       continue;
     }
     if (!ev) continue;
