@@ -312,6 +312,12 @@ function traduzir(m: Market, saida: string, jogador: string | null, C: string, F
     return { grupo: `${nome} ${h}`, descricao: `${j} — ${mm}`, categoria: 'JOGADOR' };
   }
 
+  // Mata-mata/final: quem avança ou levanta o troféu — decide com prorrogação e pênaltis.
+  if (tipo === 'toqualify') {
+    const d = lado(saida);
+    return d ? { grupo: 'VENCEDOR DO CONFRONTO', descricao: d, categoria: 'RESULTADO' } : null;
+  }
+
   if (periodo !== 'fulltime' && periodo !== 'p1') return null;
   const t1 = periodo === 'p1';
   const sfx = t1 ? ' 1º TEMPO' : '';
