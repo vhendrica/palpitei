@@ -315,7 +315,7 @@ function traduzir(m: Market, saida: string, jogador: string | null, C: string, F
   // Mata-mata/final: quem avança ou levanta o troféu — decide com prorrogação e pênaltis.
   if (tipo === 'toqualify') {
     const d = lado(saida);
-    return d ? { grupo: 'VENCEDOR DO CONFRONTO', descricao: d, categoria: 'RESULTADO' } : null;
+    return d ? { grupo: 'AVANÇA / CAMPEÃO', descricao: d, categoria: 'RESULTADO' } : null;
   }
 
   if (periodo !== 'fulltime' && periodo !== 'p1') return null;
