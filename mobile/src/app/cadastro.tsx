@@ -1,5 +1,5 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -48,6 +48,8 @@ export default function Cadastro() {
   const { palette: C } = useTheme();
   const insets = useSafeAreaInsets();
   const { cadastrar } = useApp();
+  const { ref } = useLocalSearchParams<{ ref?: string }>();
+  const indicadoPor = typeof ref === "string" ? ref.trim().toLowerCase() : "";
   const desktop = useDesktop();
   const [nome, setNome] = useState("");
   const [username, setUsername] = useState("");
@@ -126,6 +128,7 @@ export default function Cadastro() {
         data_nascimento: nasc,
         aceita_termos: termos,
         aceita_compartilhamento: dados,
+        ...(indicadoPor ? { indicado_por: indicadoPor } : {}),
       });
       track("Preencheu cadastro");
       router.replace("/(tabs)");

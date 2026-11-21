@@ -104,6 +104,8 @@ export type CadastroInput = {
   bairro?: string;
   aceita_termos: boolean;
   aceita_compartilhamento: boolean;
+  /** Username de quem indicou (programa de indicação); opcional. */
+  indicado_por?: string;
 };
 
 export type Sessao = { token: string; user: User; nova_conta: boolean };

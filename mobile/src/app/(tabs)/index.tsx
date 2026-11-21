@@ -40,6 +40,7 @@ import {
   DRAFT_VAZIO,
   fichasNoDraft,
 } from "../../lib/bilhete";
+import { copiar, linkIndicacao } from "../../lib/convite";
 import { useDesktop } from "../../lib/desktop";
 import { fmtData, fmtOdd, fmtPts, rotuloPalpite } from "../../lib/format";
 import { errorMessage, useApp } from "../../store/AppStore";
@@ -951,6 +952,42 @@ export default function HomeMultipla() {
                           </T>
                         </Card>
                       </Pressable>
+                      {user?.username ? (
+                        <Pressable
+                          onPress={async () => {
+                            await copiarIndicacao(user.username);
+                            toast.show("Link de convite copiado!");
+                          }}
+                          className="flex-1"
+                        >
+                          <Card>
+                            <View className="flex-row items-start justify-between">
+                              <Ionicons
+                                name="people-outline"
+                                size={22}
+                                color={C.primary}
+                              />
+                              <Pressable
+                                hitSlop={8}
+                                onPress={() => convidarIndicacao(user.username, home.liga?.premio_desc)}
+                                accessibilityLabel="Compartilhar convite"
+                              >
+                                <Ionicons
+                                  name="share-social-outline"
+                                  size={18}
+                                  color={C.muted}
+                                />
+                              </Pressable>
+                            </View>
+                            <T className="mt-1.5 font-mont-b text-sm">
+                              Convide & ganhe
+                            </T>
+                            <T className="mt-0.5 text-xs text-muted">
+                              {`+${home.regras.pontos_indicacao ?? 100} pts por amigo — toque pra copiar o link`}
+                            </T>
+                          </Card>
+                        </Pressable>
+                      ) : null}
                     </View>
                   </>
                 ) : null}
@@ -1351,16 +1388,34 @@ function SituacaoFichas({
   );
 }
 
+const mensagemConvite = (url: string, premio?: string | null) =>
+  `Bora palpitar comigo no PALPIT? É de graça${premio ? ` e o campeão leva ${premio}` : ""}! ${url}`;
+
 function convidar(premio?: string | null) {
   const url =
     process.env.EXPO_PUBLIC_APP_URL ??
     "https://vhendrica.github.io/palpitei/app/";
-  const msg = `Bora palpitar comigo no PALPIT? É de graça${premio ? ` e o campeão leva ${premio}` : ""}! ${url}`;
+  const msg = mensagemConvite(url, premio);
   if (Platform.OS === "web") {
     Linking.openURL(`https://wa.me/?text=${encodeURIComponent(msg)}`);
   } else {
     Share.share({ message: msg });
   }
+}
+
+/** Indicação: mesmo texto do convite, mas o link marca quem convidou (ref=username). */
+function convidarIndicacao(username: string, premio?: string | null) {
+  const msg = mensagemConvite(linkIndicacao(username), premio);
+  if (Platform.OS === "web") {
+    Linking.openURL(`https://wa.me/?text=${encodeURIComponent(msg)}`);
+  } else {
+    Share.share({ message: msg });
+  }
+}
+
+/** Copia o link de indicação pro clipboard (o toast vem da tela). */
+async function copiarIndicacao(username: string) {
+  await copiar(linkIndicacao(username));
 }
 
 function CarrosselJogos({

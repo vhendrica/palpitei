@@ -10,6 +10,16 @@ export function linkConvite(token: string) {
   return `palpitei://desafio/convite?token=${token}`;
 }
 
+/** Link de indicação (programa de indicação): leva pro cadastro marcando quem convidou. */
+export function linkIndicacao(username: string) {
+  const ref = `?ref=${encodeURIComponent(username)}`;
+  if (Platform.OS === "web" && typeof window !== "undefined") {
+    const base = window.location.pathname.split(/\/(desafio|historico|palpiteiros|perfil|ranking)(\/|$)/)[0].replace(/\/$/, "");
+    return `${window.location.origin}${base}/cadastro${ref}`;
+  }
+  return `palpitei://cadastro${ref}`;
+}
+
 /** Copia pro clipboard (só web). Devolve se copiou. */
 export async function copiar(texto: string) {
   if (Platform.OS !== "web" || typeof navigator === "undefined" || !navigator.clipboard) return false;
