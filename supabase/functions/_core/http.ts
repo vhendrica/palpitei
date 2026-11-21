@@ -3,7 +3,7 @@ import * as auth from './auth.ts';
 import * as desafios from './desafios.ts';
 import type { Db } from './db.ts';
 import { ForbiddenError, NotFoundError, RuleError } from './errors.ts';
-import { importarOdds, marcarImport, mercadosDaApi, mercadosDaFixture, type OddsConfig } from './odds.ts';
+import { importarOdds, marcarImport, mercadosDaApi, mercadosDaFixture, placarDoJogo, type OddsConfig } from './odds.ts';
 import { aplicarPlacar, atualizarResultados, extrasDoCorpo } from './resultados.ts';
 import * as sim from './sim.ts';
 import { apostar, type MultiplaInput, entrarNaLiga, finalizarLiga, getLiga, getLigaAtual, reativarLiga } from './rules.ts';
@@ -197,6 +197,17 @@ export function createApi(deps: ApiDeps) {
       const segredo = c.req.headers.get('x-cron-secret');
       if (!(await cronOk(sql, segredo, deps.cronSecret))) await c.requireAdmin();
       return atualizarResultados(sql, deps.odds);
+    }],
+    // Diagnóstico: resposta crua do placar OddsPapi de um jogo (checa 429/chave/lag do feed).
+    ['GET', /^\/cron\/debug-placar$/, async (c) => {
+      const segredo = c.req.headers.get('x-cron-secret');
+      if (!(await cronOk(sql, segredo, deps.cronSecret))) await c.requireAdmin();
+      if (!deps.odds) return { erro: 'odds não configurado' };
+      try {
+        return { placar: await placarDoJogo(deps.odds, c.query.get('fixtureId') ?? '') };
+      } catch (e) {
+        return { erro: String(e) };
+      }
     }],
     ['POST', /^\/admin\/jogos\/([^/]+)\/placar$/, async (c) => {
       await c.requireAdmin();
