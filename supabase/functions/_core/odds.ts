@@ -13,7 +13,7 @@ import { validarDataISO } from './validation.ts';
  * Os mercados que o placar resolve (resultado, gols, ambos marcam, handicap, 1º tempo) batem
  * sozinhos; os demais (jogador, escanteios, cartões, placar exato...) o admin liquida na mão.
  */
-export type OddsConfig = { apiKey: string; bookmaker?: string; torneios?: number[]; fetch?: typeof fetch };
+export type OddsConfig = { apiKey: string; bookmaker?: string; bookmakerProps?: string; torneios?: number[]; fetch?: typeof fetch };
 
 /**
  * Campeonatos do pool (tournamentId da OddsPapi): os 3 nacionais, os 5 grandes da Europa
@@ -474,17 +474,27 @@ function ordenar(ms: MercadoApi[]): MercadoApi[] {
 
 async function buscarMercados(db: Db, cfg: OddsConfig, externoId: string, casa: string, fora: string) {
   const bookmaker = cfg.bookmaker ?? CASA_PADRAO;
+  // Casa de props (padrão Betano, cobre mais jogadores nos jogos BR) vem junto na mesma chamada.
+  const bookProps = cfg.bookmakerProps ?? 'betano';
   const [resp, cat] = await Promise.all([
-    req(cfg, `/odds?fixtureId=${encodeURIComponent(externoId)}&bookmakers=${bookmaker}`, true) as Promise<OddsResp | null>,
+    req(cfg, `/odds?fixtureId=${encodeURIComponent(externoId)}&bookmakers=${bookmaker},${bookProps}`, true) as Promise<OddsResp | null>,
     catalogoMercados(db, cfg),
   ]);
   if (!resp) return [];
   // Só busca o mapa de times quando o jogo tem props (economiza a chamada de /players nos demais).
-  const temProps = Object.values(resp.bookmakerOdds?.[bookmaker]?.markets ?? {}).some((m) =>
-    Object.values(m.outcomes ?? {}).some((o) =>
-      Object.values(o.players ?? {}).some((p) => p.playerName)));
+  const temProps = [bookmaker, bookProps].some((b) =>
+    Object.values(resp.bookmakerOdds?.[b]?.markets ?? {}).some((m) =>
+      Object.values(m.outcomes ?? {}).some((o) =>
+        Object.values(o.players ?? {}).some((p) => p.playerName))));
   const times = temProps ? await timesDosJogadores(db, cfg) : undefined;
-  return mercadosDasOdds(resp, cat, casa, fora, bookmaker, times);
+  const base = mercadosDasOdds(resp, cat, casa, fora, bookmaker, times);
+  if (bookProps === bookmaker) return base;
+  const props = mercadosDasOdds(resp, cat, casa, fora, bookProps, times).filter(
+    (m) => m.categoria === 'JOGADOR',
+  );
+  // Casa de props sem mercados de jogador neste jogo: fica tudo da casa padrão.
+  if (!props.length) return base;
+  return ordenar([...base.filter((m) => m.categoria !== 'JOGADOR'), ...props]);
 }
 
 /**

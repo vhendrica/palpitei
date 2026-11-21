@@ -23,6 +23,7 @@ const handle = createApi({
     ? {
         apiKey: env('ODDS_PAPI_KEY')!,
         bookmaker: env('ODDS_PAPI_BOOKMAKER') ?? '1xbet',
+        bookmakerProps: env('ODDS_PAPI_BOOKMAKER_PROPS') ?? 'betano',
         torneios: env('ODDS_PAPI_TORNEIOS')?.split(',').map(Number).filter(Boolean),
       }
     : undefined,
