@@ -46,10 +46,16 @@ import { errorMessage, useApp } from "../../store/AppStore";
 import { useTheme } from "../../store/Theme";
 import { agruparMercados } from "../../types";
 import { GrupoTitulo } from "../../components/GrupoTitulo";
-import { rankSecao, secaoDo } from "../../lib/secoes";
+import { ORDEM_PRINCIPAL, rankSecao, secaoDo } from "../../lib/secoes";
 import type { Jogo, MinhaSituacao, MultiplaView } from "../../types";
 
 const MERCADOS_VISIVEIS = 2;
+
+/** Dentro do PRINCIPAL, a ordem dos grupos segue ORDEM_PRINCIPAL; fora dele não reordena. */
+const rankPrincipal = (g: { grupo: string; opcoes: { secao?: string | null }[] }) =>
+  (g.opcoes[0]?.secao ?? secaoDo(g.grupo)) === "PRINCIPAL"
+    ? ORDEM_PRINCIPAL.indexOf(g.grupo) + 1 || ORDEM_PRINCIPAL.length + 1
+    : 0;
 
 export default function HomeMultipla() {
   const { palette: C, scheme } = useTheme();
@@ -397,7 +403,8 @@ export default function HomeMultipla() {
                 .sort(
                   (a, b) =>
                     rankSecao(a.opcoes[0]?.secao ?? secaoDo(a.grupo)) -
-                    rankSecao(b.opcoes[0]?.secao ?? secaoDo(b.grupo)),
+                      rankSecao(b.opcoes[0]?.secao ?? secaoDo(b.grupo)) ||
+                    rankPrincipal(a) - rankPrincipal(b),
                 );
               const secoesJogo: { nome: string; grupos: typeof gruposVis }[] = [];
               for (const g of gruposVis) {

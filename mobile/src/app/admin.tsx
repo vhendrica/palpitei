@@ -675,14 +675,18 @@ function JogoAdmin({
   // Grupos de mercados recolhidos dentro do card (lista longa de props fica manejável).
   const [gruposOcultos, setGruposOcultos] = useState<Record<string, boolean>>({});
   const [movendoGrupo, setMovendoGrupo] = useState<string | null>(null);
+  const [secaoSel, setSecaoSel] = useState<string | null>(null);
   const [salvou, setSalvou] = useState(false);
   const marcarSalvou = () => {
     setSalvou(true);
     setTimeout(() => setSalvou(false), 2500);
   };
-  const secoesDoJogo = [
-    ...new Set(agruparMercados(mercadosVis).map(secaoAtual)),
-  ];
+  const gruposArr = agruparMercados(mercadosVis);
+  const secoesDoJogo = [...new Set(gruposArr.map(secaoAtual))];
+  // Aba de seção aberta: default = a primeira do jogo.
+  const sel =
+    secaoSel && secoesDoJogo.includes(secaoSel) ? secaoSel : secoesDoJogo[0];
+  const primeiroSel = gruposArr.find((g) => secaoAtual(g) === sel);
 
   // Move um grupo inteiro pra uma seção existente (o "arrastar" da versão click).
   const moverPraSecao = async (
@@ -771,28 +775,39 @@ function JogoAdmin({
       {!editando ? (
         recolhido ? null : (
           <View className="mt-2">
-            {agruparMercados(mercadosVis).map((g, gi, arr) => (
+            <View className="flex-row flex-wrap" style={{ gap: 6 }}>
+              {secoesDoJogo.map((s) => (
+                <Pressable
+                  key={s}
+                  onPress={() => setSecaoSel(s)}
+                  className={`rounded-full border px-2.5 py-1 ${s === sel ? "border-primary bg-primary" : "border-line"}`}
+                  accessibilityLabel={`Seção ${s}`}
+                >
+                  <T
+                    className={`text-[11px] font-mont-b uppercase ${s === sel ? "text-onPrimary" : "text-primary"}`}
+                  >
+                    {s}
+                  </T>
+                </Pressable>
+              ))}
+            </View>
+            {!fechada && primeiroSel ? (
+              <TextInput
+                className="mt-1 border-b border-line pb-0.5 font-mont-xb text-sm text-primary"
+                value={secaoDraft[primeiroSel.grupo] ?? sel}
+                onChangeText={(t) =>
+                  setSecaoDraft((s) => ({
+                    ...s,
+                    [primeiroSel.grupo]: t.toUpperCase(),
+                  }))
+                }
+                onEndEditing={() => salvarSecao(primeiroSel)}
+                onBlur={() => salvarSecao(primeiroSel)}
+              />
+            ) : null}
+            {gruposArr.map((g, gi) =>
+              secaoAtual(g) !== sel ? null : (
               <View key={g.grupo} className="mt-1">
-                {gi === 0 || secaoAtual(arr[gi - 1]) !== secaoAtual(g) ? (
-                  fechada ? (
-                    <T className="mt-1 font-mont-xb text-sm text-primary">
-                      {secaoAtual(g)}
-                    </T>
-                  ) : (
-                    <TextInput
-                      className="mt-1 border-b border-line pb-0.5 font-mont-xb text-sm text-primary"
-                      value={secaoDraft[g.grupo] ?? secaoAtual(g)}
-                      onChangeText={(t) =>
-                        setSecaoDraft((s) => ({
-                          ...s,
-                          [g.grupo]: t.toUpperCase(),
-                        }))
-                      }
-                      onEndEditing={() => salvarSecao(g)}
-                      onBlur={() => salvarSecao(g)}
-                    />
-                  )
-                ) : null}
                 {g.grupo ? (
                   <View className="mt-1 flex-row items-center">
                     <Pressable
@@ -840,7 +855,11 @@ function JogoAdmin({
                           <Ionicons
                             name="arrow-down"
                             size={18}
-                            color={gi === arr.length - 1 ? C.muted : C.primary}
+                            color={
+                              gi === gruposArr.length - 1
+                                ? C.muted
+                                : C.primary
+                            }
                           />
                         </Pressable>
                         <Pressable
@@ -957,7 +976,8 @@ function JogoAdmin({
                   </View>
                     ))}
               </View>
-            ))}
+              ),
+            )}
             {!fechada ? (
               <View className="mt-2 flex-row" style={{ gap: 8 }}>
                 <Button
