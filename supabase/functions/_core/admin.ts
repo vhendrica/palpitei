@@ -88,7 +88,8 @@ const mapFixture = (f: Record<string, unknown>) => ({
 });
 
 export async function listarFixtures(db: Db, data: string) {
-  const rows = await db`select * from fixtures_dia where data = ${validarDataISO(data)} order by horario, time_casa`;
+  // api_football é fonte legada: não tem apuração automática e não pode entrar em ligas/desafios.
+  const rows = await db`select * from fixtures_dia where data = ${validarDataISO(data)} and fonte is distinct from 'api_football' order by horario, time_casa`;
   return rows.map(mapFixture);
 }
 
@@ -127,7 +128,7 @@ export async function selecionarJogos(sql: Db, input: { data: unknown; fixture_i
   const config = await getConfig(sql);
 
   const ligaId = await sql.begin(async (tx: Tx) => {
-    const pool = await tx`select * from fixtures_dia where data = ${data} and fixture_id in ${tx(ids)}`;
+    const pool = await tx`select * from fixtures_dia where data = ${data} and fixture_id in ${tx(ids)} and fonte is distinct from 'api_football'`;
     if (pool.length !== ids.length) throw new RuleError('Jogo fora do pool desse dia.');
 
     let [liga] = await tx`select * from ligas where data = ${data} and owner_id is null for update`;
