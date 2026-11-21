@@ -101,7 +101,7 @@ test('mercadosDaApi busca as odds do jogo e recusa jogo manual', async () => {
   const f = ((u: string) => (urls.push(u), fakeFetch(u))) as typeof fetch;
   const jogo = la.jogos.find((j: any) => j.fixture_id === 101)!;
   const r = await mercadosDaApi(sql, { apiKey: 'k', fetch: f }, jogo.id);
-  assert.ok(urls.some((u) => /\/v4\/odds\?fixtureId=id101&bookmakers=1xbet&apiKey=k$/.test(u)));
+  assert.ok(urls.some((u) => /\/v4\/odds\?fixtureId=id101&bookmakers=1xbet,betano&apiKey=k$/.test(u)));
   assert.ok(r.mercados.length >= 8);
   const manual = la.jogos.find((j: any) => j.fixture_id === 999)!;
   await assert.rejects(mercadosDaApi(sql, { apiKey: 'k', fetch: f }, manual.id), /cadastrado na mão/);
