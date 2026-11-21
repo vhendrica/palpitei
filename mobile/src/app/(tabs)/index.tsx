@@ -915,7 +915,7 @@ export default function HomeMultipla() {
                         </View>
                       </Card>
                     </Pressable>
-                    <SectionTitle>Jogue de outro jeito</SectionTitle>
+                    <SectionTitle>Chame a galera</SectionTitle>
                     <View className="flex-row" style={{ gap: 10 }}>
                       <Pressable
                         onPress={() => router.push("/desafio")}
