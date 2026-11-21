@@ -52,6 +52,7 @@ export async function getConfig(db: Db) {
     fichas_por_entrada: num(c.fichas_por_entrada),
     custo_entrada_pontos: num(c.custo_entrada_pontos),
     pontos_boas_vindas: num(c.pontos_boas_vindas),
+    pontos_indicacao: num(c.pontos_indicacao),
     premio_inicial: num(c.premio_inicial),
     termos_versao: c.termos_versao as string,
     consentimento_versao: c.consentimento_versao as string,
@@ -225,6 +226,7 @@ export async function home(db: Db, user: UserPublico | null, data = hojeISO()) {
     regras: {
       custo_entrada_pontos: liga?.custo_entrada ?? config.custo_entrada_pontos,
       fichas_por_entrada: liga?.fichas_por_entrada ?? config.fichas_por_entrada,
+      pontos_indicacao: config.pontos_indicacao,
     },
     usuario: user
       ? {

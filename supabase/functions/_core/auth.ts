@@ -86,6 +86,8 @@ export type CadastroInput = {
   bairro: unknown;
   aceita_termos: unknown;
   aceita_compartilhamento: unknown;
+  /** Username de quem convidou (programa de indicação); opcional. */
+  indicado_por?: unknown;
 };
 
 const criarSessao = async (tx: Tx, userId: string, sessaoDias: number) => {
@@ -149,6 +151,18 @@ export async function cadastrar(d: AuthDeps, input: CadastroInput) {
     await tx`
       update users set saldo_pontos = saldo_pontos + (select pontos_boas_vindas from config where id = 1)
       where id = ${u.id}`;
+    // Indicação: quem convidou ganha pontos quando o amigo completa o cadastro.
+    if (input.indicado_por) {
+      const [ind] = await tx`
+        select id from users where lower(username) = ${String(input.indicado_por).trim().toLowerCase()}
+        and ativado_em is not null`;
+      if (ind && (ind.id as string) !== (u.id as string)) {
+        await tx`update users set indicado_por = ${ind.id} where id = ${u.id}`;
+        await tx`
+          update users set saldo_pontos = saldo_pontos + (select pontos_indicacao from config where id = 1)
+          where id = ${ind.id}`;
+      }
+    }
     const token = await criarSessao(tx, u.id as string, o.sessaoDias);
     const [user] = await tx`select * from users where id = ${u.id}`;
     return { token, user: mapUser(user) };

@@ -4,6 +4,7 @@ export type LigaStatus = "aberta" | "em_andamento" | "finalizada";
 export type User = {
   id: string;
   nome: string;
+  username: string;
   whatsapp: string | null;
   email: string | null;
   bairro: string;
@@ -105,7 +106,7 @@ export type MinhaSituacao =
 
 export type Home = {
   data: string;
-  regras: { custo_entrada_pontos: number; fichas_por_entrada: number };
+  regras: { custo_entrada_pontos: number; fichas_por_entrada: number; pontos_indicacao?: number };
   usuario: {
     id: string;
     nome: string;
