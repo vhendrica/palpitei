@@ -47,6 +47,7 @@ export function Bilhete({
   draft,
   opcoes,
   fichasLivres,
+  fichasGanhas = 0,
   offsetMultiplas,
   onChange,
   onResumo,
@@ -57,6 +58,8 @@ export function Bilhete({
   opcoes: Record<string, OpcaoBilhete>;
   /** Fichas livres da entrada (antes do rascunho). */
   fichasLivres: number;
+  /** Fichas que voltaram por acertos — reapostá-las sai do conquistado no ranking. */
+  fichasGanhas?: number;
   /** Múltiplas já confirmadas: as novas continuam a numeração. */
   offsetMultiplas: number;
   onChange: (d: Draft) => void;
@@ -79,7 +82,10 @@ export function Bilhete({
   const { height } = useWindowDimensions();
   const fundo = misturar(C.primary, C.card, scheme === "dark" ? 0.14 : 0.1);
 
-  const livres = fichasLivres - fichasNoDraft(draft);
+  const noDraft = fichasNoDraft(draft);
+  const livres = fichasLivres - noDraft;
+  // Fichas do rascunho além das originais = reaposta de fichas que já pontuaram.
+  const usandoDevolvidas = Math.max(0, noDraft - Math.max(0, fichasLivres - fichasGanhas));
   const paginas: string[][] = [];
   for (const id of draft.itens) paginas.push([id]);
   const pequena = draft.multiplas.some((m) => m.mercados.length === 1);
@@ -249,6 +255,14 @@ export function Bilhete({
             <Ficha size={15} />
             <T className="ml-1 font-odds text-sm">{fmtPts(livres)}</T>
             <T className="ml-1 text-xs text-muted">livres</T>
+            {usandoDevolvidas > 0 ? (
+              <View className="ml-2 flex-row items-center rounded-full border border-gold/50 bg-gold/10 px-2 py-0.5">
+                <Ionicons name="refresh" size={11} color={C.gold} />
+                <T className="ml-0.5 font-mont-b text-[10px] text-gold">
+                  {fmtPts(usandoDevolvidas)} reapostadas
+                </T>
+              </View>
+            ) : null}
           </View>
         </View>
       ) : (
@@ -261,12 +275,29 @@ export function Bilhete({
             <View className="flex-row items-center">
               <Ficha size={15} />
               <T className="ml-1 font-odds text-sm">{fmtPts(livres)}</T>
-              <T className="ml-1 mr-2 text-xs text-muted">livres</T>
-              <Ionicons name={aberto ? "chevron-down" : "chevron-up"} size={18} color={C.muted} />
+              <T className="ml-1 text-xs text-muted">livres</T>
+              {usandoDevolvidas > 0 ? (
+                <View className="ml-1.5 flex-row items-center rounded-full border border-gold/50 bg-gold/10 px-1.5 py-0.5">
+                  <Ionicons name="refresh" size={11} color={C.gold} />
+                  <T className="ml-0.5 font-mont-b text-[10px] text-gold">
+                    {fmtPts(usandoDevolvidas)}
+                  </T>
+                </View>
+              ) : null}
+              <Ionicons name={aberto ? "chevron-down" : "chevron-up"} size={18} color={C.muted} style={{ marginLeft: 8 }} />
             </View>
           </View>
         </Pressable>
       )}
+      {usandoDevolvidas > 0 ? (
+        <View className="mb-2 flex-row items-start">
+          <Ionicons name="alert-circle-outline" size={13} color={C.gold} />
+          <T className="ml-1 flex-1 text-[11px] text-gold">
+            Reapostando {fmtPts(usandoDevolvidas)} fichas que já pontuaram — elas
+            saem do seu conquistado no ranking até retornarem.
+          </T>
+        </View>
+      ) : null}
       {!rail && aberto && paginas.length > 1 ? (
         <View className="mb-1.5 flex-row items-center justify-between">
           {expandido ? (

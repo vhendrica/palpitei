@@ -33,6 +33,7 @@ export function ResumoBilhete({
   draft,
   opcoes,
   fichasLivres,
+  fichasGanhas = 0,
   offsetMultiplas,
   busy,
   erro,
@@ -44,6 +45,8 @@ export function ResumoBilhete({
   draft: Draft;
   opcoes: Record<string, OpcaoBilhete>;
   fichasLivres: number;
+  /** Fichas que voltaram por acertos — reapostá-las sai do conquistado no ranking. */
+  fichasGanhas?: number;
   offsetMultiplas: number;
   busy: boolean;
   erro: string | null;
@@ -55,6 +58,8 @@ export function ResumoBilhete({
   const [sobra, setSobra] = useState(false);
   const usadas = fichasNoDraft(draft);
   const livres = fichasLivres - usadas;
+  // Fichas do rascunho além das originais = reaposta de fichas que já pontuaram.
+  const usandoDevolvidas = Math.max(0, usadas - Math.max(0, fichasLivres - fichasGanhas));
   const simples = draft.itens.filter((id) => id in draft.simples && opcoes[id]);
   const totalSimples = simples.reduce(
     (s, id) => s + (draft.simples[id] ?? 0),
@@ -194,7 +199,23 @@ export function ResumoBilhete({
                     <T className="font-mont-xb text-[11px]">{fmtPts(livres)}</T>
                   </T>
                 ) : null}
+                {usandoDevolvidas > 0 ? (
+                  <T className="font-mont-b text-[11px] text-gold">
+                    ■ Reapostadas{" "}
+                    <T className="font-mont-xb text-[11px]">{fmtPts(usandoDevolvidas)}</T>
+                  </T>
+                ) : null}
               </View>
+              {usandoDevolvidas > 0 ? (
+                <View className="mt-2 flex-row items-start">
+                  <Ionicons name="alert-circle-outline" size={13} color={C.gold} />
+                  <T className="ml-1 flex-1 text-[11px] text-gold">
+                    Reapostando {fmtPts(usandoDevolvidas)} fichas que já
+                    pontuaram — elas saem do seu conquistado no ranking até
+                    retornarem.
+                  </T>
+                </View>
+              ) : null}
             </View>
 
             {listaSimples.length > 0 ? (
