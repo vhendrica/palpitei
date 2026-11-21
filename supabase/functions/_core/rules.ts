@@ -450,15 +450,19 @@ export async function calcularRanking(db: Db, ligaId: string, quem?: string): Pr
     quem ? potencialPorUsuario(db, ligaId, false) : Promise.resolve(new Map<string, number>()),
     // Potencial exibido na tela (retorno bruto de simples não-perdidas + múltiplas vivas),
     // menos o que foi reapostado além das fichas da entrada — mesmo número do card.
+    // gross_all soma TODAS as apostas (reapostas inclusas): é o máximo teórico do bilhete,
+    // usado quando a rodada fecha e não existe mais "o que ainda pode voltar".
     db`
       select a.user_id,
-        coalesce(sum(a.fichas_apostadas * a.odd) filter (where m.decidido_em is null or m.resultado_final), 0) as gross
+        coalesce(sum(a.fichas_apostadas * a.odd) filter (where m.decidido_em is null or m.resultado_final), 0) as gross,
+        coalesce(sum(a.fichas_apostadas * a.odd), 0) as gross_all
       from apostas a join mercados m on m.id = a.mercado_id join jogos j on j.id = m.jogo_id
       where j.liga_id = ${ligaId}
       group by a.user_id`,
     db`
       select user_id,
              coalesce(sum(gross) filter (where perdidas = 0), 0) as gross_mult,
+             coalesce(sum(gross), 0) as gross_mult_all,
              coalesce(sum(fichas), 0) as inv
       from (
         select mu.user_id, mu.fichas_apostadas as fichas,
@@ -476,21 +480,27 @@ export async function calcularRanking(db: Db, ligaId: string, quem?: string): Pr
   const potencial = liga?.status === 'finalizada' ? new Map<string, number>() : potencialAberto;
   const grossMult = new Map<string, number>();
   const investido = new Map<string, number>();
+  const potExibido = new Map<string, number>();
+  const potTeorico = new Map<string, number>();
+  const grossS = new Map<string, number>();
+  const grossSAll = new Map<string, number>();
+  const grossMultAll = new Map<string, number>();
+  for (const r of potBruto) {
+    grossS.set(r.user_id as string, num(r.gross));
+    grossSAll.set(r.user_id as string, num(r.gross_all));
+  }
   for (const r of invPorUser) {
     grossMult.set(r.user_id as string, num(r.gross_mult));
+    grossMultAll.set(r.user_id as string, num(r.gross_mult_all));
     investido.set(r.user_id as string, num(r.inv));
   }
-  const potExibido = new Map<string, number>();
-  const grossS = new Map<string, number>();
-  for (const r of potBruto) grossS.set(r.user_id as string, num(r.gross));
   for (const r of rows) {
     const uid = r.id as string;
-    // inv de simples = total apostado em simples (o mesmo `ev.f` menos as múltiplas);
-    // como ev soma simples+múltiplas, usamos fichas - inv_mults pra simples.
-    const invMults = investido.get(uid) ?? 0;
     const invTotal = num(r.fichas);
     const excesso = Math.max(0, invTotal - num(r.fichas_total));
     potExibido.set(uid, (grossS.get(uid) ?? 0) + (grossMult.get(uid) ?? 0) - excesso);
+    // Máximo teórico do bilhete (todas as apostas baterem) — reapostas inclusas.
+    potTeorico.set(uid, (grossSAll.get(uid) ?? 0) + (grossMultAll.get(uid) ?? 0) - excesso);
   }
   // Rodada finalizada: nada mais a ganhar — o potencial não conta na ordenação nem no desempate
   // (mercados não apurados ficam com resultado_final=false e não podem inflar o potencial).
@@ -538,10 +548,12 @@ export async function calcularRanking(db: Db, ligaId: string, quem?: string): Pr
       fichas_apostadas: num(x.r.fichas),
       maior_acerto: x.maior,
       acertos: x.n,
-      potencial: round2(
-        x.pontos +
-          ((x.r.id === quem && liga?.status !== 'finalizada' ? potencialMeu : potencial).get(x.r.id as string) ?? 0),
-      ),
+      potencial: fechada
+        ? round2(potTeorico.get(x.r.id as string) ?? 0)
+        : round2(
+            x.pontos +
+              ((x.r.id === quem ? potencialMeu : potencial).get(x.r.id as string) ?? 0),
+          ),
       desempate,
     };
   });
