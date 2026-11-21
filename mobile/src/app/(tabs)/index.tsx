@@ -402,9 +402,12 @@ export default function HomeMultipla() {
               const secoesJogo: { nome: string; grupos: typeof gruposVis }[] = [];
               for (const g of gruposVis) {
                 const sec = g.opcoes[0]?.secao ?? secaoDo(g.grupo);
+                // Seções finas: fora do PRINCIPAL cada tipo/linha vira seção
+                // ("ESCANTEIOS 8.5", "CARTÕES CASA 4.5", "MARCA NO JOGO"...).
+                const nome = sec === "PRINCIPAL" ? "PRINCIPAL" : g.grupo;
                 const s = secoesJogo[secoesJogo.length - 1];
-                if (s?.nome === sec) s.grupos.push(g);
-                else secoesJogo.push({ nome: sec, grupos: [g] });
+                if (s?.nome === nome) s.grupos.push(g);
+                else secoesJogo.push({ nome, grupos: [g] });
               }
               return secoesJogo.map((s) => {
                 const chave = `${j.id}|${s.nome}`;
@@ -433,14 +436,15 @@ export default function HomeMultipla() {
                       : s.grupos.map((g) => {
                           const gchave = `${j.id}|${g.grupo}`;
                           const goculto = !!gruposOcultos[gchave];
-                          const ehJogador = s.nome === "JOGADOR";
+                          const ehJogador =
+                            (g.opcoes[0]?.secao ?? secaoDo(g.grupo)) === "JOGADOR";
                           const opcoesVis =
                             ehJogador && !jogExpandidos[gchave]
                               ? g.opcoes.slice(0, 9)
                               : g.opcoes;
                           return (
                           <View key={g.grupo} className="mb-3">
-                            {g.grupo ? (
+                            {g.grupo && g.grupo !== s.nome ? (
                               <View className="flex-row items-center">
                                 <Pressable
                                   onPress={() =>

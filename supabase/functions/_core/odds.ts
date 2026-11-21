@@ -489,10 +489,17 @@ async function buscarMercados(db: Db, cfg: OddsConfig, externoId: string, casa: 
   const times = temProps ? await timesDosJogadores(db, cfg) : undefined;
   const base = mercadosDasOdds(resp, cat, casa, fora, bookmaker, times);
   if (bookProps === bookmaker) return base;
-  const props = mercadosDasOdds(resp, cat, casa, fora, bookProps, times).filter(
+  // União das duas casas em JOGADOR: a de props primeiro (cobre mais jogadores),
+  // e a padrão completa os jogadores que a outra não tem (mesmo jogador = a odd da casa de props).
+  const jogadorProps = mercadosDasOdds(resp, cat, casa, fora, bookProps, times).filter(
     (m) => m.categoria === 'JOGADOR',
   );
-  // Casa de props sem mercados de jogador neste jogo: fica tudo da casa padrão.
+  const chaves = new Set(jogadorProps.map((m) => `${m.grupo}|${m.descricao}`));
+  const complemento = base.filter(
+    (m) => m.categoria === 'JOGADOR' && !chaves.has(`${m.grupo}|${m.descricao}`),
+  );
+  const props = [...jogadorProps, ...complemento];
+  // Nenhuma das duas trouxe props: fica tudo da casa padrão.
   if (!props.length) return base;
   return ordenar([...base.filter((m) => m.categoria !== 'JOGADOR'), ...props]);
 }
