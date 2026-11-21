@@ -50,6 +50,15 @@ export function secaoDo(grupo: string): (typeof SECOES)[number] {
   return 'PRINCIPAL';
 }
 
+/** Ordem fixa dos grupos dentro da seção PRINCIPAL (AMBOS sempre cola no RESULTADO). */
+export const ORDEM_PRINCIPAL = [
+  'RESULTADO',
+  'AMBOS MARCAM',
+  'AVANÇA / CAMPEÃO',
+  'DUPLA CHANCE',
+  'EMPATE ANULA',
+];
+
 /** Ordem de exibição das seções na tela de palpite; seção fora da lista vai pro fim. */
 export function rankSecao(secao: string): number {
   const i = SECOES.indexOf(secao as (typeof SECOES)[number]);

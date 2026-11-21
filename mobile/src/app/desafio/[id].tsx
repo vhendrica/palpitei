@@ -16,7 +16,7 @@ import { BetButton } from "../../components/BetButton";
 import { Bilhete, type OpcaoBilhete } from "../../components/Bilhete";
 import { Confirmar } from "../../components/Confirmar";
 import { GrupoTitulo } from "../../components/GrupoTitulo";
-import { rankSecao, secaoDo } from "../../lib/secoes";
+import { ORDEM_PRINCIPAL, rankSecao, secaoDo } from "../../lib/secoes";
 import { PalpiteiroBilhete } from "../../components/PalpiteiroBilhete";
 import { ErrorBox } from "../../components/Form";
 import { ResumoBilhete } from "../../components/ResumoBilhete";
@@ -57,6 +57,12 @@ const horaFmt = (iso: string) =>
   });
 
 const MERCADOS_VISIVEIS = 2;
+
+/** Dentro do PRINCIPAL, a ordem dos grupos segue ORDEM_PRINCIPAL; fora dele não reordena. */
+const rankPrincipal = (g: { grupo: string; opcoes: { secao?: string | null }[] }) =>
+  (g.opcoes[0]?.secao ?? secaoDo(g.grupo)) === "PRINCIPAL"
+    ? ORDEM_PRINCIPAL.indexOf(g.grupo) + 1 || ORDEM_PRINCIPAL.length + 1
+    : 0;
 const COR_POS: Record<number, string> = {
   1: "#F2B01E",
   2: "#C0C8D4",
@@ -427,7 +433,8 @@ export default function Detalhe() {
     const grupos = agruparMercados(j.mercados).sort(
       (a, b) =>
         rankSecao(a.opcoes[0]?.secao ?? secaoDo(a.grupo)) -
-        rankSecao(b.opcoes[0]?.secao ?? secaoDo(b.grupo)),
+          rankSecao(b.opcoes[0]?.secao ?? secaoDo(b.grupo)) ||
+        rankPrincipal(a) - rankPrincipal(b),
     );
     const aberto = abertos.includes(j.id);
     const gruposVis = grupos.filter(
