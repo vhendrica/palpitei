@@ -728,9 +728,9 @@ export default function HomeMultipla() {
                           {home.liga.status !== "finalizada" &&
                           (eu.fichas_ganhas ?? 0) > 0 ? (
                             <T className="mb-2 text-center text-xs text-muted">
-                              Seus acertos já devolveram{" "}
-                              {fmtPts(eu.fichas_ganhas!)} fichas. Dá pra
-                              reapostar nos jogos que não começaram.
+                              Você já recuperou {fmtPts(eu.fichas_ganhas!)}{" "}
+                              fichas. Dá pra distribuir de novo nos jogos que
+                              não começaram e seguir subindo no ranking.
                             </T>
                           ) : null}
                           {aberta && editando ? (
