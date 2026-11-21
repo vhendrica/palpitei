@@ -789,6 +789,13 @@ export default function HomeMultipla() {
                             <View className="flex-1 justify-between p-3">
                               <View>
                                 <T
+                                  className="font-mont-b text-[9px] uppercase tracking-widest text-muted"
+                                  numberOfLines={1}
+                                >
+                                  {siglaTime(e.time_casa)} X{" "}
+                                  {siglaTime(e.time_fora)}
+                                </T>
+                                <T
                                   className="font-mont-xb text-[10px] uppercase tracking-widest"
                                   numberOfLines={2}
                                 >
@@ -1488,6 +1495,14 @@ function AoVivo() {
       </T>
     </View>
   );
+}
+
+function siglaTime(nome: string) {
+  const limpo = nome
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^A-Za-z]/g, "");
+  return limpo.slice(0, 3).toUpperCase() || nome.slice(0, 3).toUpperCase();
 }
 
 function Time({ nome }: { nome: string }) {
