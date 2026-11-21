@@ -46,10 +46,16 @@ import { errorMessage, useApp } from "../../store/AppStore";
 import { useTheme } from "../../store/Theme";
 import { agruparMercados } from "../../types";
 import { GrupoTitulo } from "../../components/GrupoTitulo";
-import { secaoDo } from "../../lib/secoes";
+import { ORDEM_PRINCIPAL, rankSecao, secaoDo } from "../../lib/secoes";
 import type { Jogo, MinhaSituacao, MultiplaView } from "../../types";
 
 const MERCADOS_VISIVEIS = 2;
+
+/** Dentro do PRINCIPAL, a ordem dos grupos segue ORDEM_PRINCIPAL; fora dele não reordena. */
+const rankPrincipal = (g: { grupo: string; opcoes: { secao?: string | null }[] }) =>
+  (g.opcoes[0]?.secao ?? secaoDo(g.grupo)) === "PRINCIPAL"
+    ? ORDEM_PRINCIPAL.indexOf(g.grupo) + 1 || ORDEM_PRINCIPAL.length + 1
+    : 0;
 
 export default function HomeMultipla() {
   const { palette: C, scheme } = useTheme();
@@ -87,6 +93,10 @@ export default function HomeMultipla() {
   const [resumo, setResumo] = useState(false);
   const [verBilhete, setVerBilhete] = useState(false);
   const [abertos, setAbertos] = useState<string[]>([]);
+  // Seções recolhidas por jogo: chave "<jogoId>|<SEÇÃO>".
+  const [secoesOcultas, setSecoesOcultas] = useState<Record<string, boolean>>({});
+  const [gruposOcultos, setGruposOcultos] = useState<Record<string, boolean>>({});
+  const [jogExpandidos, setJogExpandidos] = useState<Record<string, boolean>>({});
   const setDraft = (fn: Draft | ((d: Draft) => Draft)) =>
     setDraftState({
       key: draftKey,
@@ -159,7 +169,9 @@ export default function HomeMultipla() {
           grupo: m.grupo,
           fichas: m.minhas_fichas!,
           odd: m.multiplicador,
-          decidido: !!m.decidido || j.finalizado,
+          // Mercado só mostra resultado quando foi apurado (decidido) ou a rodada fechou
+          // (aí o pendente conta como perdido). Jogo acabado sem apuração fica pendente.
+          decidido: !!m.decidido || home?.liga?.status === "finalizada",
           certo: m.resultado_final,
         })),
     );
@@ -174,7 +186,7 @@ export default function HomeMultipla() {
       simples.reduce((s, p) => s + p.fichas * p.odd, 0) +
       multiplas.reduce((s, m) => s + m.fichas * m.odd, 0);
     return { simples, multiplas, nPalpites, temDecidido, potencial };
-  }, [home?.jogos, eu?.multiplas]);
+  }, [home?.jogos, home?.liga?.status, eu?.multiplas]);
 
   const editarBilhete = () => {
     const ms = editaveis.multiplas.map((m) => ({
@@ -379,37 +391,100 @@ export default function HomeMultipla() {
         </Pressable>
         {!j.finalizado || j.mercados.some((m) => (m.minhas_fichas ?? 0) > 0) ? (
           <View className="mt-3">
-            {agruparMercados(
-              j.finalizado
-                ? j.mercados.filter((m) => (m.minhas_fichas ?? 0) > 0)
-                : j.mercados,
-            )
-              .filter(
-                (_, gi) => gi < MERCADOS_VISIVEIS || abertos.includes(j.id),
+            {(() => {
+              const gruposVis = agruparMercados(
+                j.finalizado
+                  ? j.mercados.filter((m) => (m.minhas_fichas ?? 0) > 0)
+                  : j.mercados,
               )
-              .map((g, gi, arr) => {
+                .filter(
+                  (_, gi) => gi < MERCADOS_VISIVEIS || abertos.includes(j.id),
+                )
+                .sort(
+                  (a, b) =>
+                    rankSecao(a.opcoes[0]?.secao ?? secaoDo(a.grupo)) -
+                      rankSecao(b.opcoes[0]?.secao ?? secaoDo(b.grupo)) ||
+                    rankPrincipal(a) - rankPrincipal(b),
+                );
+              const secoesJogo: { nome: string; grupos: typeof gruposVis }[] = [];
+              for (const g of gruposVis) {
                 const sec = g.opcoes[0]?.secao ?? secaoDo(g.grupo);
-                const novaSecao =
-                  gi === 0 ||
-                  (arr[gi - 1].opcoes[0]?.secao ??
-                    secaoDo(arr[gi - 1].grupo)) !== sec;
+                // Seções finas: fora do PRINCIPAL cada tipo/linha vira seção
+                // ("ESCANTEIOS 8.5", "CARTÕES CASA 4.5", "MARCA NO JOGO"...).
+                const nome = sec === "PRINCIPAL" ? "PRINCIPAL" : g.grupo;
+                const s = secoesJogo[secoesJogo.length - 1];
+                if (s?.nome === nome) s.grupos.push(g);
+                else secoesJogo.push({ nome, grupos: [g] });
+              }
+              return secoesJogo.map((s) => {
+                const chave = `${j.id}|${s.nome}`;
+                // Só PRINCIPAL abre de cara ao expandir; o resto fica recolhido até o toque.
+              const oculta = secoesOcultas[chave] ?? s.nome !== "PRINCIPAL";
                 return (
-                  <View key={g.grupo} className="mb-3">
-                    {novaSecao && sec !== "PRINCIPAL" ? (
-                      <T className="mb-1 mt-1 font-mont-xb text-sm text-primary">
-                        {sec}
+                  <View key={s.nome}>
+                    <Pressable
+                      onPress={() =>
+                        setSecoesOcultas((o) => ({ ...o, [chave]: !oculta }))
+                      }
+                      className="mb-1 mt-1 flex-row items-center active:opacity-70"
+                      accessibilityLabel={`${oculta ? "Expandir" : "Recolher"} seção ${s.nome}`}
+                    >
+                      <Ionicons
+                        name={oculta ? "chevron-forward" : "chevron-down"}
+                        size={14}
+                        color={C.primary}
+                      />
+                      <T className="ml-1 font-mont-xb text-sm text-primary">
+                        {s.nome}
                       </T>
-                    ) : null}
-                    {g.grupo ? <GrupoTitulo grupo={g.grupo} /> : null}
-                    <View className="flex-row flex-wrap" style={{ gap: 6 }}>
-                      {g.opcoes.map((m) => {
+                    </Pressable>
+                    {oculta
+                      ? null
+                      : s.grupos.map((g) => {
+                          const gchave = `${j.id}|${g.grupo}`;
+                          const goculto = !!gruposOcultos[gchave];
+                          const ehJogador =
+                            (g.opcoes[0]?.secao ?? secaoDo(g.grupo)) === "JOGADOR";
+                          const opcoesVis =
+                            ehJogador && !jogExpandidos[gchave]
+                              ? g.opcoes.slice(0, 9)
+                              : g.opcoes;
+                          return (
+                          <View key={g.grupo} className="mb-3">
+                            {g.grupo && g.grupo !== s.nome ? (
+                              <View className="flex-row items-center">
+                                <Pressable
+                                  onPress={() =>
+                                    setGruposOcultos((o) => ({
+                                      ...o,
+                                      [gchave]: !goculto,
+                                    }))
+                                  }
+                                  hitSlop={8}
+                                  accessibilityLabel={`${goculto ? "Expandir" : "Recolher"} mercado ${g.grupo}`}
+                                >
+                                  <Ionicons
+                                    name={goculto ? "chevron-forward" : "chevron-down"}
+                                    size={12}
+                                    color={C.muted}
+                                  />
+                                </Pressable>
+                                <View className="ml-0.5 flex-1">
+                                  <GrupoTitulo grupo={g.grupo} />
+                                </View>
+                              </View>
+                            ) : null}
+                            {goculto ? null : (
+                            <View
+                              className="flex-row flex-wrap"
+                              style={{ gap: 6 }}
+                            >
+                              {opcoesVis.map((m) => {
                         const minhas =
                           editando && !j.comecou ? 0 : (m.minhas_fichas ?? 0);
                         const noBilhete = draft.itens.includes(m.id);
                         const resultado =
-                          home.liga?.status === "finalizada" ||
-                          j.finalizado ||
-                          m.decidido
+                          home.liga?.status === "finalizada" || m.decidido
                             ? m.resultado_final
                               ? "green"
                               : minhas > 0
@@ -444,11 +519,42 @@ export default function HomeMultipla() {
                             />
                           </View>
                         );
-                      })}
-                    </View>
+                              })}
+                            </View>
+                            )}
+                            {!goculto && ehJogador && g.opcoes.length > 9 ? (
+                              <Pressable
+                                onPress={() =>
+                                  setJogExpandidos((o) => ({
+                                    ...o,
+                                    [gchave]: !o[gchave],
+                                  }))
+                                }
+                                className="mt-0.5 flex-row items-center active:opacity-70"
+                              >
+                                <Ionicons
+                                  name={
+                                    jogExpandidos[gchave]
+                                      ? "chevron-up"
+                                      : "chevron-down"
+                                  }
+                                  size={12}
+                                  color={C.muted}
+                                />
+                                <T className="ml-1 font-mont-b text-[11px] text-muted">
+                                  {jogExpandidos[gchave]
+                                    ? "Ver menos"
+                                    : `Ver + ${g.opcoes.length - 9}`}
+                                </T>
+                              </Pressable>
+                            ) : null}
+                          </View>
+                          );
+                        })}
                   </View>
                 );
-              })}
+              });
+            })()}
             {agruparMercados(j.mercados).length > MERCADOS_VISIVEIS ? (
               <Pressable
                 onPress={() =>
@@ -622,18 +728,20 @@ export default function HomeMultipla() {
                         </>
                       ) : (
                         <>
-                          {(!valendo || editaveis.fichas > 0 || livres > 0) &&
+                          {home.liga.status !== "finalizada" &&
+                          (!valendo || editaveis.fichas > 0 || livres > 0) &&
                           livres + noDraft > 0 ? (
                             <SituacaoFichas
                               livres={livres}
                               noBilhete={noDraft}
                             />
                           ) : null}
-                          {(eu.fichas_ganhas ?? 0) > 0 ? (
+                          {home.liga.status !== "finalizada" &&
+                          (eu.fichas_ganhas ?? 0) > 0 ? (
                             <T className="mb-2 text-center text-xs text-muted">
-                              Seus acertos já devolveram{" "}
-                              {fmtPts(eu.fichas_ganhas!)} fichas. Dá pra
-                              reapostar nos jogos que não começaram.
+                              Você já recuperou {fmtPts(eu.fichas_ganhas!)}{" "}
+                              fichas. Dá pra distribuir de novo nos jogos que
+                              não começaram e seguir subindo no ranking.
                             </T>
                           ) : null}
                           {aberta && editando ? (
@@ -659,7 +767,7 @@ export default function HomeMultipla() {
                     <View className="mb-2 flex-row items-center">
                       <View className="mr-2 h-4 w-1 rounded-full bg-primary" />
                       <T className="font-mont-xb text-sm uppercase tracking-wide">
-                        Especiais do dia
+                        Especiais em destaque
                       </T>
                     </View>
                     <ScrollView
@@ -670,11 +778,6 @@ export default function HomeMultipla() {
                       {home.especiais!.map((e) => {
                         const selecionado = draft.itens.includes(e.id);
                         const pode = !!eu && aberta && !e.comecou;
-                        const rotulo = /^(SIM|NÃO|NAO|EMPATE)$/i.test(
-                          e.descricao,
-                        )
-                          ? `${e.grupo} — ${e.descricao}`
-                          : e.descricao;
                         return (
                           <Pressable
                             key={e.id}
@@ -683,27 +786,53 @@ export default function HomeMultipla() {
                                 ? setDraft((d) => alternarOdd(d, e.id))
                                 : chamarPalpitar()
                             }
-                            className={`w-36 rounded-xl border p-3 ${
+                            className={`w-36 flex-row self-stretch overflow-hidden rounded-xl border ${
                               selecionado
                                 ? "border-primary bg-cardAlt"
                                 : "border-line bg-card"
                             }`}
                           >
-                            <T
-                              className="font-mont-xb text-[9px] uppercase tracking-widest text-muted"
-                              numberOfLines={1}
-                            >
-                              {e.time_casa} x {e.time_fora}
-                            </T>
-                            <T
-                              className="mt-1 font-mont-b text-xs"
-                              numberOfLines={2}
-                            >
-                              {rotulo}
-                            </T>
-                            <T className="mt-1 font-odds text-base text-primary">
-                              {fmtOdd(e.multiplicador)}
-                            </T>
+                            <View className="w-1 bg-primary" />
+                            <View className="flex-1 justify-between p-3">
+                              <View>
+                                <T
+                                  className="font-mont-b text-[9px] uppercase tracking-widest text-muted"
+                                  numberOfLines={1}
+                                >
+                                  {siglaTime(e.time_casa)} X{" "}
+                                  {siglaTime(e.time_fora)}
+                                </T>
+                                <T
+                                  className="font-mont-xb text-[10px] uppercase tracking-widest"
+                                  numberOfLines={2}
+                                >
+                                  {e.grupo}
+                                </T>
+                                <T
+                                  className="mt-1 font-mont text-xs text-muted"
+                                  numberOfLines={2}
+                                >
+                                  {e.descricao}
+                                </T>
+                              </View>
+                              <View
+                                className={`mt-2 rounded-lg border px-2 py-1.5 ${
+                                  selecionado
+                                    ? "border-primary bg-primary"
+                                    : "border-line bg-cardAlt"
+                                }`}
+                              >
+                                <T
+                                  className={`text-center font-odds text-sm ${
+                                    selecionado
+                                      ? "text-onPrimary"
+                                      : "text-primary"
+                                  }`}
+                                >
+                                  {fmtOdd(e.multiplicador)}
+                                </T>
+                              </View>
+                            </View>
                           </Pressable>
                         );
                       })}
@@ -854,6 +983,7 @@ export default function HomeMultipla() {
                   draft={draft}
                   opcoes={opcoes}
                   fichasLivres={fichasLivresBase}
+                  fichasGanhas={eu?.fichas_ganhas ?? 0}
                   offsetMultiplas={offsetMultiplas}
                   onChange={setDraft}
                   rail
@@ -903,6 +1033,7 @@ export default function HomeMultipla() {
           draft={draft}
           opcoes={opcoes}
           fichasLivres={fichasLivresBase}
+          fichasGanhas={eu?.fichas_ganhas ?? 0}
           offsetMultiplas={offsetMultiplas}
           busy={busy}
           erro={erroBilhete}
@@ -916,6 +1047,7 @@ export default function HomeMultipla() {
           draft={draft}
           opcoes={opcoes}
           fichasLivres={fichasLivresBase}
+          fichasGanhas={eu?.fichas_ganhas ?? 0}
           offsetMultiplas={offsetMultiplas}
           onChange={setDraft}
           onResumo={() => {
@@ -1089,6 +1221,12 @@ function DistribuicaoBilhete({
               <T className="mr-2 font-odds text-base text-primary">
                 {fmtOdd(p.odd)}
               </T>
+              <T className="mr-2 text-[11px] text-muted">
+                →{" "}
+                <T className="font-mont-xb text-xs text-primary">
+                  {fmtPts(Math.round(p.fichas * p.odd * 100) / 100)}
+                </T>
+              </T>
               {icone(p.decidido, p.certo)}
             </View>
           ))}
@@ -1125,8 +1263,13 @@ function DistribuicaoBilhete({
                 {fmtPts(m.fichas)} FICHAS · MULTIPLICADOR TOTAL
               </T>
               <T className="font-odds text-lg" style={{ color: cor }}>
-                <T className="text-xs text-muted">= </T>
                 {fmtOdd(m.odd).slice(0, -1)}
+              </T>
+              <T className="ml-1 text-[11px] text-muted">
+                →{" "}
+                <T className="font-mont-xb text-sm" style={{ color: cor }}>
+                  {fmtPts(Math.round(m.fichas * m.odd * 100) / 100)}
+                </T>
               </T>
             </View>
           </BlocoBilhete>
@@ -1359,6 +1502,14 @@ function AoVivo() {
       </T>
     </View>
   );
+}
+
+function siglaTime(nome: string) {
+  const limpo = nome
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^A-Za-z]/g, "");
+  return limpo.slice(0, 3).toUpperCase() || nome.slice(0, 3).toUpperCase();
 }
 
 function Time({ nome }: { nome: string }) {

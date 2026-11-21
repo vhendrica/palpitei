@@ -35,6 +35,7 @@ export type Mercado = {
   decidido?: boolean;
   minhas_fichas?: number;
   especial?: boolean;
+  especial_ordem?: number | null;
 };
 
 export type Especial = {
@@ -60,6 +61,7 @@ export type Jogo = {
   comecou: boolean;
   finalizado: boolean;
   placar: { casa: number; fora: number } | null;
+  estatisticas?: Partial<Record<'gols1t' | 'escanteios' | 'escanteios1t' | 'cartoes', [number, number]>>;
   mercados: Mercado[];
 };
 

@@ -165,8 +165,8 @@ describe('pontuação e ranking', () => {
     assert.deepEqual(
       r.slice(0, 2).map((x) => [x.posicao, x.nome, x.pontuacao, x.desempate, x.maior_acerto, x.acertos]),
       [
-        [1, 'Arriscou S.', 240, 'maior multiplicador acertado: 4.00', 4, 1],
-        [2, 'Simples S.', 240, '2 acertos', 2, 2],
+        [1, 'arriscou.silva', 240, 'maior multiplicador acertado: 4.00', 4, 1],
+        [2, 'simples.souza', 240, '2 acertos', 2, 2],
       ],
     );
     // Cedo e Tarde empatam em tudo: a hora de entrada não desempata nem aparece.
@@ -177,8 +177,8 @@ describe('pontuação e ranking', () => {
         [4, 240, null, 2, 1],
       ],
     );
-    assert.deepEqual(r.slice(2, 4).map((x) => x.nome).sort(), ['Cedo L.', 'Tarde C.']);
-    assert.deepEqual([r[4].posicao, r[4].nome, r[4].desempate], [5, 'Parado R.', null]);
+    assert.deepEqual(r.slice(2, 4).map((x) => x.nome).sort(), ['cedo.lima', 'tarde.costa']);
+    assert.deepEqual([r[4].posicao, r[4].nome, r[4].desempate], [5, 'parado.rocha', null]);
   });
 });
 
@@ -326,14 +326,14 @@ test('palpiteiros do dia lista quem entrou e as fichas de cada um', async () => 
   // Jogos ainda não começaram: os outros só veem quem entrou.
   const r = await palpiteirosDoDia(sql, null, data);
   // Antes do jogo ninguém pontua nem tem potencial público: a ordem não revela bilhete.
-  assert.deepEqual(r.palpiteiros.map((p) => [p.nome, p.palpites.length]).sort(), [['Ana', 0], ['Bia', 0]]);
+  assert.deepEqual(r.palpiteiros.map((p) => [p.nome, p.palpites.length]).sort(), [['ana', 0], ['bia', 0]]);
   // A própria Ana vê o bilhete inteiro, com fichas.
   const eu = await palpiteirosDoDia(sql, { id: a } as never, data);
   assert.deepEqual(eu.palpiteiros.find((p) => p.eu)!.palpites.map((p) => p.fichas).sort((x, y) => Number(y) - Number(x)), [50, 20]);
   // Jogo começou: aparecem mercado e odd, sem fichas.
   await sql`update jogos set horario = now() - interval '1 minute' where liga_id = ${ligaId}`;
   const r2 = await palpiteirosDoDia(sql, null, data);
-  const ana = r2.palpiteiros.find((p) => p.nome === 'Ana')!;
+  const ana = r2.palpiteiros.find((p) => p.nome === 'ana')!;
   assert.equal(ana.palpites.length, 2);
   assert.equal(ana.palpites[0].fichas, undefined);
 });

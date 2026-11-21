@@ -40,6 +40,8 @@ export type JogoView = {
   comecou: boolean;
   finalizado: boolean;
   placar: { casa: number; fora: number } | null;
+  /** Estatísticas pós-jogo informadas (escanteios/cartões/1º tempo), cada uma [casa, fora]. */
+  estatisticas: Record<string, [number, number]>;
   mercados: MercadoView[];
 };
 
@@ -89,6 +91,7 @@ export async function jogosComMercados(db: Db, ligaId: string, userId?: string |
     comecou: !!j.comecou,
     finalizado: j.finalizado_em != null,
     placar: placarDoJogo(j),
+    estatisticas: (j.estatisticas as Record<string, [number, number]>) ?? {},
     mercados: mercados
       .filter((m) => m.jogo_id === j.id)
       .map((m) => ({
@@ -100,6 +103,7 @@ export async function jogosComMercados(db: Db, ligaId: string, userId?: string |
         resultado_final: !!m.resultado_final,
         decidido: m.decidido_em != null,
         especial: !!m.especial,
+        especial_ordem: (m.especial_ordem as number) ?? null,
         ...(userId ? { minhas_fichas: num(m.minhas) } : {}),
       })),
   }));
@@ -135,7 +139,7 @@ async function multiplasDaLiga(db: Db, ligaId: string, userId?: string) {
   const rows = await db`
     select mu.id, mu.user_id, mu.fichas_apostadas, p.mercado_id, p.odd, m.grupo, m.descricao, m.resultado_final,
            j.time_casa, j.time_fora, j.horario <= now() as comecou,
-           (j.finalizado_em is not null or m.decidido_em is not null) as finalizado
+           (m.decidido_em is not null) as finalizado
     from multiplas mu join multipla_pernas p on p.multipla_id = mu.id
     join mercados m on m.id = p.mercado_id join jogos j on j.id = m.jogo_id
     where mu.liga_id = ${ligaId} and (${userId ?? null}::uuid is null or mu.user_id = ${userId ?? null}::uuid)
@@ -244,7 +248,7 @@ export async function home(db: Db, user: UserPublico | null, data = hojeISO()) {
              j.horario <= now() as comecou
       from mercados m join jogos j on j.id = m.jogo_id
       where j.liga_id = ${liga.id} and m.especial and m.oculto = false
-      order by j.destaque desc, j.horario, j.ordem, m.ordem
+      order by m.especial_ordem nulls last, j.destaque desc, j.horario, j.ordem, m.ordem
       limit 10`,
   ]);
   return {
@@ -347,11 +351,11 @@ export async function palpiteirosDoDia(db: Db, user: UserPublico | null, data = 
 export async function palpiteirosDaLiga(db: Db, user: UserPublico | null, liga: LigaRow, verTudo = false) {
   const data = liga.data;
   const [entradas, apostas, multiplas] = await Promise.all([
-    db`select e.user_id, u.nome, e.created_at, e.fichas_total from entradas e join users u on u.id = e.user_id
+    db`select e.user_id, u.nome, u.username, e.created_at, e.fichas_total from entradas e join users u on u.id = e.user_id
        where e.liga_id = ${liga.id} order by e.created_at`,
     db`select a.user_id, m.id as mercado_id, m.grupo, m.descricao, m.resultado_final, max(a.odd) as multiplicador,
          j.time_casa, j.time_fora, j.horario <= now() as comecou,
-         (j.finalizado_em is not null or m.decidido_em is not null) as finalizado,
+         (m.decidido_em is not null) as finalizado,
          sum(a.fichas_apostadas)::int as fichas
        from apostas a join mercados m on m.id = a.mercado_id join jogos j on j.id = m.jogo_id
        where j.liga_id = ${liga.id}
@@ -385,7 +389,7 @@ export async function palpiteirosDaLiga(db: Db, user: UserPublico | null, liga: 
       const potencialSimples = eu || verTudo
         ? exato(
             apostas
-              .filter((a) => a.user_id === e.user_id && !a.finalizado)
+              .filter((a) => a.user_id === e.user_id && !(a.finalizado || tudo))
               .reduce((t, a) => t + num(a.fichas) * num(a.multiplicador), 0),
           )
         : null;
@@ -393,8 +397,8 @@ export async function palpiteirosDaLiga(db: Db, user: UserPublico | null, liga: 
       // Perna oculta mascara o potencial pra não vazar a odd escondida.
       const potMult = (m: (typeof multiplas)[number], ocultas: number) => {
         if (!(eu || verTudo) || ocultas > 0) return null;
-        const morta = m.pernas.some((p) => p.finalizado && !p.resultado_final);
-        const viva = m.pernas.some((p) => !p.finalizado);
+        const morta = m.pernas.some((p) => (p.finalizado || tudo) && !p.resultado_final);
+        const viva = m.pernas.some((p) => !p.finalizado && !tudo);
         return !morta && viva ? exato(m.fichas * m.odd) : 0;
       };
       const minhas = multiplas
@@ -422,10 +426,10 @@ export async function palpiteirosDaLiga(db: Db, user: UserPublico | null, liga: 
       // Potencial total: público (já aparece no ranking de todo mundo), sem detalhar composição.
       const potencial = exato(
             apostas
-              .filter((a) => a.user_id === e.user_id && !(a.finalizado && !a.resultado_final))
+              .filter((a) => a.user_id === e.user_id && !((a.finalizado || tudo) && !a.resultado_final))
               .reduce((t, a) => t + num(a.fichas) * num(a.multiplicador), 0) +
               multiplas
-                .filter((m) => m.user_id === e.user_id && !m.pernas.some((p) => p.finalizado && !p.resultado_final))
+                .filter((m) => m.user_id === e.user_id && !m.pernas.some((p) => (p.finalizado || tudo) && !p.resultado_final))
                 .reduce((t, m) => t + m.fichas * m.odd, 0) -
               // As fichas iniciais não contam: só o que passar delas sai do que já foi ganho.
               Math.max(
@@ -436,7 +440,7 @@ export async function palpiteirosDaLiga(db: Db, user: UserPublico | null, liga: 
               ),
           );
       return {
-        nome: eu ? (e.nome as string) : nomePublico(e.nome as string),
+        nome: (e.username as string | null) ?? (eu ? (e.nome as string) : nomePublico(e.nome as string)),
         entrou_em: iso(e.created_at)!,
         eu,
         posicao: r?.posicao ?? null,

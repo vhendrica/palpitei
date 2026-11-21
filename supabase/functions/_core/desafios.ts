@@ -93,7 +93,7 @@ function validarMercados(raw: unknown, jogo: string): MercadoInput[] {
     if (!Number.isFinite(multiplicador) || multiplicador <= 0 || multiplicador > 999.99) {
       throw new RuleError(`Mercado "${descricao}": multiplicador inválido.`);
     }
-    const grupo = String(m?.grupo ?? '').trim().slice(0, 40);
+    const grupo = String(m?.grupo ?? '').trim().slice(0, 60);
     return { grupo, descricao, multiplicador };
   });
 }
@@ -113,7 +113,7 @@ export async function criarDesafio(sql: Db, user: UserPublico, input: Record<str
   }
 
   return sql.begin(async (tx: Tx) => {
-    const pool = await tx`select * from fixtures_dia where fixture_id in ${tx(fixtureIds)} order by horario, time_casa`;
+    const pool = await tx`select * from fixtures_dia where fixture_id in ${tx(fixtureIds)} and fonte is distinct from 'api_football' order by horario, time_casa`;
     if (pool.length !== fixtureIds.length) throw new RuleError('Jogo fora do pool disponível.');
     const config = await getConfig(tx);
     const data = pool.map((f) => (f.data instanceof Date ? f.data.toISOString() : String(f.data)).slice(0, 10)).sort()[0];

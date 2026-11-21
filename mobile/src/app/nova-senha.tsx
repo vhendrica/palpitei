@@ -65,7 +65,7 @@ export default function NovaSenha() {
             </T>
             <Button
               title="Pedir novo link"
-              onPress={() => router.replace("/esqueci")}
+              onPress={() => router.replace("/esqueci" as never)}
             />
           </>
         ) : pronto ? (

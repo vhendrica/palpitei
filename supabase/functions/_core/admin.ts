@@ -3,7 +3,7 @@ import { NotFoundError, RuleError } from './errors.ts';
 import { validarEscada } from './premio.ts';
 import { getEscada, getLiga, getLigaPorData } from './rules.ts';
 import { getConfig, jogosComMercados } from './services.ts';
-import { mercadosDaApi, type OddsConfig } from './odds.ts';
+import { mercadosDaApi, type OddsConfig, principais } from './odds.ts';
 import { isUuid, validarDataISO } from './validation.ts';
 
 const inteiroPositivo = (v: unknown, campo: string) => {
@@ -88,7 +88,8 @@ const mapFixture = (f: Record<string, unknown>) => ({
 });
 
 export async function listarFixtures(db: Db, data: string) {
-  const rows = await db`select * from fixtures_dia where data = ${validarDataISO(data)} order by horario, time_casa`;
+  // api_football é fonte legada: não tem apuração automática e não pode entrar em ligas/desafios.
+  const rows = await db`select * from fixtures_dia where data = ${validarDataISO(data)} and fonte is distinct from 'api_football' order by horario, time_casa`;
   return rows.map(mapFixture);
 }
 
@@ -127,7 +128,7 @@ export async function selecionarJogos(sql: Db, input: { data: unknown; fixture_i
   const config = await getConfig(sql);
 
   const ligaId = await sql.begin(async (tx: Tx) => {
-    const pool = await tx`select * from fixtures_dia where data = ${data} and fixture_id in ${tx(ids)}`;
+    const pool = await tx`select * from fixtures_dia where data = ${data} and fixture_id in ${tx(ids)} and fonte is distinct from 'api_football'`;
     if (pool.length !== ids.length) throw new RuleError('Jogo fora do pool desse dia.');
 
     let [liga] = await tx`select * from ligas where data = ${data} and owner_id is null for update`;
@@ -245,9 +246,29 @@ export async function alternarEspecial(sql: Db, mercadoId: string) {
         select count(*)::int as n from mercados m join jogos j on j.id = m.jogo_id
         where j.liga_id = ${m.liga_id} and m.especial`;
       if (num(n) >= 10) throw new RuleError('Máximo de 10 especiais por rodada.');
+      // Novo especial entra no fim da fila; a ordem de exibição é a especial_ordem.
+      await tx`update mercados set especial = true,
+        especial_ordem = coalesce((select max(m2.especial_ordem) from mercados m2 join jogos j2 on j2.id = m2.jogo_id
+          where j2.liga_id = ${m.liga_id} and m2.especial), 0) + 1
+        where id = ${mercadoId}`;
+    } else {
+      await tx`update mercados set especial = false, especial_ordem = null where id = ${mercadoId}`;
     }
-    await tx`update mercados set especial = not especial where id = ${mercadoId}`;
     return m.liga_id as string;
+  });
+  return ligaAdmin(sql, ligaId);
+}
+
+/** Reordena os especiais do dia: o array de ids define a ordem na home (posição 1 = primeiro). */
+export async function ordenarEspeciais(sql: Db, ligaId: string, ids: unknown) {
+  if (!isUuid(ligaId)) throw new NotFoundError('Palpite não encontrado.');
+  if (!Array.isArray(ids)) throw new RuleError('Lista de mercados inválida.');
+  await sql.begin(async (tx: Tx) => {
+    for (const [i, id] of ids.entries()) {
+      if (!isUuid(String(id))) continue;
+      await tx`update mercados m set especial_ordem = ${i + 1}
+        from jogos j where m.jogo_id = j.id and j.liga_id = ${ligaId} and m.id = ${String(id)} and m.especial`;
+    }
   });
   return ligaAdmin(sql, ligaId);
 }
@@ -270,9 +291,9 @@ export async function definirResultadoMercado(sql: Db, mercadoId: string, result
     if (m.status === 'finalizada') throw new RuleError('Palpite já finalizado; reative pra ajustar.');
     await tx`
       update mercados set
-        resultado_final = ${resultado === 'certo'},
+        resultado_final = (${resultado === 'certo' ? 't' : 'f'})::boolean,
         anulado = false,
-        decidido_em = case when ${resultado} = 'pendente' then null else coalesce(decidido_em, now()) end
+        decidido_em = case when ${String(resultado)} = 'pendente' then null else coalesce(decidido_em, now()) end
       where id = ${mercadoId}`;
     return m.liga_id as string;
   });
@@ -293,7 +314,7 @@ export async function definirMercados(sql: Db, jogoId: string, mercadosInput: un
     }
     if (m?.id != null && !isUuid(m.id)) throw new RuleError('Mercado inválido para esse palpite.');
     const grupo = m?.grupo == null ? '' : String(m.grupo).trim().toUpperCase();
-    if (grupo.length > 40) throw new RuleError('Nome do mercado muito longo.');
+    if (grupo.length > 60) throw new RuleError('Nome do mercado muito longo.');
     return { id: (m?.id as string) ?? null, grupo, descricao: texto(m?.descricao, 'Descrição').toUpperCase(), multiplicador, ordem: i, secao: (m?.secao as string) ?? null };
   });
 
@@ -343,51 +364,94 @@ export async function definirMercados(sql: Db, jogoId: string, mercadosInput: un
     );
 
     const manter = new Set(itensFinais.filter((i) => i.id).map((i) => i.id as string));
-    for (const m of atuais) {
-      if (!manter.has(m.id as string)) {
-        // Com ficha apostada o mercado não sai: a aposta precisa aparecer pra ser decidida.
-        if (m.tem_apostas) {
-          throw new RuleError(`"${m.descricao}" já tem aposta e não pode ser removido.`);
-        }
-        await tx`delete from mercados where id = ${m.id}`;
-      } else if (m.oculto) {
-        await tx`update mercados set oculto = false where id = ${m.id}`;
-      }
-    }
+    const remover = atuais.filter((m) => !manter.has(m.id as string));
+    // Com ficha apostada o mercado não sai: a aposta precisa aparecer pra ser decidida.
+    const travado = remover.find((m) => m.tem_apostas);
+    if (travado) throw new RuleError(`"${travado.descricao}" já tem aposta e não pode ser removido.`);
+    if (remover.length)
+      await tx`delete from mercados where id = any(${remover.map((m) => m.id as string)}::uuid[])`;
+    await tx`update mercados set oculto = false where jogo_id = ${jogoId} and oculto`;
+
+    // Em lote: um UPDATE por unnest + um INSERT multi-linha (era 1 query por mercado — lento com props).
+    const alterar: typeof itensFinais = [];
+    const inserir: typeof itensFinais = [];
     for (const it of itensFinais) {
       const atual = it.id ? porId.get(it.id) : null;
-      if (atual) {
-        const mudou =
-          atual.grupo !== it.grupo ||
-          normDesc(atual.descricao as string, casaNome, foraNome) !== normDesc(it.descricao, casaNome, foraNome) ||
-          num(atual.multiplicador) !== it.multiplicador;
-        if (mudou && atual.tem_apostas) {
-          throw new RuleError(`O mercado "${atual.descricao}" já recebeu fichas e não pode ser alterado.`);
-        }
-        await tx`
-          update mercados set grupo = ${it.grupo}, descricao = ${it.descricao}, multiplicador = ${it.multiplicador}, ordem = ${it.ordem}, secao = coalesce(${it.secao}, secao)
-          where id = ${it.id}`;
-      } else {
-        await tx`
-          insert into mercados (jogo_id, grupo, descricao, multiplicador, ordem, secao)
-          values (${jogoId}, ${it.grupo}, ${it.descricao}, ${it.multiplicador}, ${it.ordem},
-                  ${it.secao ?? secaoDoGrupo.get(it.grupo) ?? null})`;
+      if (!atual) {
+        inserir.push(it);
+        continue;
+      }
+      const mudou =
+        atual.grupo !== it.grupo ||
+        normDesc(atual.descricao as string, casaNome, foraNome) !== normDesc(it.descricao, casaNome, foraNome) ||
+        num(atual.multiplicador) !== it.multiplicador;
+      if (mudou && atual.tem_apostas) {
+        throw new RuleError(`O mercado "${atual.descricao}" já recebeu fichas e não pode ser alterado.`);
+      }
+      // ordem/secao são cosméticos: atualiza mesmo com ficha apostada.
+      if (mudou || num(atual.ordem) !== it.ordem || (it.secao != null && it.secao !== atual.secao)) {
+        alterar.push(it);
       }
     }
+    if (alterar.length)
+      await tx`update mercados m
+               set grupo = v.grupo, descricao = v.descricao, multiplicador = v.multiplicador,
+                   ordem = v.ordem, secao = coalesce(v.secao, m.secao)
+               from unnest(${alterar.map((i) => i.id)}::uuid[], ${alterar.map((i) => i.grupo)}::text[],
+                           ${alterar.map((i) => i.descricao)}::text[], ${alterar.map((i) => i.multiplicador)}::numeric[],
+                           ${alterar.map((i) => i.ordem)}::int[], ${alterar.map((i) => i.secao)}::text[]
+                          ) as v(id, grupo, descricao, multiplicador, ordem, secao)
+               where m.id = v.id`;
+    if (inserir.length)
+      await tx`insert into mercados ${tx(
+        inserir.map((it) => ({
+          jogo_id: jogoId, grupo: it.grupo, descricao: it.descricao, multiplicador: it.multiplicador,
+          ordem: it.ordem, secao: it.secao ?? secaoDoGrupo.get(it.grupo) ?? null,
+        })),
+        'jogo_id', 'grupo', 'descricao', 'multiplicador', 'ordem', 'secao',
+      )}`;
+    return j.liga_id as string;
+  });
+  return ligaAdmin(sql, ligaId);
+}
+
+/**
+ * Atualiza só seção e ordem dos mercados (opção cosmética — não toca multiplicador, não cria nem remove).
+ * Um único UPDATE em vez de regravar a lista inteira, como faz definirMercados.
+ */
+export async function metaMercados(sql: Db, jogoId: string, mercadosInput: unknown) {
+  if (!isUuid(jogoId)) throw new NotFoundError('Jogo não encontrado.');
+  if (!Array.isArray(mercadosInput)) throw new RuleError('Envie a lista de mercados.');
+  const itens = mercadosInput.map((m, i) => {
+    if (!isUuid(m?.id)) throw new RuleError('Mercado inválido para esse palpite.');
+    const secao = m?.secao == null ? null : String(m.secao).trim().toUpperCase().slice(0, 40);
+    return { id: m.id as string, ordem: i, secao };
+  });
+  const ligaId = await sql.begin(async (tx: Tx) => {
+    const [j] = await tx`
+      select j.liga_id, l.status from jogos j join ligas l on l.id = j.liga_id where j.id = ${jogoId} for update of j`;
+    if (!j) throw new NotFoundError('Jogo não encontrado.');
+    if (j.status === 'finalizada') throw new RuleError('Palpite já finalizado.');
+    await tx`
+      update mercados m set ordem = v.ordem, secao = v.secao
+      from unnest(${itens.map((i) => i.id)}::uuid[], ${itens.map((i) => i.ordem)}::int[], ${itens.map((i) => i.secao)}::text[]) as v(id, ordem, secao)
+      where m.id = v.id and m.jogo_id = ${jogoId}`;
     return j.liga_id as string;
   });
   return ligaAdmin(sql, ligaId);
 }
 
 /** Abre/fecha a múltipla para entradas e apostas ('aberta' ↔ 'em_andamento'). Finalizar é outro endpoint. */
-/** Refaz os mercados de um jogo com as odds atuais da Football API. Só antes de alguém entrar na rodada. */
-export async function renovarMercadosJogo(sql: Db, cfg: OddsConfig | undefined, jogoId: string) {
+/** Refaz os mercados de um jogo com as odds atuais da OddsPapi (feed inteiro). Só antes de alguém entrar na rodada. */
+export async function renovarMercadosJogo(sql: Db, cfg: OddsConfig | undefined, jogoId: string, forcar = false) {
   if (!isUuid(jogoId)) throw new NotFoundError('Jogo não encontrado.');
   const [j] = await sql`select j.id, j.liga_id, j.time_casa, j.time_fora from jogos j where j.id = ${jogoId}`;
   if (!j) throw new NotFoundError('Jogo não encontrado.');
   const [{ n }] = await sql`select count(*)::int as n from entradas where liga_id = ${j.liga_id}`;
   if (n > 0) throw new RuleError('Já tem palpiteiro nessa rodada; os mercados estão travados.');
-  const { mercados } = await mercadosDaApi(sql, cfg, jogoId);
+  // Renovar = reimporta o feed inteiro do jogo (props/escanteios/cartões inclusos),
+  // não só o cardápio principal — a rodada já nasce com a lista completa.
+  const mercados = (await mercadosDaApi(sql, cfg, jogoId, forcar)).mercados;
   if (!mercados.length) throw new RuleError('A API não devolveu mercados para esse jogo.');
   const vistos = new Set<string>();
   const dedup = mercados.filter((m) => {

@@ -5,7 +5,9 @@ import { posthog } from "posthog-js";
  * este arquivo automaticamente no bundle web). Sem chave = no-op.
  */
 
-const KEY = process.env.EXPO_PUBLIC_POSTHOG_KEY ?? "";
+// Chave pública do projeto PostHog (só escreve eventos — vai no bundle de
+// qualquer jeito). EXPO_PUBLIC_POSTHOG_KEY sobrescreve se existir.
+const KEY = process.env.EXPO_PUBLIC_POSTHOG_KEY ?? "phc_B3X7ieUMyTBBTe2Vxa7Pq6fNTFvPomhzmK2srddZV6dw";
 const HOST = process.env.EXPO_PUBLIC_POSTHOG_HOST ?? "https://us.i.posthog.com";
 
 export const analyticsOk = KEY.startsWith("phc_");

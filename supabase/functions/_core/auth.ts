@@ -10,6 +10,7 @@ import {
   validarMaioridade,
   validarNome,
   validarSenha,
+  validarUsername,
   validarWhatsapp,
 } from './validation.ts';
 import type { EmailSender } from './email.ts';
@@ -45,6 +46,7 @@ export type AuthDeps = {
 export type UserPublico = {
   id: string;
   nome: string;
+  username: string;
   whatsapp: string | null;
   email: string | null;
   bairro: string;
@@ -58,6 +60,7 @@ export type UserPublico = {
 export const mapUser = (u: Record<string, unknown>): UserPublico => ({
   id: u.id as string,
   nome: u.nome as string,
+  username: u.username as string,
   whatsapp: (u.whatsapp as string | null) ?? null,
   email: (u.email as string | null) ?? null,
   bairro: u.bairro as string,
@@ -74,6 +77,7 @@ const mascarar = (w: string) => `(${w.slice(0, 2)}) *****-${w.slice(-4)}`;
 
 export type CadastroInput = {
   nome: unknown;
+  username: unknown;
   email: unknown;
   senha: unknown;
   whatsapp: unknown;
@@ -96,6 +100,7 @@ const criarSessao = async (tx: Tx, userId: string, sessaoDias: number) => {
 /** Cadastro por e-mail + senha: ativa a conta na hora, credita boas-vindas e devolve a sessão. */
 export async function cadastrar(d: AuthDeps, input: CadastroInput) {
   const nome = validarNome(input.nome);
+  const username = validarUsername(input.username);
   const email = validarEmail(input.email);
   const senha = validarSenha(input.senha);
   const whatsapp = validarWhatsapp(input.whatsapp);
@@ -112,14 +117,18 @@ export async function cadastrar(d: AuthDeps, input: CadastroInput) {
 
   const res = await d.sql.begin(async (tx: Tx) => {
     const existentes = await tx`
-      select id, cpf, whatsapp, email, ativado_em from users
+      select id, cpf, whatsapp, email, username, ativado_em from users
       where cpf = ${cpf}
          or lower(email) = ${email}
+         or lower(username) = ${username}
          ${whatsapp ? tx`or whatsapp = ${whatsapp}` : tx``}
       for update`;
     if (existentes.some((u) => u.ativado_em && u.cpf === cpf)) throw new RuleError('CPF já cadastrado.');
     if (existentes.some((u) => u.ativado_em && String(u.email ?? '').toLowerCase() === email)) {
       throw new RuleError('E-mail já cadastrado. Faça login.');
+    }
+    if (existentes.some((u) => u.ativado_em && String(u.username ?? '').toLowerCase() === username)) {
+      throw new RuleError('Nome de usuário já em uso. Tenta outro.');
     }
     if (whatsapp && existentes.some((u) => u.ativado_em && u.whatsapp === whatsapp)) {
       throw new RuleError('WhatsApp já cadastrado.');
@@ -129,11 +138,11 @@ export async function cadastrar(d: AuthDeps, input: CadastroInput) {
     if (pendentes.length) await tx`delete from users where id in ${tx(pendentes)}`;
 
     const [u] = await tx`
-      insert into users (nome, email, senha_hash, whatsapp, cpf, data_nascimento, bairro,
-                         ativado_em,
+      insert into users (nome, username, email, senha_hash, whatsapp, cpf, data_nascimento, bairro,
+                         ativado_em, ultimo_login,
                          terms_accepted_at, terms_version, data_consent_accepted_at, data_consent_version)
-      select ${nome}, ${email}, ${senhaHash}, ${whatsapp}, ${cpf}, ${nascimento}, ${bairro},
-             clock_timestamp(),
+      select ${nome}, ${username}, ${email}, ${senhaHash}, ${whatsapp}, ${cpf}, ${nascimento}, ${bairro},
+             clock_timestamp(), ${(d.hoje ?? hojeISO)()}::date,
              clock_timestamp(), c.termos_versao, clock_timestamp(), c.consentimento_versao
       from config c where c.id = 1
       returning *`;
@@ -273,6 +282,18 @@ export async function confirmarCodigo(d: AuthDeps, input: { whatsapp: unknown; c
 
   if ('erro' in res) throw new RuleError(res.erro as string);
   return { token, user: res.user, nova_conta: res.novaConta };
+}
+
+/** Verificação ao vivo no cadastro: username livre? Formato inválido conta como indisponível. */
+export async function usernameDisponivel(sql: Db, raw: unknown) {
+  let username: string;
+  try {
+    username = validarUsername(raw);
+  } catch {
+    return { disponivel: false };
+  }
+  const [u] = await sql`select 1 from users where lower(username) = ${username} limit 1`;
+  return { disponivel: !u };
 }
 
 /** O usuário edita o próprio nome e bairro (WhatsApp e CPF não mudam por aqui). */

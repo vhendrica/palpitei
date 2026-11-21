@@ -23,6 +23,7 @@ export const API_URL = (
   process.env.EXPO_PUBLIC_API_URL ?? 'https://mkhpkguwjwtoxsgwcgmm.supabase.co/functions/v1/api'
 ).replace(/\/+$/, '');
 
+
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -94,6 +95,7 @@ async function req<T>(
 
 export type CadastroInput = {
   nome: string;
+  username: string;
   email: string;
   senha: string;
   whatsapp: string;
@@ -114,6 +116,8 @@ export type BilheteInput = {
 export const api = {
   // Login e cadastro mostram o erro no próprio formulário (sem toast duplicado).
   cadastro: (input: CadastroInput) => req<Sessao>('POST', '/auth/cadastro', input, { semToast: true }),
+  usernameLivre: (u: string) =>
+    req<{ disponivel: boolean }>('GET', `/auth/username-disponivel?u=${encodeURIComponent(u)}`, { semToast: true }),
   login: (email: string, senha: string) =>
     req<Sessao>('POST', '/auth/login', { email, senha }, { semToast: true }),
   // OTP WhatsApp dormente — reativar quando a verificação voltar.
@@ -205,20 +209,23 @@ export const api = {
       req<LigaAdmin>('PATCH', `/admin/liga/${id}`, body),
     destaque: (jogoId: string) => req<LigaAdmin>('POST', `/admin/jogos/${jogoId}/destaque`),
     especial: (mercadoId: string) => req<LigaAdmin>('POST', `/admin/mercados/${mercadoId}/especial`),
+    ordenarEspeciais: (ligaId: string, mercadoIds: string[]) =>
+      req<LigaAdmin>('POST', `/admin/ligas/${ligaId}/especiais-ordem`, { mercado_ids: mercadoIds }),
     resultadoMercado: (mercadoId: string, resultado: 'certo' | 'errado' | 'pendente') =>
       req<LigaAdmin>('POST', `/admin/mercados/${mercadoId}/resultado`, { resultado }),
     mercadosApi: (jogoId: string) =>
       req<{
-        mercados: { grupo: string; descricao: string; multiplicador: number; casas: number }[];
+        mercados: { grupo: string; descricao: string; multiplicador: number; casas: number; categoria?: string }[];
         creditos_restantes: number | null;
       }>('GET', `/admin/jogos/${jogoId}/mercados-api`),
-    propsApi: (jogoId: string) =>
-      req<{ mercados: { grupo: string; descricao: string; multiplicador: number }[]; fixtureId: string }>(
-        'GET',
-        `/admin/jogos/${jogoId}/props-api`,
-      ),
+    placar: (
+      jogoId: string,
+      body: { casa: number; fora: number } & Partial<Record<'gols1t' | 'escanteios' | 'escanteios1t' | 'cartoes', [number, number]>>,
+    ) => req<{ jogo_id: string; placar: [number, number]; mercados_certos: number }>('POST', `/admin/jogos/${jogoId}/placar`, body),
     mercados: (jogoId: string, mercados: { id?: string; grupo: string; descricao: string; multiplicador: number }[]) =>
       req<LigaAdmin>('PUT', `/admin/jogos/${jogoId}/mercados`, { mercados }),
+    mercadosMeta: (jogoId: string, mercados: { id: string; secao: string | null }[]) =>
+      req<LigaAdmin>('PATCH', `/admin/jogos/${jogoId}/mercados-meta`, { mercados }),
     renovarMercados: (jogoId: string) =>
       req<{ jogo_id: string; mercados: number }>('POST', `/admin/jogos/${jogoId}/mercados-renovar`),
     ligas: () => req<{ ligas: LigaHistorico[] }>('GET', '/admin/ligas'),

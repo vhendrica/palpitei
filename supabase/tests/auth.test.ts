@@ -23,8 +23,10 @@ beforeEach(async () => {
   };
 });
 
+let userSeq = 0;
 const input = (over: Record<string, unknown> = {}) => ({
   nome: 'Vitória Hendrica',
+  username: `vitoria${++userSeq}`,
   email: 'Vitoria@Exemplo.com',
   senha: 'senha1234',
   whatsapp: '(85) 99999-0000',
@@ -34,6 +36,20 @@ const input = (over: Record<string, unknown> = {}) => ({
   aceita_termos: true,
   aceita_compartilhamento: true,
   ...over,
+});
+
+test('dia do cadastro não conta na sequência de login: bônus começa no dia seguinte', async () => {
+  const { home } = await import('../functions/_core/services.ts');
+  const r = await cadastrar(deps, input());
+  // Mesmo dia do cadastro: nada de bônus nem "Sequência: 1 dia".
+  const h1 = await home(sql, r.user as never, '2026-10-29');
+  assert.equal(h1.bonus_login, null);
+  assert.equal(h1.usuario?.login_streak, 0);
+  assert.equal(h1.usuario?.saldo_pontos, 500);
+  // Dia seguinte: dia 1 da sequência (+40).
+  const h2 = await home(sql, r.user as never, '2026-10-30');
+  assert.deepEqual(h2.bonus_login, { dia: 1, pontos: 40, quebrou: false });
+  assert.equal(h2.usuario?.saldo_pontos, 540);
 });
 
 test('cadastro por e-mail ativa a conta na hora com os PONTOS de boas-vindas; login por senha', async () => {
