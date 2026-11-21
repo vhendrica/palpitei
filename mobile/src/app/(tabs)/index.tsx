@@ -416,12 +416,16 @@ export default function HomeMultipla() {
                 if (s?.nome === nome) s.grupos.push(g);
                 else secoesJogo.push({ nome, grupos: [g] });
               }
+              const expandido = abertos.includes(j.id);
               return secoesJogo.map((s) => {
                 const chave = `${j.id}|${s.nome}`;
-                // Só PRINCIPAL abre de cara ao expandir; o resto fica recolhido até o toque.
-              const oculta = secoesOcultas[chave] ?? s.nome !== "PRINCIPAL";
+                // Sem expandir, mostra os grupos soltos; ao expandir, só o PRINCIPAL abre de cara.
+                const oculta = expandido
+                  ? (secoesOcultas[chave] ?? s.nome !== "PRINCIPAL")
+                  : false;
                 return (
                   <View key={s.nome}>
+                    {expandido ? (
                     <Pressable
                       onPress={() =>
                         setSecoesOcultas((o) => ({ ...o, [chave]: !oculta }))
@@ -438,6 +442,7 @@ export default function HomeMultipla() {
                         {s.nome}
                       </T>
                     </Pressable>
+                    ) : null}
                     {oculta
                       ? null
                       : s.grupos.map((g) => {
