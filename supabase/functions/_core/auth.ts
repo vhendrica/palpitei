@@ -151,13 +151,17 @@ export async function cadastrar(d: AuthDeps, input: CadastroInput) {
     await tx`
       update users set saldo_pontos = saldo_pontos + (select pontos_boas_vindas from config where id = 1)
       where id = ${u.id}`;
-    // Indicação: quem convidou ganha pontos quando o amigo completa o cadastro.
+    // Indicação: quem convidou ganha o 1º marco (cadastro) agora; os demais caem
+    // em marcosIndicacao() conforme o amigo palpita e volta nos próximos dias.
     if (input.indicado_por) {
       const [ind] = await tx`
         select id from users where lower(username) = ${String(input.indicado_por).trim().toLowerCase()}
         and ativado_em is not null`;
       if (ind && (ind.id as string) !== (u.id as string)) {
         await tx`update users set indicado_por = ${ind.id} where id = ${u.id}`;
+        await tx`
+          insert into indicacao_recompensas (indicado_id, tipo, indicador_id, pontos)
+          select ${u.id}, 'cadastro', ${ind.id}, c.pontos_indicacao from config c where c.id = 1`;
         await tx`
           update users set saldo_pontos = saldo_pontos + (select pontos_indicacao from config where id = 1)
           where id = ${ind.id}`;

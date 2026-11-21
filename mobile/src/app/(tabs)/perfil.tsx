@@ -10,6 +10,7 @@ import { HistoricoLinha } from "../../components/HistoricoLinha";
 import { fmtReais } from "../../components/PremioBar";
 import { Button, Card, Esqueleto, T } from "../../components/ui";
 import { api } from "../../lib/api";
+import { compartilhar, copiar, enviarWhatsApp, linkIndicacao, mensagemConvite } from "../../lib/convite";
 import { useDesktop } from "../../lib/desktop";
 import { fmtOdd, fmtPts, fmtWhats } from "../../lib/format";
 import { errorMessage, useApp } from "../../store/AppStore";
@@ -227,6 +228,40 @@ export default function Perfil() {
     </>
   );
 
+  // Programa de indicação: mesma mensagem do convite da home, com o link marcando quem indicou.
+  const convite = user?.username ? (
+    <>
+      <Titulo>Convide amigos</Titulo>
+      <Card>
+        <View className="flex-row items-center" style={{ gap: 8 }}>
+          <Ionicons name="people" size={20} color={C.primary} />
+          <T className="font-mont-b text-sm">Ganhe até 500 pts por amigo</T>
+        </View>
+        <T className="mt-2 text-xs leading-[18px] text-muted">
+          {`Cada amigo que entrar pelo seu link rende pontos pra você:\n\n+ 50 pts quando ele se cadastrar\n+ 50 pts se ele palpitar no mesmo dia\n+ 100 pts a cada dia que ele voltar nos 3 dias seguintes\n+ 100 pts de bônus se ele completar os 3 logins seguidos`}
+        </T>
+        <View className="mt-3 flex-row" style={{ gap: 8 }}>
+          <Button
+            title="WhatsApp"
+            icon="logo-whatsapp"
+            className="flex-1"
+            onPress={() => enviarWhatsApp(mensagemConvite(linkIndicacao(user.username)))}
+          />
+          <Button
+            title="Copiar"
+            icon="copy-outline"
+            variant="outline"
+            className="flex-1"
+            onPress={async () => {
+              const ok = await copiar(mensagemConvite(linkIndicacao(user.username)));
+              if (!ok) await compartilhar(mensagemConvite(linkIndicacao(user.username)));
+            }}
+          />
+        </View>
+      </Card>
+    </>
+  ) : null;
+
   const sairBtn = <Button title="Sair" variant="danger" onPress={sair} className="mt-4" />;
 
   // Admin vive dentro do Perfil: a barra de baixo fica em 5 abas.
@@ -257,6 +292,7 @@ export default function Perfil() {
             <View style={{ width: 320 }}>
               {identidade}
               {saldo}
+              {convite}
               {vouchers}
               {adminLink}
               {tema}
@@ -272,6 +308,7 @@ export default function Perfil() {
           <View>
             {identidade}
             {saldo}
+            {convite}
             {perfil ? null : <View className="mt-4"><Esqueleto blocos={2} /></View>}
             {meusNumeros}
             {perfil ? historico : null}

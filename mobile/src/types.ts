@@ -106,7 +106,15 @@ export type MinhaSituacao =
 
 export type Home = {
   data: string;
-  regras: { custo_entrada_pontos: number; fichas_por_entrada: number; pontos_indicacao?: number };
+  regras: {
+    custo_entrada_pontos: number;
+    fichas_por_entrada: number;
+    pontos_indicacao?: number;
+    indicacao_palpite?: number;
+    indicacao_login?: number;
+    indicacao_bonus?: number;
+    pontos_indicacao_max?: number;
+  };
   usuario: {
     id: string;
     nome: string;
