@@ -16,7 +16,13 @@ import { BetButton } from "../../components/BetButton";
 import { Bilhete, type OpcaoBilhete } from "../../components/Bilhete";
 import { Confirmar } from "../../components/Confirmar";
 import { GrupoTitulo } from "../../components/GrupoTitulo";
-import { ORDEM_PRINCIPAL, rankSecao, secaoDo } from "../../lib/secoes";
+import {
+  familiaGrupo,
+  linhaGrupo,
+  ORDEM_PRINCIPAL,
+  rankSecao,
+  secaoDo,
+} from "../../lib/secoes";
 import { PalpiteiroBilhete } from "../../components/PalpiteiroBilhete";
 import { ErrorBox } from "../../components/Form";
 import { ResumoBilhete } from "../../components/ResumoBilhete";
@@ -434,7 +440,9 @@ export default function Detalhe() {
       (a, b) =>
         rankSecao(a.opcoes[0]?.secao ?? secaoDo(a.grupo)) -
           rankSecao(b.opcoes[0]?.secao ?? secaoDo(b.grupo)) ||
-        rankPrincipal(a) - rankPrincipal(b),
+        rankPrincipal(a) - rankPrincipal(b) ||
+        familiaGrupo(a.grupo).localeCompare(familiaGrupo(b.grupo)) ||
+        linhaGrupo(a.grupo) - linhaGrupo(b.grupo),
     );
     const aberto = abertos.includes(j.id);
     const gruposVis = grupos.filter(
@@ -443,10 +451,11 @@ export default function Detalhe() {
     const secoesJogo: { nome: string; grupos: typeof gruposVis }[] = [];
     for (const g of gruposVis) {
       const sec = g.opcoes[0]?.secao ?? secaoDo(g.grupo);
-      // Seções finas: fora do PRINCIPAL cada tipo/linha vira seção própria.
-      const nome = sec === "PRINCIPAL" ? "PRINCIPAL" : g.grupo;
-      const ult = secoesJogo[secoesJogo.length - 1];
-      if (ult?.nome === nome) ult.grupos.push(g);
+      // Seção por família: "ESCANTEIOS 8.5" e "ESCANTEIOS 9.5" entram
+      // juntos em "ESCANTEIOS", linhas crescentes dentro.
+      const nome = sec === "PRINCIPAL" ? "PRINCIPAL" : familiaGrupo(g.grupo);
+      const s = secoesJogo.find((x) => x.nome === nome);
+      if (s) s.grupos.push(g);
       else secoesJogo.push({ nome, grupos: [g] });
     }
     const alternar = () =>

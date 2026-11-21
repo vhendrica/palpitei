@@ -65,6 +65,17 @@ export function rankSecao(secao: string): number {
   return i < 0 ? SECOES.length : i;
 }
 
+/** Família do grupo sem a linha: "GOLS 2.5" e "GOLS 3.5" ficam juntos em "GOLS". */
+export function familiaGrupo(grupo: string): string {
+  return grupo.replace(/\s[+-]?\d+(?:\.\d+)?$/, "");
+}
+
+/** Linha numérica no fim do grupo ("ESCANTEIOS 8.5" → 8.5); sem linha = 0. */
+export function linhaGrupo(grupo: string): number {
+  const m = grupo.match(/\s([+-]?\d+(?:\.\d+)?)$/);
+  return m ? parseFloat(m[1]) : 0;
+}
+
 const numeroDo = (grupo: string): { n: number; s: string } | null => {
   // Ignora o "1º"/"2º" de "1º TEMPO": a linha do mercado é o número sem "º".
   const m = grupo.match(/(\d+(?:[.,]\d+)?)(?!\d|[.,]\d|º)/);

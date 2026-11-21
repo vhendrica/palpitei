@@ -46,7 +46,13 @@ import { errorMessage, useApp } from "../../store/AppStore";
 import { useTheme } from "../../store/Theme";
 import { agruparMercados } from "../../types";
 import { GrupoTitulo } from "../../components/GrupoTitulo";
-import { ORDEM_PRINCIPAL, rankSecao, secaoDo } from "../../lib/secoes";
+import {
+  familiaGrupo,
+  linhaGrupo,
+  ORDEM_PRINCIPAL,
+  rankSecao,
+  secaoDo,
+} from "../../lib/secoes";
 import type { Jogo, MinhaSituacao, MultiplaView } from "../../types";
 
 const MERCADOS_VISIVEIS = 2;
@@ -404,16 +410,18 @@ export default function HomeMultipla() {
                   (a, b) =>
                     rankSecao(a.opcoes[0]?.secao ?? secaoDo(a.grupo)) -
                       rankSecao(b.opcoes[0]?.secao ?? secaoDo(b.grupo)) ||
-                    rankPrincipal(a) - rankPrincipal(b),
+                    rankPrincipal(a) - rankPrincipal(b) ||
+                    familiaGrupo(a.grupo).localeCompare(familiaGrupo(b.grupo)) ||
+                    linhaGrupo(a.grupo) - linhaGrupo(b.grupo),
                 );
               const secoesJogo: { nome: string; grupos: typeof gruposVis }[] = [];
               for (const g of gruposVis) {
                 const sec = g.opcoes[0]?.secao ?? secaoDo(g.grupo);
-                // Seções finas: fora do PRINCIPAL cada tipo/linha vira seção
-                // ("ESCANTEIOS 8.5", "CARTÕES CASA 4.5", "MARCA NO JOGO"...).
-                const nome = sec === "PRINCIPAL" ? "PRINCIPAL" : g.grupo;
-                const s = secoesJogo[secoesJogo.length - 1];
-                if (s?.nome === nome) s.grupos.push(g);
+                // Seção por família: "ESCANTEIOS 8.5" e "ESCANTEIOS 9.5" entram
+                // juntos em "ESCANTEIOS", linhas crescentes dentro.
+                const nome = sec === "PRINCIPAL" ? "PRINCIPAL" : familiaGrupo(g.grupo);
+                const s = secoesJogo.find((x) => x.nome === nome);
+                if (s) s.grupos.push(g);
                 else secoesJogo.push({ nome, grupos: [g] });
               }
               const expandido = abertos.includes(j.id);
