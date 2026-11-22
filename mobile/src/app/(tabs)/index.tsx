@@ -23,7 +23,7 @@ import { EntradaModal } from "../../components/EntradaModal";
 import { StreakModal } from "../../components/StreakModal";
 import { ErrorBox } from "../../components/Form";
 import { Ficha } from "../../components/Ficha";
-import { PremioBar } from "../../components/PremioBar";
+import { PremioBar, fmtReais } from "../../components/PremioBar";
 import { useToast } from "../../components/Toast";
 import {
   Button,
@@ -234,6 +234,8 @@ export default function HomeMultipla() {
     (home.liga.status === "finalizada" ||
       (home.jogos.length > 0 && home.jogos.every((j) => j.finalizado)));
   const campeao = palpitou && rodadaDecidida && (eu?.posicao ?? 0) === 1;
+  const premioCampeao =
+    (home?.liga?.premio_final ?? home?.premio.premio_atual) ?? 0;
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -722,7 +724,9 @@ export default function HomeMultipla() {
                     (!valendo || editaveis.fichas > 0 || livres > 0) &&
                     livres + noDraft > 0) ||
                   erro ? (
-                    <Card className="mt-3">
+                    <Card
+                      className={`mt-3 ${campeao ? "border-gold/60 bg-gold/10" : ""}`}
+                    >
                       {!user ? (
                         <>
                           <CarrosselJogos
@@ -786,15 +790,18 @@ export default function HomeMultipla() {
                             />
                           ) : null}
                           {campeao ? (
-                            <View className="items-center py-1">
-                              <Text style={{ fontSize: 30 }}>🏆</Text>
-                              <T className="mt-1.5 font-mont-b text-sm">
+                            <View className="items-center py-2">
+                              <Text style={{ fontSize: 34 }}>🏆</Text>
+                              <T className="mt-2 font-mont-xb text-base">
                                 Campeão da rodada!
                               </T>
-                              <T className="mt-0.5 text-center text-xs text-muted">
-                                Seu bilhete rendeu {fmtPts(eu?.pontuacao ?? 0)}{" "}
-                                pts. O voucher do prêmio cai no seu perfil pra
-                                resgatar.
+                              <T className="mt-1 text-center text-xs text-muted">
+                                Você ficou em 1º lugar com{" "}
+                                {fmtPts(eu?.pontuacao ?? 0)} pts.
+                                {premioCampeao > 0
+                                  ? ` Prêmio: ${fmtReais(premioCampeao)}.`
+                                  : ""}
+                                {" O voucher cai no seu perfil pra resgatar."}
                               </T>
                             </View>
                           ) : palpitou &&
@@ -904,6 +911,8 @@ export default function HomeMultipla() {
 
                 {palpitou && eu ? (
                   <>
+                    {!campeao ? (
+                      <>
                     <Pressable onPress={() => setVerBilhete(true)}>
                       <Card className="mt-3">
                         <View className="flex-row items-center justify-between">
@@ -962,6 +971,8 @@ export default function HomeMultipla() {
                         </View>
                       </Card>
                     </Pressable>
+                      </>
+                    ) : null}
                     <SectionTitle>Chame a galera</SectionTitle>
                     <View className="flex-row" style={{ gap: 10 }}>
                       <Pressable
