@@ -225,6 +225,8 @@ export default function HomeMultipla() {
   const valendo =
     !!home?.liga &&
     (home.liga.status !== "aberta" || home.jogos.some((j) => j.comecou));
+  // Só sugere distribuir fichas enquanto existe jogo aberto pra apostar.
+  const temJogoAberto = !!home?.liga && aberta && home.jogos.some((j) => !j.comecou);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -385,6 +387,8 @@ export default function HomeMultipla() {
             </T>
             <T
               className={`mx-1.5 font-mont-xb ${j.destaque ? "text-xl" : "text-base"}`}
+              numberOfLines={1}
+              style={{ flexShrink: 0 }}
             >
               {j.placar ? `${j.placar.casa} x ${j.placar.fora}` : "x"}
             </T>
@@ -743,7 +747,7 @@ export default function HomeMultipla() {
                         </>
                       ) : (
                         <>
-                          {home.liga.status !== "finalizada" &&
+                          {temJogoAberto &&
                           (!valendo || editaveis.fichas > 0 || livres > 0) &&
                           livres + noDraft > 0 ? (
                             <SituacaoFichas
@@ -751,7 +755,7 @@ export default function HomeMultipla() {
                               noBilhete={noDraft}
                             />
                           ) : null}
-                          {home.liga.status !== "finalizada" &&
+                          {temJogoAberto &&
                           (eu.fichas_ganhas ?? 0) > 0 ? (
                             <T className="mb-2 text-center text-xs text-muted">
                               Você já recuperou {fmtPts(eu.fichas_ganhas!)}{" "}
