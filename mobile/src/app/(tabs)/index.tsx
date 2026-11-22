@@ -814,8 +814,8 @@ export default function HomeMultipla() {
                                 {fmtPts(eu?.pontuacao ?? 0)} pts no bilhete
                               </T>
                               <T className="mt-2 text-center text-[10px] text-muted">
-                                A equipe PALPIT entra em contato pra entrega do
-                                prêmio.
+                                A equipe PALPIT entrará em contato pra entrega
+                                do prêmio.
                               </T>
                             </View>
                           ) : naTrave ? (
