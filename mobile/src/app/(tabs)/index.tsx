@@ -704,9 +704,13 @@ export default function HomeMultipla() {
                   }}
                 >
                   {!eu ||
-                  (eu.fichas_ganhas ?? 0) > 0 ||
+                  (palpitou &&
+                    !temJogoAberto &&
+                    home.liga.status !== "finalizada") ||
+                  (temJogoAberto && (eu.fichas_ganhas ?? 0) > 0) ||
                   (aberta && editando) ||
-                  ((!valendo || editaveis.fichas > 0 || livres > 0) &&
+                  (temJogoAberto &&
+                    (!valendo || editaveis.fichas > 0 || livres > 0) &&
                     livres + noDraft > 0) ||
                   erro ? (
                     <Card className="mt-3">
@@ -771,6 +775,24 @@ export default function HomeMultipla() {
                               onPress={cancelarEdicao}
                               className="mb-3"
                             />
+                          ) : null}
+                          {palpitou &&
+                          !temJogoAberto &&
+                          home.liga.status !== "finalizada" ? (
+                            <View className="items-center py-1">
+                              <Ionicons
+                                name="trophy-outline"
+                                size={22}
+                                color={C.primary}
+                              />
+                              <T className="mt-1.5 font-mont-b text-sm">
+                                Rodada fechada — agora é torcer!
+                              </T>
+                              <T className="mt-0.5 text-center text-xs text-muted">
+                                Seu bilhete tá valendo. Acompanhe sua posição
+                                no ranking de hoje.
+                              </T>
+                            </View>
                           ) : null}
                         </>
                       )}
