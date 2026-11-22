@@ -459,8 +459,8 @@ export async function calcularRanking(db: Db, ligaId: string, quem?: string): Pr
     // usado quando a rodada fecha e não existe mais "o que ainda pode voltar".
     db`
       select a.user_id,
-        coalesce(sum(a.fichas_apostadas * a.odd) filter (where m.decidido_em is null or m.resultado_final), 0) as gross,
-        coalesce(sum(a.fichas_apostadas * a.odd), 0) as gross_all
+        coalesce(sum(a.fichas_apostadas * case when m.anulado then 1 else a.odd end) filter (where m.decidido_em is null or m.resultado_final), 0) as gross,
+        coalesce(sum(a.fichas_apostadas * case when m.anulado then 1 else a.odd end), 0) as gross_all
       from apostas a join mercados m on m.id = a.mercado_id join jogos j on j.id = m.jogo_id
       where j.liga_id = ${ligaId}
       group by a.user_id`,
