@@ -793,7 +793,8 @@ export default function HomeMultipla() {
                               </T>
                               <T className="mt-0.5 text-center text-xs text-muted">
                                 Seu bilhete rendeu {fmtPts(eu?.pontuacao ?? 0)}{" "}
-                                pts. Boa pra compartilhar no grupo!
+                                pts. O voucher do prêmio cai no seu perfil pra
+                                resgatar.
                               </T>
                             </View>
                           ) : palpitou &&
