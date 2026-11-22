@@ -685,6 +685,7 @@ export default function HomeMultipla() {
                 </View>
                 {/* Prêmio só aqui em cima: troféu + descrição + barra de
                     progresso (palpitou). Nada duplicado abaixo dos especiais. */}
+                {campeao ? null : (
                 <PremioBar
                   premio={home.premio}
                   finalizada={home.liga.status === "finalizada"}
@@ -697,6 +698,7 @@ export default function HomeMultipla() {
                   onConvidar={() => convidar(home.liga?.premio_desc, user?.username)}
                   completo={palpitou}
                 />
+                )}
 
                 {user && !eu ? (
                   <EntradaModal
@@ -800,13 +802,17 @@ export default function HomeMultipla() {
                               <T className="mt-2 font-mont-xb text-base">
                                 Campeão da rodada!
                               </T>
-                              <T className="mt-1 text-center text-xs text-muted">
-                                Você ficou em 1º lugar com{" "}
-                                {fmtPts(eu?.pontuacao ?? 0)} pts.
-                                {premioCampeao > 0
-                                  ? ` Prêmio: ${fmtReais(premioCampeao)}.`
-                                  : ""}
-                                {" O voucher cai no seu perfil pra resgatar."}
+                              {premioCampeao > 0 ? (
+                                <T className="mt-1 font-odds text-2xl text-gold">
+                                  {fmtReais(premioCampeao)}
+                                </T>
+                              ) : null}
+                              <T className="mt-0.5 font-mont-b text-xs">
+                                {fmtPts(eu?.pontuacao ?? 0)} pts no bilhete
+                              </T>
+                              <T className="mt-2 text-center text-[10px] text-muted">
+                                A equipe PALPIT entra em contato pra entrega do
+                                prêmio.
                               </T>
                             </View>
                           ) : naTrave ? (
