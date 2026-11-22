@@ -82,12 +82,17 @@ export async function getLigaPorData(db: Db, data: string): Promise<LigaRow | nu
   return row ? mapLiga(row) : null;
 }
 
-/** Múltipla em vigor: a de hoje (mesmo finalizada, até virar o dia); senão, a próxima não finalizada. */
+/** Múltipla em vigor: a de hoje (mesmo finalizada, até virar o dia); senão a próxima aberta;
+ *  sem rodada ativa, a mais recente que passou (a home exibe o resultado dela). */
 export async function getLigaAtual(db: Db, hoje: string): Promise<LigaRow | null> {
   const [row] = await db`
     select * from ligas
-    where ((data >= ${hoje} and status <> 'finalizada') or data = ${hoje}) and owner_id is null
-    order by (data = ${hoje}) desc, (status <> 'finalizada') desc, data
+    where (data <= ${hoje} or status <> 'finalizada') and owner_id is null
+    order by (data = ${hoje}) desc,
+             (data > ${hoje} and status <> 'finalizada') desc,
+             (data < ${hoje}) desc,
+             case when data > ${hoje} then data end,
+             data desc
     limit 1`;
   return row ? mapLiga(row) : null;
 }

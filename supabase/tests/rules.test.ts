@@ -275,7 +275,7 @@ describe('finalizarLiga', () => {
   });
 });
 
-test('liga atual: a de hoje (mesmo finalizada); senão a próxima não finalizada', async () => {
+test('liga atual: a de hoje; senão próxima aberta; sem ativa, a mais recente', async () => {
   assert.equal(await getLigaAtual(sql, '2030-01-01'), null);
   await criarLiga(sql, '2029-12-30', 'aberta');
   await criarLiga(sql, '2030-01-01', 'finalizada');
@@ -284,7 +284,8 @@ test('liga atual: a de hoje (mesmo finalizada); senão a próxima não finalizad
   await criarLiga(sql, '2030-01-02', 'em_andamento');
   assert.equal((await getLigaAtual(sql, '2030-01-01'))?.data, '2030-01-01');
   assert.equal((await getLigaAtual(sql, '2029-12-31'))?.data, '2030-01-02');
-  assert.equal((await getLigaAtual(sql, '2030-01-04')), null);
+  // Sem rodada do dia nem aberta no futuro: cai na mais recente que passou.
+  assert.equal((await getLigaAtual(sql, '2030-01-04'))?.data, '2030-01-03');
 });
 
 test('apostar aceita UUID de mercado em maiúsculas', async () => {

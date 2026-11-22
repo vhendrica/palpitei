@@ -228,12 +228,14 @@ export default function HomeMultipla() {
     (home.liga.status !== "aberta" || home.jogos.some((j) => j.comecou));
   // Só sugere distribuir fichas enquanto existe jogo aberto pra apostar.
   const temJogoAberto = !!home?.liga && aberta && home.jogos.some((j) => !j.comecou);
-  // Rodada decidida: liga finalizada ou todos os jogos já apurados.
-  const rodadaDecidida =
-    !!home?.liga &&
-    (home.liga.status === "finalizada" ||
-      (home.jogos.length > 0 && home.jogos.every((j) => j.finalizado)));
-  const campeao = palpitou && rodadaDecidida && (eu?.posicao ?? 0) === 1;
+  // Rodada decidida só quando a liga fecha de vez: enquanto não finaliza,
+  // mercado manual ainda pode mexer nas posições.
+  const decidida = home?.liga?.status === "finalizada";
+  const campeao = palpitou && decidida && (eu?.posicao ?? 0) === 1;
+  const posicaoEu = eu?.posicao ?? null;
+  const naTrave =
+    palpitou && decidida && posicaoEu !== null && posicaoEu >= 2 && posicaoEu <= 5;
+  const foraDoPodio = palpitou && decidida && !campeao && !naTrave;
   const premioCampeao =
     (home?.liga?.premio_final ?? home?.premio.premio_atual) ?? 0;
 
@@ -714,10 +716,7 @@ export default function HomeMultipla() {
                   }}
                 >
                   {!eu ||
-                  campeao ||
-                  (palpitou &&
-                    !temJogoAberto &&
-                    home.liga.status !== "finalizada") ||
+                  (palpitou && !temJogoAberto) ||
                   (temJogoAberto && (eu.fichas_ganhas ?? 0) > 0) ||
                   (aberta && editando) ||
                   (temJogoAberto &&
@@ -752,15 +751,21 @@ export default function HomeMultipla() {
                             }
                             onOdd={chamarPalpitar}
                           />
-                          <PulsoBrilho sinal={sinal}>
-                            <Button
-                              title="Palpitar"
-                              icon="football"
-                              onPress={() => setExplicando(true)}
-                              disabled={!aberta || busy}
-                              className="mt-3"
-                            />
-                          </PulsoBrilho>
+                          {aberta ? (
+                            <PulsoBrilho sinal={sinal}>
+                              <Button
+                                title="Palpitar"
+                                icon="football"
+                                onPress={() => setExplicando(true)}
+                                disabled={busy}
+                                className="mt-3"
+                              />
+                            </PulsoBrilho>
+                          ) : (
+                            <T className="mt-3 text-center text-xs text-muted">
+                              Rodada encerrada. Amanhã tem jogo novo.
+                            </T>
+                          )}
                         </>
                       ) : (
                         <>
@@ -804,9 +809,38 @@ export default function HomeMultipla() {
                                 {" O voucher cai no seu perfil pra resgatar."}
                               </T>
                             </View>
-                          ) : palpitou &&
-                            !temJogoAberto &&
-                            home.liga.status !== "finalizada" ? (
+                          ) : naTrave ? (
+                            <View className="items-center py-1">
+                              <Text style={{ fontSize: 30 }}>
+                                {posicaoEu === 2 ? "🥈" : posicaoEu === 3 ? "🥉" : "🎖️"}
+                              </Text>
+                              <T className="mt-1.5 font-mont-b text-sm">
+                                Bateu na trave!
+                              </T>
+                              <T className="mt-0.5 text-center text-xs text-muted">
+                                Você ficou em {posicaoEu}º lugar com{" "}
+                                {fmtPts(eu?.pontuacao ?? 0)} pts. Faltou pouco
+                                pro prêmio: amanhã tem revanche.
+                              </T>
+                            </View>
+                          ) : foraDoPodio ? (
+                            <View className="items-center py-1">
+                              <Ionicons
+                                name="refresh-outline"
+                                size={22}
+                                color={C.primary}
+                              />
+                              <T className="mt-1.5 font-mont-b text-sm">
+                                Fim de rodada!
+                              </T>
+                              <T className="mt-0.5 text-center text-xs text-muted">
+                                {posicaoEu !== null
+                                  ? `Você ficou em ${posicaoEu}º no ranking com ${fmtPts(eu?.pontuacao ?? 0)} pts. `
+                                  : ""}
+                                Amanhã tem rodada nova pra buscar o prêmio.
+                              </T>
+                            </View>
+                          ) : palpitou && !temJogoAberto && !decidida ? (
                             <View className="items-center py-1">
                               <Ionicons
                                 name="trophy-outline"
