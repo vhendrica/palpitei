@@ -805,6 +805,9 @@ export default function HomeMultipla() {
                               {premioCampeao > 0 ? (
                                 <T className="mt-1 font-odds text-2xl text-gold">
                                   {fmtReais(premioCampeao)}
+                                  {home.liga?.premio_desc
+                                    ? ` · ${home.liga.premio_desc}`
+                                    : ""}
                                 </T>
                               ) : null}
                               <T className="mt-0.5 font-mont-b text-xs">
