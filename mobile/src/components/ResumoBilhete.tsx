@@ -211,7 +211,7 @@ export function ResumoBilhete({
                   <Ionicons name="alert-circle-outline" size={13} color={C.gold} />
                   <T className="ml-1 flex-1 text-[11px] text-gold">
                     Reapostando {fmtPts(usandoDevolvidas)} fichas que já
-                    pontuaram — elas saem do seu conquistado no ranking até
+                    pontuaram; elas saem do seu conquistado no ranking até
                     retornarem.
                   </T>
                 </View>

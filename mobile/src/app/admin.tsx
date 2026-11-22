@@ -288,7 +288,7 @@ function AbaLiga({ data, run }: { data: string; run: Run }) {
         return (
           <Card className="mb-3">
             <T className="text-[11px] uppercase tracking-widest text-muted">
-              Especiais em destaque — ordem na home ({especiaisDaLiga.length}/10)
+              Especiais em destaque: ordem na home ({especiaisDaLiga.length}/10)
             </T>
             {especiaisDaLiga.map((e, i) => (
               <View
@@ -300,7 +300,7 @@ function AbaLiga({ data, run }: { data: string; run: Run }) {
                     {e.jogo}
                   </T>
                   <T className="font-mont-b text-xs" numberOfLines={1}>
-                    {e.grupo ? `${e.grupo} — ` : ""}
+                    {e.grupo ? `${e.grupo}: ` : ""}
                     {e.descricao}
                   </T>
                 </View>
@@ -440,7 +440,7 @@ function AbaLiga({ data, run }: { data: string; run: Run }) {
                 const r = await api.admin.finalizar(liga.id, ids);
                 setLa(await api.admin.liga(data));
                 return r.voucher
-                  ? `Finalizada. Prêmio ${fmtReais(r.premio_final)} — voucher ${r.voucher.codigo}.`
+                  ? `Finalizada. Prêmio ${fmtReais(r.premio_final)}. Voucher ${r.voucher.codigo}.`
                   : `Finalizada sem voucher (prêmio ${fmtReais(r.premio_final)}).`;
               })
             }
@@ -1101,7 +1101,7 @@ function JogoAdmin({
           ) : (
             <View className="mt-2 rounded-lg border border-line p-2">
               <T className="mb-1 text-[11px] uppercase tracking-widest text-muted">
-                Mercados da OddsPapi — marque os que vão pro ar e salve
+                Mercados da OddsPapi: marque os que vão pro ar e salve
               </T>
               {daApi.mercados.length === 0 ? (
                 <T className="text-sm text-muted">

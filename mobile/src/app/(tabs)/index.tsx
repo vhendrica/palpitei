@@ -10,6 +10,7 @@ import {
   RefreshControl,
   ScrollView,
   Share,
+  Text,
   View,
   type ScrollViewInstance,
 } from "react-native";
@@ -227,6 +228,12 @@ export default function HomeMultipla() {
     (home.liga.status !== "aberta" || home.jogos.some((j) => j.comecou));
   // Só sugere distribuir fichas enquanto existe jogo aberto pra apostar.
   const temJogoAberto = !!home?.liga && aberta && home.jogos.some((j) => !j.comecou);
+  // Rodada decidida: liga finalizada ou todos os jogos já apurados.
+  const rodadaDecidida =
+    !!home?.liga &&
+    (home.liga.status === "finalizada" ||
+      (home.jogos.length > 0 && home.jogos.every((j) => j.finalizado)));
+  const campeao = palpitou && rodadaDecidida && (eu?.posicao ?? 0) === 1;
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -677,6 +684,7 @@ export default function HomeMultipla() {
                 <PremioBar
                   premio={home.premio}
                   finalizada={home.liga.status === "finalizada"}
+                  encerrada={!temJogoAberto}
                   descricao={home.liga.premio_desc}
                   onPalpiteiros={
                     eu ? undefined : () => router.push("/palpiteiros")
@@ -704,6 +712,7 @@ export default function HomeMultipla() {
                   }}
                 >
                   {!eu ||
+                  campeao ||
                   (palpitou &&
                     !temJogoAberto &&
                     home.liga.status !== "finalizada") ||
@@ -776,9 +785,20 @@ export default function HomeMultipla() {
                               className="mb-3"
                             />
                           ) : null}
-                          {palpitou &&
-                          !temJogoAberto &&
-                          home.liga.status !== "finalizada" ? (
+                          {campeao ? (
+                            <View className="items-center py-1">
+                              <Text style={{ fontSize: 30 }}>🏆</Text>
+                              <T className="mt-1.5 font-mont-b text-sm">
+                                Campeão da rodada!
+                              </T>
+                              <T className="mt-0.5 text-center text-xs text-muted">
+                                Seu bilhete rendeu {fmtPts(eu?.pontuacao ?? 0)}{" "}
+                                pts. Boa pra compartilhar no grupo!
+                              </T>
+                            </View>
+                          ) : palpitou &&
+                            !temJogoAberto &&
+                            home.liga.status !== "finalizada" ? (
                             <View className="items-center py-1">
                               <Ionicons
                                 name="trophy-outline"
@@ -786,7 +806,7 @@ export default function HomeMultipla() {
                                 color={C.primary}
                               />
                               <T className="mt-1.5 font-mont-b text-sm">
-                                Rodada fechada — agora é torcer!
+                                Rodada fechada! Agora é torcer.
                               </T>
                               <T className="mt-0.5 text-center text-xs text-muted">
                                 Seu bilhete tá valendo. Acompanhe sua posição

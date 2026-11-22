@@ -259,7 +259,7 @@ export default function Perfil() {
         onPress={() => setAberto((a) => (a === "convite" ? null : "convite"))}
       >
         <Ionicons name="people" size={20} color={C.primary} />
-        <T className="ml-2 flex-1 font-mont-b text-sm">Convide amigos — até 500 pts</T>
+        <T className="ml-2 flex-1 font-mont-b text-sm">Convide amigos e ganhe até 500 pts</T>
         <Ionicons name={aberto === "convite" ? "chevron-up" : "chevron-forward"} size={18} color={C.muted} />
       </Pressable>
       {aberto === "convite" ? (

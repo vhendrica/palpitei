@@ -14,6 +14,7 @@ export const fmtReais = (n: number) =>
 export function PremioBar({
   premio,
   finalizada,
+  encerrada,
   descricao,
   onPalpiteiros,
   semContagem,
@@ -22,6 +23,8 @@ export function PremioBar({
 }: {
   premio: Premio;
   finalizada?: boolean;
+  /** Não aceita mais palpiteiros: esconde a meta ("faltam X") e o convite. */
+  encerrada?: boolean;
   descricao?: string | null;
   onPalpiteiros?: () => void;
   semContagem?: boolean;
@@ -95,7 +98,7 @@ export function PremioBar({
         </View>
       </View>
 
-      {meta && !finalizada && completo ? (
+      {meta && !finalizada && !encerrada && completo ? (
         <>
           <BarraAnimada key={pulo} pct={pct} de={de} pular={pulo > 0} />
           {completo ? (
@@ -122,7 +125,7 @@ export function PremioBar({
           ) : null}
         </>
       ) : null}
-      {onConvidar && !finalizada && completo ? (
+      {onConvidar && !finalizada && !encerrada && completo ? (
         <Pressable
           onPress={onConvidar}
           className="mt-3 flex-row items-center justify-center rounded-lg border border-primary py-2 active:opacity-70"

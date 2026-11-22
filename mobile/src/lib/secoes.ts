@@ -88,7 +88,7 @@ const linhaAjuda = (grupo: string, unidade: string) => {
   const num = numeroDo(grupo);
   if (!num) return '';
   const menos = Math.floor(num.n);
-  return `\n\n"Mais de ${num.s}" — precisa de ${menos + 1} ou mais ${unidade} pra acertar.\n"Menos de ${num.s}" — ${menos === 0 ? 'não pode sair nenhum' : `${menos} ou menos`}.`;
+  return `\n\n"Mais de ${num.s}": precisa de ${menos + 1} ou mais ${unidade} pra acertar.\n"Menos de ${num.s}": ${menos === 0 ? 'não pode sair nenhum' : `${menos} ou menos`}.`;
 };
 
 const PROPS_AJUDA: [prefixo: string, texto: string][] = [
@@ -99,15 +99,15 @@ const PROPS_AJUDA: [prefixo: string, texto: string][] = [
   ['LEVA CARTÃO', 'Basta o jogador receber 1 cartão (amarelo ou vermelho) em qualquer momento do jogo.'],
   ['DÁ ASSISTÊNCIA', 'O jogador precisa dar pelo menos 1 assistência (o passe ou cruzamento direto pro gol).'],
   ['MARCA 2+ GOLS', 'O jogador precisa fazer 2 gols ou mais no jogo.\n\nEx.: marcou 1 só → perde; fez dobradinha → acertou.'],
-  ['FAZ 2+ CHUTES', 'O jogador precisa finalizar 2 vezes ou mais — vale chute no gol, pra fora ou bloqueado.'],
+  ['FAZ 2+ CHUTES', 'O jogador precisa finalizar 2 vezes ou mais, valendo chute no gol, pra fora ou bloqueado.'],
   ['É IMPEDIDO', 'O jogador precisa ser pego em posição de impedimento pelo menos 1 vez.'],
   ['COMETE 2+ FALTAS', 'O jogador precisa cometer 2 faltas ou mais no jogo.'],
 ];
 
 /** Props de contagem do jogador: prefixo, explicação e unidade da linha (ordem importa: "NO GOL" antes de "CHUTES"). */
 const PROPS_TOTAIS: [prefixo: string, texto: string, unidade: string][] = [
-  ['CHUTES NO GOL DO JOGADOR', 'Só contam as finalizações que vão NA DIREÇÃO do gol — chute pra fora ou bloqueado não entra.', 'chutes no gol'],
-  ['CHUTES DO JOGADOR', 'Total de finalizações do jogador — vale chute no gol, pra fora ou bloqueado.', 'chutes'],
+  ['CHUTES NO GOL DO JOGADOR', 'Só contam as finalizações que vão NA DIREÇÃO do gol. Chute pra fora ou bloqueado não entra.', 'chutes no gol'],
+  ['CHUTES DO JOGADOR', 'Total de finalizações do jogador: vale chute no gol, pra fora ou bloqueado.', 'chutes'],
   ['GOLS DO JOGADOR', 'Total de gols que o jogador marca no jogo.', 'gols'],
   ['ASSISTÊNCIAS DO JOGADOR', 'Total de assistências do jogador (o passe ou cruzamento direto pro gol).', 'assistências'],
   ['CARTÕES DO JOGADOR', 'Total de cartões (amarelos + vermelhos) que o jogador recebe.', 'cartões'],
@@ -148,25 +148,25 @@ export function explicacaoDo(grupo: string): string | null {
     return `Estatística individual do jogador no jogo inteiro.${linhaAjuda(grupo, 'vezes')}`;
   }
   if (g.startsWith('AVANÇA')) {
-    return 'Quem avança na fase — numa final, é o campeão. Conta o mata-mata inteiro: vale prorrogação e pênaltis, não só os 90 min.\n\nEx.: palpitou "BOCA JUNIORS" e ele classifica nos pênaltis → acertou, mesmo se o jogo empatou no tempo normal.';
+    return 'Quem avança na fase. Numa final, é o campeão. Conta o mata-mata inteiro: vale prorrogação e pênaltis, não só os 90 min.\n\nEx.: palpitou "BOCA JUNIORS" e ele classifica nos pênaltis → acertou, mesmo se o jogo empatou no tempo normal.';
   }
   if (g.startsWith('INTERVALO / FINAL')) {
-    return 'Você acerta quem está vencendo NO INTERVALO e quem vence NO FIM.\n\nEx.: "CASA / EMPATE" — a casa ganha o 1º tempo e o jogo termina empatado. Os dois têm que bater juntos.';
+    return 'Você acerta quem está vencendo NO INTERVALO e quem vence NO FIM.\n\nEx.: "CASA / EMPATE": a casa ganha o 1º tempo e o jogo termina empatado. Os dois têm que bater juntos.';
   }
   if (g.startsWith('VIRA O JOGO')) {
     return 'O time precisa sair perdendo e virar o jogo.\n\nEx.: toma 1x0 e termina 2x1 → acertou. Se ganhou sem nunca estar atrás, perde.';
   }
   if (g.startsWith('VENCE SEM SOFRER GOL')) {
-    return 'O time precisa vencer sem tomar nenhum gol.\n\nEx.: "CASA VENCE SEM SOFRER" — 2x0 acerta. Se sair 2x1, o gol sofrido quebra o palpite.';
+    return 'O time precisa vencer sem tomar nenhum gol.\n\nEx.: "CASA VENCE SEM SOFRER": 2x0 acerta. Se sair 2x1, o gol sofrido quebra o palpite.';
   }
   if (g.startsWith('ESCANTEIOS HCP')) {
-    return 'Handicap aplicado aos escanteios, não aos gols.\n\nEx.: "CASA -2.5" — a casa precisa cobrar 3+ escanteios a mais que o visitante. "FORA +2.5" — a fora pode ter até 2 escanteios a menos.';
+    return 'Handicap aplicado aos escanteios, não aos gols.\n\nEx.: "CASA -2.5": a casa precisa cobrar 3+ escanteios a mais que o visitante. "FORA +2.5": a fora pode ter até 2 escanteios a menos.';
   }
   if (g.startsWith('HANDICAP')) {
-    return `O número é somado no placar${t1 ? ' do 1º tempo' : ''} do time pra decidir se você ganhou.\n\nEx.: "Casa -1" — some -1 nos gols${t1 ? ' do 1º tempo' : ''} do time da casa. Se ganhou 2x0${t1 ? ' até o intervalo' : ''}, com o handicap fica 1x0 e você acertou. Se ganhou 1x0, fica 0x0: sem empate aqui, seu palpite perde.`;
+    return `O número é somado no placar${t1 ? ' do 1º tempo' : ''} do time pra decidir se você ganhou.\n\nEx.: "Casa -1": some -1 nos gols${t1 ? ' do 1º tempo' : ''} do time da casa. Se ganhou 2x0${t1 ? ' até o intervalo' : ''}, com o handicap fica 1x0 e você acertou. Se ganhou 1x0, fica 0x0: sem empate aqui, seu palpite perde.`;
   }
   if (g.startsWith('DUPLA CHANCE')) {
-    return 'Você ganha com 2 dos 3 resultados possíveis.\n\nEx.: "Casa ou Empate" — ganha se o time da casa vencer OU se empatar. Só perde se o time de fora ganhar.';
+    return 'Você ganha com 2 dos 3 resultados possíveis.\n\nEx.: "Casa ou Empate": ganha se o time da casa vencer OU se empatar. Só perde se o time de fora ganhar.';
   }
   if (g.startsWith('EMPATE ANULA')) {
     return 'Se o jogo empatar, seu palpite é devolvido: não ganha nem perde fichas.\n\nEx.: apostou na Casa e deu 1x1? Seus pontos voltam como se você não tivesse palpitado.';
@@ -186,11 +186,11 @@ export function explicacaoDo(grupo: string): string | null {
   }
   if (g.includes('EXATO')) {
     return t1
-      ? 'O placar DO 1º TEMPO tem que ser EXATAMENTE o escolhido.\n\nEx.: "1 x 0" só acerta se o intervalo for 1x0 — o que acontecer no 2º tempo não muda nada.'
-      : 'O placar final tem que ser EXATAMENTE o escolhido.\n\nEx.: "2 x 1" só acerta se terminar 2x1 — 2x2 ou 3x1 já perde. Por isso a odd é alta.';
+      ? 'O placar DO 1º TEMPO tem que ser EXATAMENTE o escolhido.\n\nEx.: "1 x 0" só acerta se o intervalo for 1x0. O que acontecer no 2º tempo não muda nada.'
+      : 'O placar final tem que ser EXATAMENTE o escolhido.\n\nEx.: "2 x 1" só acerta se terminar 2x1. 2x2 ou 3x1 já perde. Por isso a odd é alta.';
   }
   if (g.startsWith('ESPECIAL')) {
-    return 'Mercados mais difíceis, por isso pagam mais.\n\nEx.: "Resultado Exato 2x1" — só acerta se o placar final for exatamente 2x1. 2x2 ou 3x1 já perde.';
+    return 'Mercados mais difíceis, por isso pagam mais.\n\nEx.: "Resultado Exato 2x1": só acerta se o placar final for exatamente 2x1. 2x2 ou 3x1 já perde.';
   }
   if (g.startsWith('GOLS')) {
     const time = timeDoGrupo(g, 'GOLS');
@@ -198,7 +198,7 @@ export function explicacaoDo(grupo: string): string | null {
   }
   if (g.startsWith('RESULTADO')) {
     return t1
-      ? 'Quem está vencendo NO INTERVALO — só o 1º tempo conta.\n\nEx.: palpitou "CASA" e o 1º tempo acaba 1x0 → acertou, mesmo se o jogo virar 1x2 no final.'
+      ? 'Quem está vencendo NO INTERVALO. Só o 1º tempo conta.\n\nEx.: palpitou "CASA" e o 1º tempo acaba 1x0 → acertou, mesmo se o jogo virar 1x2 no final.'
       : 'O clássico 1X2: quem vence o jogo no tempo regulamentar (90 min + acréscimos).\n\nEx.: palpitou "CASA" e termina 2x1 → acertou. Empate ou vitória do visitante, perde.';
   }
   return null;

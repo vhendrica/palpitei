@@ -293,7 +293,7 @@ export function Bilhete({
         <View className="mb-2 flex-row items-start">
           <Ionicons name="alert-circle-outline" size={13} color={C.gold} />
           <T className="ml-1 flex-1 text-[11px] text-gold">
-            Reapostando {fmtPts(usandoDevolvidas)} fichas que já pontuaram — elas
+            Reapostando {fmtPts(usandoDevolvidas)} fichas que já pontuaram; elas
             saem do seu conquistado no ranking até retornarem.
           </T>
         </View>

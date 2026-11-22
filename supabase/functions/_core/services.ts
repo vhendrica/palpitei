@@ -186,7 +186,7 @@ export async function minhaSituacao(db: Db, userId: string, liga: LigaRow) {
   if (!entrada) return { entrou: false as const };
   const [usadas, ranking, multiplas, retornos] = await Promise.all([
     fichasUsadas(db, userId, liga.id),
-    calcularRanking(db, liga.id, userId),
+    calcularRanking(db, liga.id),
     multiplasDoUsuario(db, userId, liga.id),
     retornosPorUsuario(db, liga.id),
   ]);
@@ -408,22 +408,19 @@ export async function palpiteirosDaLiga(db: Db, user: UserPublico | null, liga: 
       const oddVivas = (m: (typeof multiplas)[number]) => oddTotal(m.pernas.map((p) => (p.anulado ? 1 : p.odd)));
       // Detalhe por seção (Simples / cada Múltipla) só no próprio bilhete ou no admin:
       // do adversário mostra só o potencial total, sem quebrar por seção.
-      // Rodada finalizada: potencial = teto do bilhete (se tudo batesse), não só o que sobrou vivo.
+      // Potencial = teto do bilhete (se tudo batesse), em qualquer status de rodada.
       const potencialSimples = eu || verTudo
         ? exato(
             apostas
-              .filter((a) => a.user_id === e.user_id && (tudo || !a.finalizado))
+              .filter((a) => a.user_id === e.user_id)
               .reduce((t, a) => t + num(a.fichas) * (a.anulado ? 1 : num(a.multiplicador)), 0),
           )
         : null;
-      // Potencial de cada múltipla: fichas × odd total se nenhuma perna morreu e ainda tem perna viva.
+      // Potencial de cada múltipla: fichas × odd total.
       // Perna oculta mascara o potencial pra não vazar a odd escondida.
       const potMult = (m: (typeof multiplas)[number], ocultas: number) => {
         if (!(eu || verTudo) || ocultas > 0) return null;
-        if (tudo) return exato(m.fichas * oddVivas(m));
-        const morta = m.pernas.some((p) => p.finalizado && !p.resultado_final);
-        const viva = m.pernas.some((p) => !p.finalizado);
-        return !morta && viva ? exato(m.fichas * oddVivas(m)) : 0;
+        return exato(m.fichas * oddVivas(m));
       };
       const minhas = multiplas
         .filter((m) => m.user_id === e.user_id)
@@ -448,14 +445,14 @@ export async function palpiteirosDaLiga(db: Db, user: UserPublico | null, liga: 
         .filter((m) => m.pernas.length > 0);
       const r = ranking.find((x) => x.user_id === e.user_id);
       // Potencial total: público (já aparece no ranking de todo mundo), sem detalhar composição.
-      // Rodada em curso: máximo que o bilhete ainda pode devolver (vivas + já ganhas).
-      // Rodada finalizada: o teto que o bilhete tinha — todas as apostas, ganhas ou não.
+      // É o teto do bilhete — todas as apostas, ganhas ou não — o mesmo número em qualquer
+      // status de rodada, pra não mudar de sentido quando a rodada fecha.
       const potencial = exato(
             apostas
-              .filter((a) => a.user_id === e.user_id && (tudo || !(a.finalizado && !a.resultado_final)))
+              .filter((a) => a.user_id === e.user_id)
               .reduce((t, a) => t + num(a.fichas) * (a.anulado ? 1 : num(a.multiplicador)), 0) +
               multiplas
-                .filter((m) => m.user_id === e.user_id && (tudo || !m.pernas.some((p) => p.finalizado && !p.resultado_final)))
+                .filter((m) => m.user_id === e.user_id)
                 .reduce((t, m) => t + m.fichas * oddVivas(m), 0) -
               // As fichas iniciais não contam: só o que passar delas sai do que já foi ganho.
               Math.max(

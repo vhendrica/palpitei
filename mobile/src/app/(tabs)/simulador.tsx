@@ -242,7 +242,7 @@ export default function Simulador() {
               <>
                 <SectionTitle>Jogos de hoje</SectionTitle>
                 <T className="mb-1 text-xs text-muted">
-                  Toque nas odds pra montar o cupom — 2+ palpites viram múltipla.
+                  Toque nas odds pra montar o cupom. Com 2+ palpites vira múltipla.
                 </T>
                 {jogos.map((j) => (
                   <JogoSim
@@ -406,7 +406,7 @@ function Onboarding({ busy, onComecar }: { busy: boolean; onComecar: (v: number)
         <T className="mt-2 text-sm leading-5 text-muted">
           Você aposta <T className="font-mont-b text-fg">dinheiro virtual</T> nos jogos de
           verdade, com as <T className="font-mont-b text-fg">odds reais</T> das casas. No fim,
-          o app mostra quanto você teria ganho — ou perdido.
+          o app mostra quanto você teria ganho ou perdido.
         </T>
         <T className="mt-2 text-sm leading-5 text-muted">
           Nenhum valor real entra ou sai. Os dados ficam guardados pra você acompanhar a
@@ -453,7 +453,7 @@ function Onboarding({ busy, onComecar }: { busy: boolean; onComecar: (v: number)
         onPress={() => onComecar(valor)}
       />
       <T className="mt-2 text-center text-xs text-muted">
-        Simulação educativa — sem dinheiro real, sem prêmio.
+        Simulação educativa: sem dinheiro real, sem prêmio.
       </T>
     </>
   );
@@ -481,7 +481,7 @@ function BancaZerada({
         perdeu tudo.{conta.estouros > 1 ? ` É a ${conta.estouros}ª vez que isso acontece.` : ""}
       </T>
       <T className="mt-2 text-center text-sm leading-5 text-muted">
-        Apostadores reais recarregam exatamente aqui — é nesse momento que vira ciclo.
+        Apostadores reais recarregam exatamente aqui. É nesse momento que vira ciclo.
       </T>
       <View className="mt-3 flex-row gap-2 self-stretch">
         {CHIPS_RECARGA.map((v) => (
@@ -608,7 +608,7 @@ function CupomSheet({
       ))}
       {multipla ? (
         <T className="mt-1 text-center text-xs text-muted">
-          odd total <T className="font-mont-b text-fg">{fmtOdd(odd)}</T> — errando 1, perde
+          odd total <T className="font-mont-b text-fg">{fmtOdd(odd)}</T>. Errando 1, perde
           tudo
         </T>
       ) : null}
@@ -637,7 +637,7 @@ function CupomSheet({
         onPress={() => onConfirmar(valor)}
       />
       <T className="mt-2 text-center text-xs text-muted">
-        Aposta simulada — nenhum valor real envolvido.
+        Aposta simulada: nenhum valor real envolvido.
       </T>
     </Pressable>
   );

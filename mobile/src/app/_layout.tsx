@@ -83,7 +83,7 @@ function RootNavigator() {
       {/* Card de preview quando o link é compartilhado (WhatsApp etc.). No nativo é no-op. */}
       <Head>
         <title>PALPIT</title>
-        <meta property="og:title" content="PALPIT — Palpites com os amigos" />
+        <meta property="og:title" content="PALPIT: Palpites com os amigos" />
         <meta
           property="og:description"
           content="Distribua suas fichas nos jogos do dia e dispute o prêmio."

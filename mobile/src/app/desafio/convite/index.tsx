@@ -53,7 +53,7 @@ export default function Convite() {
       {/* Preview do link de convite no WhatsApp/redes (o token é query param,
           então o HTML estático dessa rota já carrega essas tags). */}
       <Head>
-        <title>PALPIT — Você foi desafiado</title>
+        <title>PALPIT | Você foi desafiado</title>
         <meta property="og:title" content="Você foi desafiado no PALPIT" />
         <meta
           property="og:description"

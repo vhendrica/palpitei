@@ -180,7 +180,7 @@ export default function CriarDesafio() {
   const config = (
     <>
         <T className="mb-3 text-xs text-muted">
-          {modo === "duelo" ? "Duelo: você + 1 adversário" : "Desafio em grupo"} —{" "}
+          {modo === "duelo" ? "Duelo: você + 1 adversário" : "Desafio em grupo"} ·{" "}
           <T className="text-primary" onPress={() => setModalModo(true)}>
             trocar modo
           </T>
