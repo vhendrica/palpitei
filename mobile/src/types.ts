@@ -4,6 +4,7 @@ export type LigaStatus = "aberta" | "em_andamento" | "finalizada";
 export type User = {
   id: string;
   nome: string;
+  username: string;
   whatsapp: string | null;
   email: string | null;
   bairro: string;
@@ -35,6 +36,7 @@ export type Mercado = {
   decidido?: boolean;
   minhas_fichas?: number;
   especial?: boolean;
+  especial_ordem?: number | null;
 };
 
 export type Especial = {
@@ -60,6 +62,7 @@ export type Jogo = {
   comecou: boolean;
   finalizado: boolean;
   placar: { casa: number; fora: number } | null;
+  estatisticas?: Partial<Record<'gols1t' | 'escanteios' | 'escanteios1t' | 'cartoes', [number, number]>>;
   mercados: Mercado[];
 };
 
@@ -103,7 +106,15 @@ export type MinhaSituacao =
 
 export type Home = {
   data: string;
-  regras: { custo_entrada_pontos: number; fichas_por_entrada: number };
+  regras: {
+    custo_entrada_pontos: number;
+    fichas_por_entrada: number;
+    pontos_indicacao?: number;
+    indicacao_palpite?: number;
+    indicacao_login?: number;
+    indicacao_bonus?: number;
+    pontos_indicacao_max?: number;
+  };
   usuario: {
     id: string;
     nome: string;

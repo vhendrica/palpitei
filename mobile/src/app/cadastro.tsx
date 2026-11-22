@@ -1,7 +1,8 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { router } from "expo-router";
-import { useState } from "react";
+import { router, useLocalSearchParams } from "expo-router";
+import { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -13,11 +14,14 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppHeader } from "../components/AppHeader";
 import { Checkbox, ErrorBox, Field } from "../components/Form";
 import { Button, T } from "../components/ui";
+import { api } from "../lib/api";
 import { track } from "../lib/analytics";
 import { useDesktop } from "../lib/desktop";
 import { fmtCpf, fmtDataNasc, fmtWhats } from "../lib/format";
 import { errorMessage, useApp } from "../store/AppStore";
 import { useTheme } from "../store/Theme";
+
+const USERNAME_OK = /^[a-z0-9][a-z0-9._-]{2,19}$/;
 
 // No computador o formulário fica centralizado e os campos andam em pares.
 function Linha({
@@ -44,8 +48,13 @@ export default function Cadastro() {
   const { palette: C } = useTheme();
   const insets = useSafeAreaInsets();
   const { cadastrar } = useApp();
+  const { ref } = useLocalSearchParams<{ ref?: string }>();
+  const indicadoPor = typeof ref === "string" ? ref.trim().toLowerCase() : "";
   const desktop = useDesktop();
   const [nome, setNome] = useState("");
+  const [username, setUsername] = useState("");
+  // Último username checado + resultado ('verificando' enquanto a API responde).
+  const [userCheck, setUserCheck] = useState<{ u: string; status: "verificando" | boolean | null } | null>(null);
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [senha2, setSenha2] = useState("");
@@ -70,9 +79,33 @@ export default function Cadastro() {
     </Pressable>
   );
 
+  const userAtual = username.trim().toLowerCase();
+  const userStatus = !USERNAME_OK.test(userAtual)
+    ? null
+    : userCheck?.u === userAtual
+      ? userCheck.status
+      : "verificando";
+
+  // Debounce da checagem de username: dispara 400ms depois de parar de digitar.
+  useEffect(() => {
+    const u = username.trim().toLowerCase();
+    if (!USERNAME_OK.test(u)) return;
+    const t = setTimeout(() => {
+      setUserCheck({ u, status: "verificando" });
+      api.usernameLivre(u).then(
+        (r) => setUserCheck((s) => (s?.u === u ? { u, status: r.disponivel } : s)),
+        () => setUserCheck((s) => (s?.u === u ? { u, status: null } : s)),
+      );
+    }, 400);
+    return () => clearTimeout(t);
+  }, [username]);
+
   const avancar = () => {
     setErro(null);
-    if (nome.trim().length < 2) return setErro("Conta seu nome.");
+    if (nome.trim().length < 2) return setErro("Conta seu nome completo.");
+    if (!USERNAME_OK.test(username.trim().toLowerCase()))
+      return setErro("Nome de usuário: 3 a 20 caracteres (letras, números, ponto, hífen ou _).");
+    if (userStatus === false) return setErro("Esse nome de usuário já está em uso.");
     if (!/^\S+@\S+\.\S+$/.test(email)) return setErro("Confere o e-mail.");
     if (!/^(?=.*[A-Za-z])(?=.*\d).{8,}$/.test(senha))
       return setErro("A senha precisa de 8+ caracteres, com letras e números.");
@@ -87,6 +120,7 @@ export default function Cadastro() {
       if (senha !== senha2) throw new Error("As senhas não são iguais.");
       await cadastrar({
         nome,
+        username: username.trim().toLowerCase(),
         email,
         senha,
         whatsapp: whats,
@@ -94,6 +128,7 @@ export default function Cadastro() {
         data_nascimento: nasc,
         aceita_termos: termos,
         aceita_compartilhamento: dados,
+        ...(indicadoPor ? { indicado_por: indicadoPor } : {}),
       });
       track("Preencheu cadastro");
       router.replace("/(tabs)");
@@ -153,12 +188,30 @@ export default function Cadastro() {
           <>
         <Linha desktop={desktop}>
           <Field
-            label="Seu nome"
+            label="Nome completo"
             icon="person-outline"
-            placeholder="Como te chamam?"
+            placeholder="Seu nome e sobrenome"
             value={nome}
             onChangeText={setNome}
             autoCapitalize="words"
+          />
+          <Field
+            label="Nome de usuário"
+            icon="at-outline"
+            placeholder="aparece no ranking"
+            autoCapitalize="none"
+            autoCorrect={false}
+            value={username}
+            onChangeText={(t) => setUsername(t.toLowerCase().replace(/\s/g, ""))}
+            trailing={
+              userStatus === "verificando" ? (
+                <ActivityIndicator size="small" color={C.muted} />
+              ) : userStatus === true ? (
+                <Ionicons name="checkmark-circle" size={18} color={C.primary} />
+              ) : userStatus === false ? (
+                <Ionicons name="close-circle" size={18} color={C.danger} />
+              ) : null
+            }
           />
           <Field
             label="E-mail"

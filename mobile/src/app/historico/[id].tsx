@@ -101,7 +101,8 @@ export default function HistoricoDetalhe() {
                       {p.eu ? " (você)" : ""}
                     </T>
                     <T className="text-xs text-muted">
-                      {fmtPontos(p.pontuacao)} pts · {p.acertos}{" "}
+                      {fmtPontos(p.pontuacao)} conquistados
+                      {p.potencial != null ? ` · potencial ${fmtPontos(p.potencial)}` : ""} · {p.acertos}{" "}
                       {p.acertos === 1 ? "acerto" : "acertos"}
                       {p.desempate ? ` · ${p.desempate}` : ""}
                     </T>

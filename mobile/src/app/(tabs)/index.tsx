@@ -40,16 +40,29 @@ import {
   DRAFT_VAZIO,
   fichasNoDraft,
 } from "../../lib/bilhete";
+import { copiar, compartilhar, linkIndicacao, mensagemConvite } from "../../lib/convite";
 import { useDesktop } from "../../lib/desktop";
 import { fmtData, fmtOdd, fmtPts, rotuloPalpite } from "../../lib/format";
 import { errorMessage, useApp } from "../../store/AppStore";
 import { useTheme } from "../../store/Theme";
 import { agruparMercados } from "../../types";
 import { GrupoTitulo } from "../../components/GrupoTitulo";
-import { secaoDo } from "../../lib/secoes";
+import {
+  familiaGrupo,
+  linhaGrupo,
+  ORDEM_PRINCIPAL,
+  rankSecao,
+  secaoDo,
+} from "../../lib/secoes";
 import type { Jogo, MinhaSituacao, MultiplaView } from "../../types";
 
 const MERCADOS_VISIVEIS = 2;
+
+/** Dentro do PRINCIPAL, a ordem dos grupos segue ORDEM_PRINCIPAL; fora dele não reordena. */
+const rankPrincipal = (g: { grupo: string; opcoes: { secao?: string | null }[] }) =>
+  (g.opcoes[0]?.secao ?? secaoDo(g.grupo)) === "PRINCIPAL"
+    ? ORDEM_PRINCIPAL.indexOf(g.grupo) + 1 || ORDEM_PRINCIPAL.length + 1
+    : 0;
 
 export default function HomeMultipla() {
   const { palette: C, scheme } = useTheme();
@@ -86,7 +99,12 @@ export default function HomeMultipla() {
   );
   const [resumo, setResumo] = useState(false);
   const [verBilhete, setVerBilhete] = useState(false);
+  const [conviteModal, setConviteModal] = useState(false);
   const [abertos, setAbertos] = useState<string[]>([]);
+  // Seções recolhidas por jogo: chave "<jogoId>|<SEÇÃO>".
+  const [secoesOcultas, setSecoesOcultas] = useState<Record<string, boolean>>({});
+  const [gruposOcultos, setGruposOcultos] = useState<Record<string, boolean>>({});
+  const [jogExpandidos, setJogExpandidos] = useState<Record<string, boolean>>({});
   const setDraft = (fn: Draft | ((d: Draft) => Draft)) =>
     setDraftState({
       key: draftKey,
@@ -159,7 +177,9 @@ export default function HomeMultipla() {
           grupo: m.grupo,
           fichas: m.minhas_fichas!,
           odd: m.multiplicador,
-          decidido: !!m.decidido || j.finalizado,
+          // Mercado só mostra resultado quando foi apurado (decidido) ou a rodada fechou
+          // (aí o pendente conta como perdido). Jogo acabado sem apuração fica pendente.
+          decidido: !!m.decidido || home?.liga?.status === "finalizada",
           certo: m.resultado_final,
         })),
     );
@@ -174,7 +194,7 @@ export default function HomeMultipla() {
       simples.reduce((s, p) => s + p.fichas * p.odd, 0) +
       multiplas.reduce((s, m) => s + m.fichas * m.odd, 0);
     return { simples, multiplas, nPalpites, temDecidido, potencial };
-  }, [home?.jogos, eu?.multiplas]);
+  }, [home?.jogos, home?.liga?.status, eu?.multiplas]);
 
   const editarBilhete = () => {
     const ms = editaveis.multiplas.map((m) => ({
@@ -205,6 +225,8 @@ export default function HomeMultipla() {
   const valendo =
     !!home?.liga &&
     (home.liga.status !== "aberta" || home.jogos.some((j) => j.comecou));
+  // Só sugere distribuir fichas enquanto existe jogo aberto pra apostar.
+  const temJogoAberto = !!home?.liga && aberta && home.jogos.some((j) => !j.comecou);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -365,6 +387,8 @@ export default function HomeMultipla() {
             </T>
             <T
               className={`mx-1.5 font-mont-xb ${j.destaque ? "text-xl" : "text-base"}`}
+              numberOfLines={1}
+              style={{ flexShrink: 0 }}
             >
               {j.placar ? `${j.placar.casa} x ${j.placar.fora}` : "x"}
             </T>
@@ -379,37 +403,107 @@ export default function HomeMultipla() {
         </Pressable>
         {!j.finalizado || j.mercados.some((m) => (m.minhas_fichas ?? 0) > 0) ? (
           <View className="mt-3">
-            {agruparMercados(
-              j.finalizado
-                ? j.mercados.filter((m) => (m.minhas_fichas ?? 0) > 0)
-                : j.mercados,
-            )
-              .filter(
-                (_, gi) => gi < MERCADOS_VISIVEIS || abertos.includes(j.id),
+            {(() => {
+              const gruposVis = agruparMercados(
+                j.finalizado
+                  ? j.mercados.filter((m) => (m.minhas_fichas ?? 0) > 0)
+                  : j.mercados,
               )
-              .map((g, gi, arr) => {
+                .filter(
+                  (_, gi) => gi < MERCADOS_VISIVEIS || abertos.includes(j.id),
+                )
+                .sort(
+                  (a, b) =>
+                    rankSecao(a.opcoes[0]?.secao ?? secaoDo(a.grupo)) -
+                      rankSecao(b.opcoes[0]?.secao ?? secaoDo(b.grupo)) ||
+                    rankPrincipal(a) - rankPrincipal(b) ||
+                    familiaGrupo(a.grupo).localeCompare(familiaGrupo(b.grupo)) ||
+                    linhaGrupo(a.grupo) - linhaGrupo(b.grupo),
+                );
+              const secoesJogo: { nome: string; grupos: typeof gruposVis }[] = [];
+              for (const g of gruposVis) {
                 const sec = g.opcoes[0]?.secao ?? secaoDo(g.grupo);
-                const novaSecao =
-                  gi === 0 ||
-                  (arr[gi - 1].opcoes[0]?.secao ??
-                    secaoDo(arr[gi - 1].grupo)) !== sec;
+                // Seção por família: "ESCANTEIOS 8.5" e "ESCANTEIOS 9.5" entram
+                // juntos em "ESCANTEIOS", linhas crescentes dentro.
+                const nome = sec === "PRINCIPAL" ? "PRINCIPAL" : familiaGrupo(g.grupo);
+                const s = secoesJogo.find((x) => x.nome === nome);
+                if (s) s.grupos.push(g);
+                else secoesJogo.push({ nome, grupos: [g] });
+              }
+              const expandido = abertos.includes(j.id);
+              return secoesJogo.map((s) => {
+                const chave = `${j.id}|${s.nome}`;
+                // Sem expandir, mostra os grupos soltos; ao expandir, só o PRINCIPAL abre de cara.
+                const oculta = expandido
+                  ? (secoesOcultas[chave] ?? s.nome !== "PRINCIPAL")
+                  : false;
                 return (
-                  <View key={g.grupo} className="mb-3">
-                    {novaSecao && sec !== "PRINCIPAL" ? (
-                      <T className="mb-1 mt-1 font-mont-xb text-sm text-primary">
-                        {sec}
+                  <View key={s.nome}>
+                    {expandido ? (
+                    <Pressable
+                      onPress={() =>
+                        setSecoesOcultas((o) => ({ ...o, [chave]: !oculta }))
+                      }
+                      className="mb-1 mt-1 flex-row items-center active:opacity-70"
+                      accessibilityLabel={`${oculta ? "Expandir" : "Recolher"} seção ${s.nome}`}
+                    >
+                      <Ionicons
+                        name={oculta ? "chevron-forward" : "chevron-down"}
+                        size={14}
+                        color={C.primary}
+                      />
+                      <T className="ml-1 font-mont-xb text-sm text-primary">
+                        {s.nome}
                       </T>
+                    </Pressable>
                     ) : null}
-                    {g.grupo ? <GrupoTitulo grupo={g.grupo} /> : null}
-                    <View className="flex-row flex-wrap" style={{ gap: 6 }}>
-                      {g.opcoes.map((m) => {
+                    {oculta
+                      ? null
+                      : s.grupos.map((g) => {
+                          const gchave = `${j.id}|${g.grupo}`;
+                          const goculto = !!gruposOcultos[gchave];
+                          const ehJogador =
+                            (g.opcoes[0]?.secao ?? secaoDo(g.grupo)) === "JOGADOR";
+                          const opcoesVis =
+                            ehJogador && !jogExpandidos[gchave]
+                              ? g.opcoes.slice(0, 9)
+                              : g.opcoes;
+                          return (
+                          <View key={g.grupo} className="mb-3">
+                            {g.grupo && g.grupo !== s.nome ? (
+                              <View className="flex-row items-center">
+                                <Pressable
+                                  onPress={() =>
+                                    setGruposOcultos((o) => ({
+                                      ...o,
+                                      [gchave]: !goculto,
+                                    }))
+                                  }
+                                  hitSlop={8}
+                                  accessibilityLabel={`${goculto ? "Expandir" : "Recolher"} mercado ${g.grupo}`}
+                                >
+                                  <Ionicons
+                                    name={goculto ? "chevron-forward" : "chevron-down"}
+                                    size={12}
+                                    color={C.muted}
+                                  />
+                                </Pressable>
+                                <View className="ml-0.5 flex-1">
+                                  <GrupoTitulo grupo={g.grupo} />
+                                </View>
+                              </View>
+                            ) : null}
+                            {goculto ? null : (
+                            <View
+                              className="flex-row flex-wrap"
+                              style={{ gap: 6 }}
+                            >
+                              {opcoesVis.map((m) => {
                         const minhas =
                           editando && !j.comecou ? 0 : (m.minhas_fichas ?? 0);
                         const noBilhete = draft.itens.includes(m.id);
                         const resultado =
-                          home.liga?.status === "finalizada" ||
-                          j.finalizado ||
-                          m.decidido
+                          home.liga?.status === "finalizada" || m.decidido
                             ? m.resultado_final
                               ? "green"
                               : minhas > 0
@@ -444,11 +538,42 @@ export default function HomeMultipla() {
                             />
                           </View>
                         );
-                      })}
-                    </View>
+                              })}
+                            </View>
+                            )}
+                            {!goculto && ehJogador && g.opcoes.length > 9 ? (
+                              <Pressable
+                                onPress={() =>
+                                  setJogExpandidos((o) => ({
+                                    ...o,
+                                    [gchave]: !o[gchave],
+                                  }))
+                                }
+                                className="mt-0.5 flex-row items-center active:opacity-70"
+                              >
+                                <Ionicons
+                                  name={
+                                    jogExpandidos[gchave]
+                                      ? "chevron-up"
+                                      : "chevron-down"
+                                  }
+                                  size={12}
+                                  color={C.muted}
+                                />
+                                <T className="ml-1 font-mont-b text-[11px] text-muted">
+                                  {jogExpandidos[gchave]
+                                    ? "Ver menos"
+                                    : `Ver + ${g.opcoes.length - 9}`}
+                                </T>
+                              </Pressable>
+                            ) : null}
+                          </View>
+                          );
+                        })}
                   </View>
                 );
-              })}
+              });
+            })()}
             {agruparMercados(j.mercados).length > MERCADOS_VISIVEIS ? (
               <Pressable
                 onPress={() =>
@@ -557,7 +682,7 @@ export default function HomeMultipla() {
                     eu ? undefined : () => router.push("/palpiteiros")
                   }
                   semContagem={!!eu}
-                  onConvidar={() => convidar(home.liga?.premio_desc)}
+                  onConvidar={() => convidar(home.liga?.premio_desc, user?.username)}
                   completo={palpitou}
                 />
 
@@ -622,18 +747,20 @@ export default function HomeMultipla() {
                         </>
                       ) : (
                         <>
-                          {(!valendo || editaveis.fichas > 0 || livres > 0) &&
+                          {temJogoAberto &&
+                          (!valendo || editaveis.fichas > 0 || livres > 0) &&
                           livres + noDraft > 0 ? (
                             <SituacaoFichas
                               livres={livres}
                               noBilhete={noDraft}
                             />
                           ) : null}
-                          {(eu.fichas_ganhas ?? 0) > 0 ? (
+                          {temJogoAberto &&
+                          (eu.fichas_ganhas ?? 0) > 0 ? (
                             <T className="mb-2 text-center text-xs text-muted">
-                              Seus acertos já devolveram{" "}
-                              {fmtPts(eu.fichas_ganhas!)} fichas. Dá pra
-                              reapostar nos jogos que não começaram.
+                              Você já recuperou {fmtPts(eu.fichas_ganhas!)}{" "}
+                              fichas. Dá pra distribuir de novo nos jogos que
+                              não começaram e seguir subindo no ranking.
                             </T>
                           ) : null}
                           {aberta && editando ? (
@@ -659,7 +786,7 @@ export default function HomeMultipla() {
                     <View className="mb-2 flex-row items-center">
                       <View className="mr-2 h-4 w-1 rounded-full bg-primary" />
                       <T className="font-mont-xb text-sm uppercase tracking-wide">
-                        Especiais do dia
+                        Especiais em destaque
                       </T>
                     </View>
                     <ScrollView
@@ -670,11 +797,6 @@ export default function HomeMultipla() {
                       {home.especiais!.map((e) => {
                         const selecionado = draft.itens.includes(e.id);
                         const pode = !!eu && aberta && !e.comecou;
-                        const rotulo = /^(SIM|NÃO|NAO|EMPATE)$/i.test(
-                          e.descricao,
-                        )
-                          ? `${e.grupo} — ${e.descricao}`
-                          : e.descricao;
                         return (
                           <Pressable
                             key={e.id}
@@ -683,27 +805,53 @@ export default function HomeMultipla() {
                                 ? setDraft((d) => alternarOdd(d, e.id))
                                 : chamarPalpitar()
                             }
-                            className={`w-36 rounded-xl border p-3 ${
+                            className={`w-36 flex-row self-stretch overflow-hidden rounded-xl border ${
                               selecionado
                                 ? "border-primary bg-cardAlt"
                                 : "border-line bg-card"
                             }`}
                           >
-                            <T
-                              className="font-mont-xb text-[9px] uppercase tracking-widest text-muted"
-                              numberOfLines={1}
-                            >
-                              {e.time_casa} x {e.time_fora}
-                            </T>
-                            <T
-                              className="mt-1 font-mont-b text-xs"
-                              numberOfLines={2}
-                            >
-                              {rotulo}
-                            </T>
-                            <T className="mt-1 font-odds text-base text-primary">
-                              {fmtOdd(e.multiplicador)}
-                            </T>
+                            <View className="w-1 bg-primary" />
+                            <View className="flex-1 justify-between p-3">
+                              <View>
+                                <T
+                                  className="font-mont-b text-[9px] uppercase tracking-widest text-muted"
+                                  numberOfLines={1}
+                                >
+                                  {siglaTime(e.time_casa)} X{" "}
+                                  {siglaTime(e.time_fora)}
+                                </T>
+                                <T
+                                  className="font-mont-xb text-[10px] uppercase tracking-widest"
+                                  numberOfLines={2}
+                                >
+                                  {e.grupo}
+                                </T>
+                                <T
+                                  className="mt-1 font-mont text-xs text-muted"
+                                  numberOfLines={2}
+                                >
+                                  {e.descricao}
+                                </T>
+                              </View>
+                              <View
+                                className={`mt-2 rounded-lg border px-2 py-1.5 ${
+                                  selecionado
+                                    ? "border-primary bg-primary"
+                                    : "border-line bg-cardAlt"
+                                }`}
+                              >
+                                <T
+                                  className={`text-center font-odds text-sm ${
+                                    selecionado
+                                      ? "text-onPrimary"
+                                      : "text-primary"
+                                  }`}
+                                >
+                                  {fmtOdd(e.multiplicador)}
+                                </T>
+                              </View>
+                            </View>
                           </Pressable>
                         );
                       })}
@@ -771,7 +919,7 @@ export default function HomeMultipla() {
                         </View>
                       </Card>
                     </Pressable>
-                    <SectionTitle>Jogue de outro jeito</SectionTitle>
+                    <SectionTitle>Chame a galera</SectionTitle>
                     <View className="flex-row" style={{ gap: 10 }}>
                       <Pressable
                         onPress={() => router.push("/desafio")}
@@ -791,24 +939,26 @@ export default function HomeMultipla() {
                           </T>
                         </Card>
                       </Pressable>
-                      <Pressable
-                        onPress={() => router.push("/simulador")}
-                        className="flex-1"
-                      >
-                        <Card>
-                          <Ionicons
-                            name="cash-outline"
-                            size={22}
-                            color={C.primary}
-                          />
-                          <T className="mt-1.5 font-mont-b text-sm">
-                            Simulador
-                          </T>
-                          <T className="mt-0.5 text-xs text-muted">
-                            Odds reais, dinheiro virtual
-                          </T>
-                        </Card>
-                      </Pressable>
+                      {user?.username ? (
+                        <Pressable
+                          onPress={() => setConviteModal(true)}
+                          className="flex-1"
+                        >
+                          <Card>
+                            <Ionicons
+                              name="people-outline"
+                              size={22}
+                              color={C.primary}
+                            />
+                            <T className="mt-1.5 font-mont-b text-sm">
+                              Convide & ganhe
+                            </T>
+                            <T className="mt-0.5 text-xs text-muted">
+                              {`Ganhe até ${home.regras.pontos_indicacao_max ?? 500} pts por amigo`}
+                            </T>
+                          </Card>
+                        </Pressable>
+                      ) : null}
                     </View>
                   </>
                 ) : null}
@@ -854,6 +1004,7 @@ export default function HomeMultipla() {
                   draft={draft}
                   opcoes={opcoes}
                   fichasLivres={fichasLivresBase}
+                  fichasGanhas={eu?.fichas_ganhas ?? 0}
                   offsetMultiplas={offsetMultiplas}
                   onChange={setDraft}
                   rail
@@ -903,6 +1054,7 @@ export default function HomeMultipla() {
           draft={draft}
           opcoes={opcoes}
           fichasLivres={fichasLivresBase}
+          fichasGanhas={eu?.fichas_ganhas ?? 0}
           offsetMultiplas={offsetMultiplas}
           busy={busy}
           erro={erroBilhete}
@@ -916,6 +1068,7 @@ export default function HomeMultipla() {
           draft={draft}
           opcoes={opcoes}
           fichasLivres={fichasLivresBase}
+          fichasGanhas={eu?.fichas_ganhas ?? 0}
           offsetMultiplas={offsetMultiplas}
           onChange={setDraft}
           onResumo={() => {
@@ -973,6 +1126,53 @@ export default function HomeMultipla() {
               variant="ghost"
               className="mt-2"
               onPress={() => setVerBilhete(false)}
+            />
+          </Pressable>
+        </Pressable>
+      </Modal>
+      {/* CONVIDE & GANHE › regras do programa + copiar mensagem / mandar no WhatsApp. */}
+      <Modal
+        visible={conviteModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setConviteModal(false)}
+      >
+        <Pressable
+          className="flex-1 justify-center bg-black/50 p-5"
+          onPress={() => setConviteModal(false)}
+        >
+          <Pressable
+            className="rounded-3xl bg-card p-5"
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View className="flex-row items-center" style={{ gap: 8 }}>
+              <Ionicons name="people" size={22} color={C.primary} />
+              <T className="font-mont-xb text-base">Convide & ganhe</T>
+            </View>
+            <T className="mt-3 text-sm text-muted">
+              {`Ganhe pontos para cada amigo que entrar pelo seu link:\n\n+ ${home.regras.pontos_indicacao ?? 50} pts quando ele se cadastrar\n+ ${home.regras.indicacao_palpite ?? 50} pts se ele palpitar no mesmo dia\n+ ${home.regras.indicacao_login ?? 100} pts a cada dia que ele voltar (3 dias)\n+ ${home.regras.indicacao_bonus ?? 100} pts de bônus se completar os 3 logins\n\nTotal: até ${home.regras.pontos_indicacao_max ?? 500} pts por amigo!`}
+            </T>
+            <Button
+              title="Mandar no WhatsApp"
+              icon="logo-whatsapp"
+              className="mt-4"
+              onPress={() => {
+                setConviteModal(false);
+                if (user?.username) convidarIndicacao(user.username, home.liga?.premio_desc);
+              }}
+            />
+            <Button
+              title="Copiar mensagem"
+              variant="outline"
+              icon="copy-outline"
+              className="mt-2"
+              onPress={async () => {
+                if (!user?.username) return;
+                const ok = await copiar(mensagemConvite(linkIndicacao(user.username), home.liga?.premio_desc));
+                if (!ok) await compartilhar(mensagemConvite(linkIndicacao(user.username), home.liga?.premio_desc));
+                setConviteModal(false);
+                toast.show("Mensagem copiada!");
+              }}
             />
           </Pressable>
         </Pressable>
@@ -1089,6 +1289,12 @@ function DistribuicaoBilhete({
               <T className="mr-2 font-odds text-base text-primary">
                 {fmtOdd(p.odd)}
               </T>
+              <T className="mr-2 text-[11px] text-muted">
+                →{" "}
+                <T className="font-mont-xb text-xs text-primary">
+                  {fmtPts(Math.round(p.fichas * p.odd * 100) / 100)}
+                </T>
+              </T>
               {icone(p.decidido, p.certo)}
             </View>
           ))}
@@ -1125,8 +1331,13 @@ function DistribuicaoBilhete({
                 {fmtPts(m.fichas)} FICHAS · MULTIPLICADOR TOTAL
               </T>
               <T className="font-odds text-lg" style={{ color: cor }}>
-                <T className="text-xs text-muted">= </T>
                 {fmtOdd(m.odd).slice(0, -1)}
+              </T>
+              <T className="ml-1 text-[11px] text-muted">
+                →{" "}
+                <T className="font-mont-xb text-sm" style={{ color: cor }}>
+                  {fmtPts(Math.round(m.fichas * m.odd * 100) / 100)}
+                </T>
               </T>
             </View>
           </BlocoBilhete>
@@ -1195,17 +1406,29 @@ function SituacaoFichas({
   );
 }
 
-function convidar(premio?: string | null) {
-  const url =
-    process.env.EXPO_PUBLIC_APP_URL ??
-    "https://vhendrica.github.io/palpitei/app/";
-  const msg = `Bora palpitar comigo no PALPIT? É de graça${premio ? ` e o campeão leva ${premio}` : ""}! ${url}`;
+function convidar(premio?: string | null, username?: string) {
+  // O convite carrega o ref do usuário: quem se cadastra por ele conta como indicação.
+  const url = username
+    ? linkIndicacao(username)
+    : (process.env.EXPO_PUBLIC_APP_URL ?? "https://vhendrica.github.io/palpitei/app/");
+  const msg = mensagemConvite(url, premio);
   if (Platform.OS === "web") {
     Linking.openURL(`https://wa.me/?text=${encodeURIComponent(msg)}`);
   } else {
     Share.share({ message: msg });
   }
 }
+
+/** Indicação: mesmo texto do convite, mas o link marca quem convidou (ref=username). */
+function convidarIndicacao(username: string, premio?: string | null) {
+  const msg = mensagemConvite(linkIndicacao(username), premio);
+  if (Platform.OS === "web") {
+    Linking.openURL(`https://wa.me/?text=${encodeURIComponent(msg)}`);
+  } else {
+    Share.share({ message: msg });
+  }
+}
+
 
 function CarrosselJogos({
   jogos,
@@ -1359,6 +1582,14 @@ function AoVivo() {
       </T>
     </View>
   );
+}
+
+function siglaTime(nome: string) {
+  const limpo = nome
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^A-Za-z]/g, "");
+  return limpo.slice(0, 3).toUpperCase() || nome.slice(0, 3).toUpperCase();
 }
 
 function Time({ nome }: { nome: string }) {

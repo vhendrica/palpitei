@@ -5,7 +5,9 @@ import { Alert, Pressable, ScrollView, TextInput, View } from "react-native";
 
 import { AppHeader } from "../components/AppHeader";
 import { Checkbox, ErrorBox, Field } from "../components/Form";
+import { PlacarAdmin } from "../components/PlacarAdmin";
 import { fmtReais } from "../components/PremioBar";
+import { SeletorMercados } from "../components/SeletorMercados";
 import {
   Button,
   Card,
@@ -129,6 +131,7 @@ export default function Admin() {
 type Run = (fn: () => Promise<string | void>) => Promise<boolean>;
 
 function AbaLiga({ data, run }: { data: string; run: Run }) {
+  const { palette: C } = useTheme();
   const [confirmaRemover, setConfirmaRemover] = useState(false);
   const [la, setLa] = useState<LigaAdmin | null>(null);
   const [vencedores, setVencedores] = useState<Record<string, boolean>>({});
@@ -262,6 +265,76 @@ function AbaLiga({ data, run }: { data: string; run: Run }) {
         ) : null}
       </Card>
 
+      {/* Especiais em destaque: ordem de exibição na home, ajustável com ↑↓. */}
+      {(() => {
+        const especiaisDaLiga = la.jogos
+          .flatMap((j) =>
+            j.mercados
+              .filter((m) => m.especial)
+              .map((m) => ({ ...m, jogo: `${j.time_casa} x ${j.time_fora}` })),
+          )
+          .sort((a, b) => (a.especial_ordem ?? 99) - (b.especial_ordem ?? 99));
+        if (!especiaisDaLiga.length) return null;
+        const mover = (i: number, dir: number) => {
+          const alvo = i + dir;
+          if (alvo < 0 || alvo >= especiaisDaLiga.length) return;
+          const ids = especiaisDaLiga.map((e) => e.id);
+          [ids[i], ids[alvo]] = [ids[alvo], ids[i]];
+          run(async () => {
+            setLa(await api.admin.ordenarEspeciais(liga.id, ids));
+            return "Ordem dos especiais salva.";
+          });
+        };
+        return (
+          <Card className="mb-3">
+            <T className="text-[11px] uppercase tracking-widest text-muted">
+              Especiais em destaque — ordem na home ({especiaisDaLiga.length}/10)
+            </T>
+            {especiaisDaLiga.map((e, i) => (
+              <View
+                key={e.id}
+                className="flex-row items-center justify-between border-b border-line py-1.5"
+              >
+                <View className="flex-1 pr-2">
+                  <T className="text-[10px] uppercase tracking-widest text-muted" numberOfLines={1}>
+                    {e.jogo}
+                  </T>
+                  <T className="font-mont-b text-xs" numberOfLines={1}>
+                    {e.grupo ? `${e.grupo} — ` : ""}
+                    {e.descricao}
+                  </T>
+                </View>
+                <T className="mr-2 font-odds text-sm text-primary">
+                  {fmtOdd(e.multiplicador)}
+                </T>
+                {!fechada ? (
+                  <View className="flex-row">
+                    <Pressable hitSlop={8} onPress={() => mover(i, -1)} style={{ padding: 4 }}>
+                      <Ionicons
+                        name="arrow-up"
+                        size={16}
+                        color={i === 0 ? C.muted : C.primary}
+                      />
+                    </Pressable>
+                    <Pressable
+                      hitSlop={8}
+                      onPress={() => mover(i, 1)}
+                      style={{ padding: 4, marginLeft: 6 }}
+                    >
+                      <Ionicons
+                        name="arrow-down"
+                        size={16}
+                        color={i === especiaisDaLiga.length - 1 ? C.muted : C.primary}
+                      />
+                    </Pressable>
+                  </View>
+                ) : null}
+              </View>
+            ))}
+          </Card>
+        );
+      })()}
+
       <SectionTitle>Jogos</SectionTitle>
       {la.jogos.map((j) => (
         <JogoAdmin
@@ -299,6 +372,24 @@ function AbaLiga({ data, run }: { data: string; run: Run }) {
                 Alert.alert("Não salvou os mercados", errorMessage(e));
                 throw e;
               }
+            })
+          }
+          onSalvarMeta={(ms) =>
+            run(async () => {
+              try {
+                setLa(await api.admin.mercadosMeta(j.id, ms));
+                return "Seções salvas.";
+              } catch (e) {
+                Alert.alert("Não salvou", errorMessage(e));
+                throw e;
+              }
+            })
+          }
+          onPlacar={(body) =>
+            run(async () => {
+              const r = await api.admin.placar(j.id, body);
+              setLa(await api.admin.liga(data));
+              return `Placar salvo: ${r.mercados_certos} mercado(s) bateram.`;
             })
           }
           onRenovarMercados={() =>
@@ -376,7 +467,9 @@ function JogoAdmin({
   onEspecial,
   onResultado,
   onSalvarMercados,
+  onSalvarMeta,
   onRenovarMercados,
+  onPlacar,
 }: {
   jogo: Jogo;
   fechada: boolean;
@@ -386,6 +479,7 @@ function JogoAdmin({
   onEspecial: (mercadoId: string) => void;
   onResultado: (mercadoId: string, resultado: 'certo' | 'errado' | 'pendente') => void;
   onRenovarMercados: () => void;
+  onPlacar: (body: Parameters<typeof api.admin.placar>[1]) => void;
   onSalvarMercados: (
     ms: {
       id?: string;
@@ -395,8 +489,10 @@ function JogoAdmin({
       secao?: string | null;
     }[],
   ) => Promise<boolean>;
+  onSalvarMeta: (ms: { id: string; secao: string | null }[]) => Promise<boolean>;
 }) {
   const { palette: C } = useTheme();
+  const [agora] = useState(() => Date.now());
   const [editando, setEditando] = useState(false);
   const [ms, setMs] = useState<MercadoDraft[]>([]);
   const [daApi, setDaApi] = useState<Awaited<
@@ -414,33 +510,6 @@ function JogoAdmin({
       setErroApi(errorMessage(e));
     } finally {
       setBuscando(false);
-    }
-  };
-
-  const [buscandoProps, setBuscandoProps] = useState(false);
-  const buscarProps = async () => {
-    setBuscandoProps(true);
-    setErroApi(null);
-    try {
-      const r = await api.admin.propsApi(jogo.id);
-      setDaApi((atual) => {
-        const base = atual ?? { mercados: [], creditos_restantes: null };
-        const chaves = new Set(
-          base.mercados.map(
-            (m) => `${m.grupo.toUpperCase()}|${normDescricao(m.descricao)}`,
-          ),
-        );
-        const novos = r.mercados
-          .filter(
-            (m) => !chaves.has(`${m.grupo.toUpperCase()}|${normDescricao(m.descricao)}`),
-          )
-          .map((m) => ({ ...m, casas: 1 }));
-        return { ...base, mercados: [...base.mercados, ...novos] };
-      });
-    } catch (e) {
-      setErroApi(errorMessage(e));
-    } finally {
-      setBuscandoProps(false);
     }
   };
 
@@ -552,12 +621,9 @@ function JogoAdmin({
     const atual = secaoAtual(g);
     setSecaoDraft((s) => ({ ...s, [g.grupo]: nome }));
     if (!nome || nome === atual) return;
-    onSalvarMercados(
+    onSalvarMeta(
       jogo.mercados.map((m) => ({
         id: m.id,
-        grupo: m.grupo,
-        descricao: m.descricao,
-        multiplicador: m.multiplicador,
         secao:
           (m.secao ?? secaoDo(m.grupo ?? "")) === atual
             ? nome
@@ -583,14 +649,9 @@ function JogoAdmin({
     [ord[gi], ord[alvo]] = [ord[alvo], ord[gi]];
     setOrdOverride(ord.flatMap((g) => g.opcoes));
     ordemSalvando.current = true;
-    const ok = await onSalvarMercados(
+    const ok = await onSalvarMeta(
       ord.flatMap((g) =>
-        g.opcoes.map((m) => ({
-          id: m.id,
-          grupo: m.grupo,
-          descricao: m.descricao,
-          multiplicador: m.multiplicador,
-        })),
+        g.opcoes.map((m) => ({ id: m.id, secao: m.secao ?? null })),
       ),
     );
     ordemSalvando.current = false;
@@ -611,15 +672,21 @@ function JogoAdmin({
   };
 
   const [recolhido, setRecolhido] = useState(false);
+  // Grupos de mercados recolhidos dentro do card (lista longa de props fica manejável).
+  const [gruposOcultos, setGruposOcultos] = useState<Record<string, boolean>>({});
   const [movendoGrupo, setMovendoGrupo] = useState<string | null>(null);
+  const [secaoSel, setSecaoSel] = useState<string | null>(null);
   const [salvou, setSalvou] = useState(false);
   const marcarSalvou = () => {
     setSalvou(true);
     setTimeout(() => setSalvou(false), 2500);
   };
-  const secoesDoJogo = [
-    ...new Set(agruparMercados(mercadosVis).map(secaoAtual)),
-  ];
+  const gruposArr = agruparMercados(mercadosVis);
+  const secoesDoJogo = [...new Set(gruposArr.map(secaoAtual))];
+  // Aba de seção aberta: default = a primeira do jogo.
+  const sel =
+    secaoSel && secoesDoJogo.includes(secaoSel) ? secaoSel : secoesDoJogo[0];
+  const primeiroSel = gruposArr.find((g) => secaoAtual(g) === sel);
 
   // Move um grupo inteiro pra uma seção existente (o "arrastar" da versão click).
   const moverPraSecao = async (
@@ -639,12 +706,9 @@ function JogoAdmin({
       fim < 0
         ? [...resto, ...jogo.mercados.filter(doGrupo)]
         : [...resto.slice(0, fim + 1), ...jogo.mercados.filter(doGrupo), ...resto.slice(fim + 1)];
-    const ok = await onSalvarMercados(
+    const ok = await onSalvarMeta(
       ordem.map((m) => ({
         id: m.id,
-        grupo: m.grupo,
-        descricao: m.descricao,
-        multiplicador: m.multiplicador,
         secao:
           (m.grupo ?? "").trim().toUpperCase() === g.grupo &&
           descs.has(normDescricao(m.descricao))
@@ -707,33 +771,66 @@ function JogoAdmin({
         </View>
       </Pressable>
 
+      {jogo.comecou && !fechada && (jogo.finalizado || agora > Date.parse(jogo.horario) + 105 * 60000) ? <PlacarAdmin key={`${jogo.id}-${jogo.placar?.casa ?? ''}`} jogo={jogo} onSalvar={onPlacar} /> : null}
       {!editando ? (
         recolhido ? null : (
           <View className="mt-2">
-            {agruparMercados(mercadosVis).map((g, gi, arr) => (
+            <View className="flex-row flex-wrap" style={{ gap: 6 }}>
+              {secoesDoJogo.map((s) => (
+                <Pressable
+                  key={s}
+                  onPress={() => setSecaoSel(s)}
+                  className={`rounded-full border px-2.5 py-1 ${s === sel ? "border-primary bg-primary" : "border-line"}`}
+                  accessibilityLabel={`Seção ${s}`}
+                >
+                  <T
+                    className={`text-[11px] font-mont-b uppercase ${s === sel ? "text-onPrimary" : "text-primary"}`}
+                  >
+                    {s}
+                  </T>
+                </Pressable>
+              ))}
+            </View>
+            {!fechada && primeiroSel ? (
+              <TextInput
+                className="mt-1 border-b border-line pb-0.5 font-mont-xb text-sm text-primary"
+                value={secaoDraft[primeiroSel.grupo] ?? sel}
+                onChangeText={(t) =>
+                  setSecaoDraft((s) => ({
+                    ...s,
+                    [primeiroSel.grupo]: t.toUpperCase(),
+                  }))
+                }
+                onEndEditing={() => salvarSecao(primeiroSel)}
+                onBlur={() => salvarSecao(primeiroSel)}
+              />
+            ) : null}
+            {gruposArr.map((g, gi) =>
+              secaoAtual(g) !== sel ? null : (
               <View key={g.grupo} className="mt-1">
-                {gi === 0 || secaoAtual(arr[gi - 1]) !== secaoAtual(g) ? (
-                  fechada ? (
-                    <T className="mt-1 font-mont-xb text-sm text-primary">
-                      {secaoAtual(g)}
-                    </T>
-                  ) : (
-                    <TextInput
-                      className="mt-1 border-b border-line pb-0.5 font-mont-xb text-sm text-primary"
-                      value={secaoDraft[g.grupo] ?? secaoAtual(g)}
-                      onChangeText={(t) =>
-                        setSecaoDraft((s) => ({
-                          ...s,
-                          [g.grupo]: t.toUpperCase(),
-                        }))
-                      }
-                      onEndEditing={() => salvarSecao(g)}
-                      onBlur={() => salvarSecao(g)}
-                    />
-                  )
-                ) : null}
                 {g.grupo ? (
                   <View className="mt-1 flex-row items-center">
+                    <Pressable
+                      hitSlop={10}
+                      style={{ padding: 2 }}
+                      onPress={() =>
+                        setGruposOcultos((o) => ({
+                          ...o,
+                          [g.grupo]: !gruposOcultos[g.grupo],
+                        }))
+                      }
+                      accessibilityLabel={`${gruposOcultos[g.grupo] ? "Expandir" : "Recolher"} ${g.grupo}`}
+                    >
+                      <Ionicons
+                        name={
+                          gruposOcultos[g.grupo]
+                            ? "chevron-forward"
+                            : "chevron-down"
+                        }
+                        size={14}
+                        color={C.muted}
+                      />
+                    </Pressable>
                     <T className="flex-1 font-mont-xb text-xs uppercase">
                       {g.grupo}
                     </T>
@@ -758,7 +855,11 @@ function JogoAdmin({
                           <Ionicons
                             name="arrow-down"
                             size={18}
-                            color={gi === arr.length - 1 ? C.muted : C.primary}
+                            color={
+                              gi === gruposArr.length - 1
+                                ? C.muted
+                                : C.primary
+                            }
                           />
                         </Pressable>
                         <Pressable
@@ -803,7 +904,9 @@ function JogoAdmin({
                     ))}
                   </View>
                 ) : null}
-                {g.opcoes.map((m) => (
+                {gruposOcultos[g.grupo]
+                  ? null
+                  : g.opcoes.map((m) => (
                   <View
                     key={m.id}
                     className="flex-row items-center justify-between border-b border-line py-1.5"
@@ -871,9 +974,10 @@ function JogoAdmin({
                       {fmtOdd(m.multiplicador)}
                     </T>
                   </View>
-                ))}
+                    ))}
               </View>
-            ))}
+              ),
+            )}
             {!fechada ? (
               <View className="mt-2 flex-row" style={{ gap: 8 }}>
                 <Button
@@ -987,7 +1091,7 @@ function JogoAdmin({
           {!daApi ? (
             <Button
               title={
-                buscando ? "Buscando…" : "Ver mais mercados da API (4 créditos)"
+                buscando ? "Buscando…" : "Buscar mercados da OddsPapi"
               }
               variant="outline"
               icon="cloud-download-outline"
@@ -997,40 +1101,21 @@ function JogoAdmin({
           ) : (
             <View className="mt-2 rounded-lg border border-line p-2">
               <T className="mb-1 text-[11px] uppercase tracking-widest text-muted">
-                Mercados da API — marque os que vão pro ar e salve
-                {daApi.creditos_restantes != null
-                  ? ` • ${daApi.creditos_restantes} créditos`
-                  : ""}
+                Mercados da OddsPapi — marque os que vão pro ar e salve
               </T>
               {daApi.mercados.length === 0 ? (
                 <T className="text-sm text-muted">
                   A API não tem mercados extras para esse jogo.
                 </T>
               ) : null}
-              {[...agruparMercados(daApi.mercados), ...outros].map((g) => {
-                const ja = estaMarcado(g);
-                return (
-                  <Pressable
-                    key={g.grupo}
-                    onPress={() => toggleGrupo(g)}
-                    className="border-b border-line py-2"
-                  >
-                    <View className="flex-row items-center">
-                      <T className="flex-1 font-mont-xb text-xs">{g.grupo}</T>
-                      <Ionicons
-                        name={ja ? "checkmark-circle" : "ellipse-outline"}
-                        size={18}
-                        color={ja ? C.primary : C.muted}
-                      />
-                    </View>
-                    <T className="mt-0.5 text-sm">
-                      {g.opcoes
-                        .map((o) => `${o.descricao} ${fmtOdd(o.multiplicador)}`)
-                        .join("  |  ")}
-                    </T>
-                  </Pressable>
-                );
-              })}
+              <SeletorMercados
+                grupos={[...agruparMercados(daApi.mercados), ...outros]}
+                marcado={estaMarcado}
+                onToggle={toggleGrupo}
+                onMarcar={(gs, marcar) =>
+                  setMarcados((st) => ({ ...st, ...Object.fromEntries(gs.map((g) => [g.grupo, marcar])) }))
+                }
+              />
               <Button
                 title="Salvar mercados (só os marcados)"
                 className="mt-2"
@@ -1038,13 +1123,6 @@ function JogoAdmin({
               />
             </View>
           )}
-          <Button
-            title={buscandoProps ? "Buscando props…" : "Player props (OddsPapi)"}
-            variant="outline"
-            icon="person-outline"
-            className="mt-1"
-            onPress={buscandoProps ? undefined : buscarProps}
-          />
           <ErrorBox erro={erroApi} />{" "}
         </View>
       ) : null}

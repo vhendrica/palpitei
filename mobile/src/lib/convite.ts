@@ -10,6 +10,16 @@ export function linkConvite(token: string) {
   return `palpitei://desafio/convite?token=${token}`;
 }
 
+/** Link de indicação (programa de indicação): leva pro cadastro marcando quem convidou. */
+export function linkIndicacao(username: string) {
+  const ref = `?ref=${encodeURIComponent(username)}`;
+  if (Platform.OS === "web" && typeof window !== "undefined") {
+    const base = window.location.pathname.split(/\/(desafio|historico|palpiteiros|perfil|ranking)(\/|$)/)[0].replace(/\/$/, "");
+    return `${window.location.origin}${base}/cadastro${ref}`;
+  }
+  return `palpitei://cadastro${ref}`;
+}
+
 /** Copia pro clipboard (só web). Devolve se copiou. */
 export async function copiar(texto: string) {
   if (Platform.OS !== "web" || typeof navigator === "undefined" || !navigator.clipboard) return false;
@@ -40,3 +50,7 @@ export function enviarWhatsApp(mensagem: string) {
   if (Platform.OS === "web") return Linking.openURL(`https://wa.me/?text=${encodeURIComponent(mensagem)}`);
   return Share.share({ message: mensagem });
 }
+
+/** Texto padrão do convite: usado na home, no desafio e no perfil. */
+export const mensagemConvite = (url: string, premio?: string | null) =>
+  `Bora palpitar comigo no PALPIT? É de graça${premio ? ` e o campeão leva ${premio}` : ""}! ${url}`;

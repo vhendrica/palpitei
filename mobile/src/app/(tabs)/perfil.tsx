@@ -1,15 +1,16 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { router, useFocusEffect } from "expo-router";
-import { useCallback, useState } from "react";
+import { type ComponentProps, useCallback, useState } from "react";
 import { Modal, Pressable, ScrollView, Switch, View } from "react-native";
 
 import { AppHeader } from "../../components/AppHeader";
 import { AuthGate } from "../../components/AuthGate";
 import { ErrorBox, Field } from "../../components/Form";
-import { HistoricoLinha } from "../../components/HistoricoLinha";
 import { fmtReais } from "../../components/PremioBar";
+import { useToast } from "../../components/Toast";
 import { Button, Card, Esqueleto, T } from "../../components/ui";
 import { api } from "../../lib/api";
+import { compartilhar, copiar, enviarWhatsApp, linkIndicacao, mensagemConvite } from "../../lib/convite";
 import { useDesktop } from "../../lib/desktop";
 import { fmtOdd, fmtPts, fmtWhats } from "../../lib/format";
 import { errorMessage, useApp } from "../../store/AppStore";
@@ -31,6 +32,30 @@ function Numero({ valor, rotulo, cor }: { valor: string; rotulo: string; cor?: s
   );
 }
 
+/** Linha de seção: ícone + título + ">"; expande o conteúdo ou navega. */
+function Secao({
+  icone,
+  titulo,
+  aberto,
+  onPress,
+}: {
+  icone: ComponentProps<typeof Ionicons>["name"];
+  titulo: string;
+  aberto?: boolean;
+  onPress: () => void;
+}) {
+  const { palette: C } = useTheme();
+  return (
+    <Pressable onPress={onPress} className="mt-3">
+      <Card className="flex-row items-center py-3">
+        <Ionicons name={icone} size={20} color={C.primary} />
+        <T className="ml-3 flex-1 font-mont-b text-sm">{titulo}</T>
+        <Ionicons name={aberto ? "chevron-up" : "chevron-forward"} size={18} color={C.muted} />
+      </Card>
+    </Pressable>
+  );
+}
+
 export default function Perfil() {
   const { palette: C, noturno, setNoturno } = useTheme();
   const { user, sair, refreshUser } = useApp();
@@ -40,6 +65,8 @@ export default function Perfil() {
   const [bairro, setBairro] = useState("");
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
+  const [aberto, setAberto] = useState<"numeros" | "convite" | null>(null);
+  const toast = useToast();
   const desktop = useDesktop();
 
   useFocusEffect(
@@ -100,7 +127,6 @@ export default function Perfil() {
   const s = perfil?.stats;
   const streak = user.login_streak ?? 0;
   const recorde = Math.max(user.maior_streak ?? 0, streak);
-  const visiveis = perfil?.historico.slice(0, desktop ? 5 : 4) ?? [];
 
   const identidade = (
     <Card className="flex-row items-center">
@@ -157,17 +183,27 @@ export default function Perfil() {
     : [];
   const duelos = s ? s.duelos_vitorias + s.duelos_derrotas : 0;
 
-  const meusNumeros = s ? (
+  const meusNumeros = (
     <>
-      <Titulo>Meus números</Titulo>
-      {desktop ? (
-        <View className="flex-row gap-2">{numeros}</View>
-      ) : (
-        <>
-          <View className="flex-row gap-2">{numeros.slice(0, 3)}</View>
-          <View className="mt-2 flex-row gap-2">{numeros.slice(3)}</View>
-        </>
-      )}
+      <Secao
+        icone="stats-chart-outline"
+        titulo="Meus números"
+        aberto={aberto === "numeros"}
+        onPress={() => setAberto((a) => (a === "numeros" ? null : "numeros"))}
+      />
+      {aberto === "numeros" ? (
+        !s ? (
+          <View className="mt-2"><Esqueleto blocos={2} /></View>
+        ) : (
+          <>
+            {desktop ? (
+              <View className="mt-2 flex-row gap-2">{numeros}</View>
+            ) : (
+              <>
+                <View className="mt-2 flex-row gap-2">{numeros.slice(0, 3)}</View>
+                <View className="mt-2 flex-row gap-2">{numeros.slice(3)}</View>
+              </>
+            )}
       <Card className="mt-2 flex-row items-center py-3">
         <T className="font-mont-b text-sm">Duelos</T>
         {duelos > 0 ? (
@@ -183,27 +219,15 @@ export default function Perfil() {
           <T className="ml-3 flex-1 text-xs text-muted">Nenhum duelo encerrado ainda.</T>
         )}
       </Card>
-    </>
-  ) : null;
-
-  const historico = (
-    <>
-      <Titulo>Histórico</Titulo>
-      {perfil && visiveis.length === 0 ? (
-        <T className="text-sm text-muted">Você ainda não palpitou.</T>
-      ) : visiveis.length > 0 ? (
-        <Card className="py-2">
-          {visiveis.map((h, i) => (
-            <HistoricoLinha key={h.liga_id} h={h} primeira={i === 0} />
-          ))}
-          {(s?.participacoes ?? 0) > visiveis.length ? (
-            <Pressable onPress={() => router.push("/historico")} className="mt-1 border-t border-line pt-2.5 pb-1">
-              <T className="text-center font-mont-b text-xs text-muted">Ver histórico completo</T>
-            </Pressable>
-          ) : null}
-        </Card>
+          </>
+        )
       ) : null}
     </>
+  );
+
+  // "Histórico >" abre a tela completa em vez de ocupar o perfil com a lista.
+  const historico = (
+    <Secao icone="time-outline" titulo="Histórico" onPress={() => router.push("/historico")} />
   );
 
   const vouchers = (
@@ -226,6 +250,47 @@ export default function Perfil() {
       )}
     </>
   );
+
+  // Programa de indicação: botões à mostra; a regra fica atrás do ">".
+  const convite = user?.username ? (
+    <Card className="mt-3">
+      <Pressable
+        className="flex-row items-center"
+        onPress={() => setAberto((a) => (a === "convite" ? null : "convite"))}
+      >
+        <Ionicons name="people" size={20} color={C.primary} />
+        <T className="ml-2 flex-1 font-mont-b text-sm">Convide amigos — até 500 pts</T>
+        <Ionicons name={aberto === "convite" ? "chevron-up" : "chevron-forward"} size={18} color={C.muted} />
+      </Pressable>
+      {aberto === "convite" ? (
+        <T className="mt-2 text-xs leading-[18px] text-muted">
+          {`Cada amigo que entrar pelo seu link rende pontos pra você:\n\n+ 50 pts quando ele se cadastrar\n+ 50 pts se ele palpitar no mesmo dia\n+ 100 pts a cada dia que ele voltar nos 3 dias seguintes\n+ 100 pts de bônus se ele completar os 3 logins seguidos`}
+        </T>
+      ) : null}
+      <View className="mt-3 flex-row" style={{ gap: 8 }}>
+        <Button
+          title="WhatsApp"
+          icon="logo-whatsapp"
+          className="flex-1"
+          onPress={() => enviarWhatsApp(mensagemConvite(linkIndicacao(user.username)))}
+        />
+        <Button
+          title="Copiar"
+          icon="copy-outline"
+          variant="outline"
+          className="flex-1"
+          onPress={async () => {
+            const ok = await copiar(mensagemConvite(linkIndicacao(user.username)));
+            if (!ok) {
+              await compartilhar(mensagemConvite(linkIndicacao(user.username)));
+              return;
+            }
+            toast.show("Mensagem copiada!");
+          }}
+        />
+      </View>
+    </Card>
+  ) : null;
 
   const sairBtn = <Button title="Sair" variant="danger" onPress={sair} className="mt-4" />;
 
@@ -257,6 +322,7 @@ export default function Perfil() {
             <View style={{ width: 320 }}>
               {identidade}
               {saldo}
+              {convite}
               {vouchers}
               {adminLink}
               {tema}
@@ -272,6 +338,7 @@ export default function Perfil() {
           <View>
             {identidade}
             {saldo}
+            {convite}
             {perfil ? null : <View className="mt-4"><Esqueleto blocos={2} /></View>}
             {meusNumeros}
             {perfil ? historico : null}
@@ -282,6 +349,7 @@ export default function Perfil() {
           </View>
         )}
       </ScrollView>
+      {toast.node}
 
       <Modal visible={editando} transparent animationType="fade" onRequestClose={() => setEditando(false)}>
         <ThemeVars>

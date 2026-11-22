@@ -3,9 +3,8 @@ import * as auth from './auth.ts';
 import * as desafios from './desafios.ts';
 import type { Db } from './db.ts';
 import { ForbiddenError, NotFoundError, RuleError } from './errors.ts';
-import { importarOdds, mercadosDaApi, mercadosDaFixture, type OddsConfig } from './odds.ts';
-import { propsDoJogo, type OddsPapiConfig } from './oddspapi.ts';
-import { aplicarPlacar, atualizarResultados } from './resultados.ts';
+import { importarOdds, marcarImport, mercadosDaApi, mercadosDaFixture, placarDoJogo, type OddsConfig } from './odds.ts';
+import { aplicarPlacar, atualizarResultados, extrasDoCorpo } from './resultados.ts';
 import * as sim from './sim.ts';
 import { apostar, type MultiplaInput, entrarNaLiga, finalizarLiga, getLiga, getLigaAtual, reativarLiga } from './rules.ts';
 import { home, historico, jogosComMercados, meuBilhete, palpiteirosDaLiga, palpiteirosDoDia, perfil, rankingDoDia } from './services.ts';
@@ -23,7 +22,6 @@ export type ApiDeps = {
   hoje?: () => string;
   corsOrigin?: string;
   odds?: OddsConfig;
-  oddsPapi?: OddsPapiConfig;
   /** Segredo do agendador (pg_cron) para POST /cron/resultados. */
   cronSecret?: string;
 };
@@ -66,25 +64,6 @@ export function createApi(deps: ApiDeps) {
     return liga;
   };
 
-  // Lazy: preenche mercados_sugeridos pela Football API (1 req/fixture, cacheado). Cap pra não estourar o FREE.
-  const atualizarSugeridosLazy = async (fixtures: Awaited<ReturnType<typeof admin.listarFixtures>>) => {
-    let buscados = 0;
-    for (const f of fixtures) {
-      if (buscados >= 8) break;
-      // fixture_id numérico = id da Football API; fontes antigas/manuais já devolvem [].
-      const sugeridos = (f.mercados_sugeridos ?? []) as { grupo?: string }[];
-      const legado = sugeridos.some((m) => /^(ESCANTEIOS|CARTÕES|ESCANTEIOS 1º TEMPO)$/.test(m.grupo ?? ''));
-      if ((!sugeridos.length || legado) && f.fonte === 'api_football') {
-        try {
-          f.mercados_sugeridos = (await mercadosDaFixture(sql, deps.odds, String(f.fixture_id))) as never;
-          buscados++;
-        } catch {
-          /* sem odds pra esse jogo */
-        }
-      }
-    }
-  };
-
   const routes: Route[] = [
     // ---- público / usuário
     ['GET', /^\/health$/, async () => ({ ok: true })],
@@ -93,12 +72,13 @@ export function createApi(deps: ApiDeps) {
       const b = await c.body();
       return auth.entrar(authDeps, { email: b.email, senha: b.senha });
     }],
-    // OTP WhatsApp dormente — mantido para reativar quando a verificação voltar.
+    ['GET', /^\/auth\/username-disponivel$/, async (c) => auth.usernameDisponivel(sql, c.query.get('u'))],
     ['POST', /^\/auth\/senha\/esqueci$/, async (c) => auth.pedirRecuperacao(authDeps, { email: (await c.body()).email })],
     ['POST', /^\/auth\/senha\/redefinir$/, async (c) => {
       const b = await c.body();
       return auth.redefinirSenha(authDeps, { token: b.token, senha: b.senha });
     }],
+    // OTP WhatsApp dormente — mantido para reativar quando a verificação voltar.
     ['POST', /^\/auth\/otp\/login$/, async (c) => auth.solicitarCodigo(authDeps, { whatsapp: (await c.body()).whatsapp })],
     ['POST', /^\/auth\/otp\/reenviar$/, async (c) => auth.solicitarCodigo(authDeps, { whatsapp: (await c.body()).whatsapp })],
     ['POST', /^\/auth\/otp\/confirmar$/, async (c) => {
@@ -141,13 +121,17 @@ export function createApi(deps: ApiDeps) {
       await c.requireUser();
       const data = c.query.get('data') ?? hoje();
       let fixtures = await admin.listarFixtures(sql, data);
-      // Sem pool pra essa data: puxa da API e cacheia em fixtures_dia (1 req por dia, não por jogo).
+      // Sem pool pra essa data: puxa da API e cacheia em fixtures_dia (1 req por campeonato).
+      // Debounce de 20min — sem isso cada acesso a um dia vazio reimportava todos os campeonatos.
       if (fixtures.length === 0 && deps.odds) {
-        try {
-          await importarOdds(sql, deps.odds, data);
-          fixtures = await admin.listarFixtures(sql, data);
-        } catch (e) {
-          console.error('[fixtures] import on-demand falhou', e);
+        const [tentativa] = await sql`select importado_em < now() - interval '20 minutes' as velho from pool_import where data = ${data}`;
+        if (!tentativa || tentativa.velho) {
+          try {
+            await importarOdds(sql, deps.odds, data);
+            fixtures = await admin.listarFixtures(sql, data);
+          } catch (e) {
+            console.error('[fixtures] import on-demand falhou', e);
+          }
         }
       }
       // Lazy: preenche mercados_sugeridos pela API (1 req/fixture, cacheado). Limite pra não estourar o FREE.
@@ -158,7 +142,7 @@ export function createApi(deps: ApiDeps) {
         const sugeridos = (f.mercados_sugeridos ?? []) as { grupo?: string }[];
         // Refaz quando vazio OU quando o cache está no formato antigo (grupo sem linha, ex.: "ESCANTEIOS").
         const legado = sugeridos.some((m) => /^(ESCANTEIOS|CARTÕES|ESCANTEIOS 1º TEMPO)$/.test(m.grupo ?? ''));
-        if ((!sugeridos.length || legado) && f.fonte === 'api_football') {
+        if ((!sugeridos.length || legado) && f.fonte === 'oddspapi') {
           try {
             f.mercados_sugeridos = (await mercadosDaFixture(sql, deps.odds, String(f.fixture_id))) as never;
             buscados++;
@@ -214,10 +198,21 @@ export function createApi(deps: ApiDeps) {
       if (!(await cronOk(sql, segredo, deps.cronSecret))) await c.requireAdmin();
       return atualizarResultados(sql, deps.odds);
     }],
+    // Diagnóstico: resposta crua do placar OddsPapi de um jogo (checa 429/chave/lag do feed).
+    ['GET', /^\/cron\/debug-placar$/, async (c) => {
+      const segredo = c.req.headers.get('x-cron-secret');
+      if (!(await cronOk(sql, segredo, deps.cronSecret))) await c.requireAdmin();
+      if (!deps.odds) return { erro: 'odds não configurado' };
+      try {
+        return { placar: await placarDoJogo(deps.odds, c.query.get('fixtureId') ?? '') };
+      } catch (e) {
+        return { erro: String(e) };
+      }
+    }],
     ['POST', /^\/admin\/jogos\/([^/]+)\/placar$/, async (c) => {
       await c.requireAdmin();
       const b = await c.body();
-      return aplicarPlacar(sql, c.params[0], Number(b.casa), Number(b.fora));
+      return aplicarPlacar(sql, c.params[0], Number(b.casa), Number(b.fora), extrasDoCorpo(b));
     }],
     ['GET', /^\/me$/, async (c) => perfil(sql, await c.requireUser())],
 
@@ -275,17 +270,28 @@ export function createApi(deps: ApiDeps) {
     }],
     ['POST', /^\/admin\/jogos\/([^/]+)\/destaque$/, async (c) => (await c.requireAdmin(), admin.marcarDestaque(sql, c.params[0]))],
     ['POST', /^\/admin\/mercados\/([^/]+)\/especial$/, async (c) => (await c.requireAdmin(), admin.alternarEspecial(sql, c.params[0]))],
+    ['POST', /^\/admin\/ligas\/([^/]+)\/especiais-ordem$/, async (c) =>
+      (await c.requireAdmin(), admin.ordenarEspeciais(sql, c.params[0], (await c.body()).mercado_ids))],
     ['POST', /^\/admin\/mercados\/([^/]+)\/resultado$/, async (c) =>
       (await c.requireAdmin(), admin.definirResultadoMercado(sql, c.params[0], (await c.body()).resultado))],
     ['GET', /^\/admin\/jogos\/([^/]+)\/mercados-api$/, async (c) => (await c.requireAdmin(), mercadosDaApi(sql, deps.odds, c.params[0]))],
-    ['GET', /^\/admin\/jogos\/([^/]+)\/props-api$/, async (c) => (await c.requireAdmin(), propsDoJogo(sql, deps.oddsPapi, c.params[0]))],
+    ['GET', /^\/admin\/jogos\/([^/]+)\/props-api$/, async (c) => {
+      await c.requireAdmin();
+      const { mercados } = await mercadosDaApi(sql, deps.odds, c.params[0]);
+      return { mercados: mercados.filter((m) => m.categoria === 'JOGADOR') };
+    }],
     ['PUT', /^\/admin\/jogos\/([^/]+)\/mercados$/, async (c) => {
       await c.requireAdmin();
       return admin.definirMercados(sql, c.params[0], (await c.body()).mercados);
     }],
+    // Só seção/ordem — leve, não regrava a lista inteira.
+    ['PATCH', /^\/admin\/jogos\/([^/]+)\/mercados-meta$/, async (c) => {
+      await c.requireAdmin();
+      return admin.metaMercados(sql, c.params[0], (await c.body()).mercados);
+    }],
     ['POST', /^\/admin\/jogos\/([^/]+)\/mercados-renovar$/, async (c) => {
       await c.requireAdmin();
-      return admin.renovarMercadosJogo(sql, deps.odds, c.params[0]);
+      return admin.renovarMercadosJogo(sql, deps.odds, c.params[0], true);
     }],
   ];
 
@@ -336,7 +342,8 @@ export function createApi(deps: ApiDeps) {
           methodMismatch = true;
           continue;
         }
-        return json(200, await handler({ ...ctxBase, params: m.slice(1).map(decodeURIComponent) }));
+        const out = await handler({ ...ctxBase, params: m.slice(1).map(decodeURIComponent) });
+        return json(200, out);
       }
       return json(methodMismatch ? 405 : 404, { error: methodMismatch ? 'Método não permitido.' : 'Rota não encontrada.' });
     } catch (e) {

@@ -90,6 +90,15 @@ export function validarNome(raw: unknown) {
   return nome;
 }
 
+/** Username público (ranking): 3-20 chars, letra/número começando, pode ter ponto, hífen e _. */
+export function validarUsername(raw: unknown) {
+  const s = String(raw ?? '').trim().toLowerCase();
+  if (!/^[a-z0-9][a-z0-9._-]{2,19}$/.test(s)) {
+    throw new RuleError('Nome de usuário: 3 a 20 caracteres (letras, números, ponto, hífen ou _).');
+  }
+  return s;
+}
+
 /** Bairro saiu do cadastro: opcional (vazio quando não informado). */
 export function validarBairro(raw: unknown) {
   return String(raw ?? '').trim().slice(0, 80);
