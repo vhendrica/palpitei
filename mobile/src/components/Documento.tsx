@@ -131,3 +131,22 @@ export function LinkDoc({
     </Link>
   );
 }
+
+export const DOCUMENTOS: { label: string; href: Href }[] = [
+  { label: "Termos de Uso", href: "/termos" },
+  { label: "Regulamento de Mercados", href: "/regulamento" },
+  { label: "Política de Privacidade", href: "/privacidade" },
+];
+
+// Rodapé com os documentos legais, em uma linha que quebra no celular.
+export function RodapeLegal({ className = "" }: { className?: string }) {
+  return (
+    <View className={`flex-row flex-wrap justify-center gap-x-4 gap-y-1 ${className}`}>
+      {DOCUMENTOS.map((d) => (
+        <LinkDoc key={d.label} href={d.href} className="font-mont text-[11px] text-muted">
+          {d.label}
+        </LinkDoc>
+      ))}
+    </View>
+  );
+}
