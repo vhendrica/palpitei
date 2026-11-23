@@ -43,12 +43,12 @@ function contagem(base: string, lado: string): string | null {
   const h = Number(m[2]);
   const [um, varios, fem] = nomes;
   if (m[1] === 'MAIS') {
-    const n = Math.ceil(h);
+    const n = Math.floor(h) + 1;
     if (n === 1 && base === 'CARTÕES DO JOGADOR') return 'Leva cartão';
     return `${n}+ ${n === 1 ? um : varios}`;
   }
-  const n = Math.floor(h);
-  if (n === 0) return `${fem ? 'Nenhuma' : 'Nenhum'} ${um}`;
+  const n = Math.ceil(h) - 1;
+  if (n <= 0) return `${fem ? 'Nenhuma' : 'Nenhum'} ${um}`;
   return `Até ${n} ${n === 1 ? um : varios}`;
 }
 
@@ -62,8 +62,10 @@ const frasePadrao = (s: string) =>
 export function textoEspecial(grupo: string, descricao: string): { titulo: string; mercado: string; time: string | null } {
   const g = grupo.trim().toUpperCase();
   const base = g.replace(LINHA, '');
-  const [quem, lado = ''] = descricao.split(/\s+—\s+/);
-  const jogador = FRASE[g] ?? (CONTAGEM[base] ? contagem(base, lado.trim().toUpperCase()) : null);
+  const partes = descricao.split(/\s+—\s+/);
+  const [quem, lado] = partes;
+  const jogador =
+    partes.length === 1 ? FRASE[g] : partes.length === 2 && CONTAGEM[base] ? contagem(base, lado.trim().toUpperCase()) : null;
   if (jogador) {
     const tag = quem.match(/\s*\(([^)]+)\)\s*$/);
     const nome = tag ? quem.slice(0, tag.index).trim() : quem.trim();
