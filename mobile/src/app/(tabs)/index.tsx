@@ -48,6 +48,7 @@ import { errorMessage, useApp } from "../../store/AppStore";
 import { useTheme } from "../../store/Theme";
 import { agruparMercados } from "../../types";
 import { GrupoTitulo } from "../../components/GrupoTitulo";
+import { textoEspecial } from "../../lib/especial";
 import {
   familiaGrupo,
   linhaGrupo,
@@ -890,6 +891,7 @@ export default function HomeMultipla() {
                       {home.especiais!.map((e) => {
                         const selecionado = draft.itens.includes(e.id);
                         const pode = !!eu && aberta && !e.comecou;
+                        const texto = textoEspecial(e.grupo, e.descricao);
                         return (
                           <Pressable
                             key={e.id}
@@ -907,24 +909,33 @@ export default function HomeMultipla() {
                             <View className="w-1 bg-primary" />
                             <View className="flex-1 justify-between p-3">
                               <View>
+                                <View className="flex-row items-center">
+                                  <T
+                                    className="font-mont-b text-[9px] uppercase tracking-widest text-muted"
+                                    numberOfLines={1}
+                                  >
+                                    {siglaTime(e.time_casa)} X{" "}
+                                    {siglaTime(e.time_fora)}
+                                  </T>
+                                  {texto.time ? (
+                                    <View className="ml-1 rounded border border-line px-1">
+                                      <T className="font-mont-b text-[8px] uppercase tracking-wider text-muted">
+                                        {siglaTime(texto.time)}
+                                      </T>
+                                    </View>
+                                  ) : null}
+                                </View>
                                 <T
-                                  className="font-mont-b text-[9px] uppercase tracking-widest text-muted"
-                                  numberOfLines={1}
-                                >
-                                  {siglaTime(e.time_casa)} X{" "}
-                                  {siglaTime(e.time_fora)}
-                                </T>
-                                <T
-                                  className="font-mont-xb text-[10px] uppercase tracking-widest"
+                                  className="mt-0.5 font-mont-xb text-xs uppercase"
                                   numberOfLines={2}
                                 >
-                                  {e.grupo}
+                                  {texto.titulo}
                                 </T>
                                 <T
-                                  className="mt-1 font-mont text-xs text-muted"
+                                  className="mt-1 font-mont-b text-[11px] text-muted"
                                   numberOfLines={2}
                                 >
-                                  {e.descricao}
+                                  {texto.mercado}
                                 </T>
                               </View>
                               <View
