@@ -404,7 +404,8 @@ async function acertosPorUsuario(db: Db, ligaId: string) {
 
 /**
  * Pontuação desc; empate → maior multiplicador acertado; depois mais bilhetes certos;
- * persistindo, a ordem entre eles é só técnica (id) e sem critério exibido.
+ * depois maior potencial do bilhete; persistindo, quem criou a conta primeiro e,
+ * como último ponto, a data de nascimento (mais velho primeiro).
  */
 export async function calcularRanking(db: Db, ligaId: string): Promise<RankingRow[]> {
   const [rows, pontos, acertos, [liga], potBruto, invPorUser] = await Promise.all([
@@ -417,6 +418,7 @@ export async function calcularRanking(db: Db, ligaId: string): Promise<RankingRo
         select user_id, fichas_apostadas from multiplas where liga_id = ${ligaId}
       )
       select u.id, u.nome, u.username, u.bairro, e.fichas_total,
+             u.created_at, u.data_nascimento,
              coalesce((select sum(ev.f) from ev where ev.user_id = e.user_id), 0)::int as fichas
       from entradas e join users u on u.id = e.user_id
       where e.liga_id = ${ligaId}`,
@@ -475,19 +477,25 @@ export async function calcularRanking(db: Db, ligaId: string): Promise<RankingRo
   }));
   type L = (typeof lista)[number];
   const criterio = (a: L, b: L): string | null =>
-    a.pot !== b.pot
-      ? `maior potencial: ${round2(Math.max(a.pot, b.pot))} pts`
-      : a.maior !== b.maior
-        ? `maior multiplicador acertado: ${a.maior.toFixed(2)}`
-        : a.n !== b.n
-          ? `${a.n} ${a.n === 1 ? 'acerto' : 'acertos'}`
-          : null;
+    a.maior !== b.maior
+      ? `maior multiplicador acertado: ${a.maior.toFixed(2)}`
+      : a.n !== b.n
+        ? `${a.n} ${a.n === 1 ? 'acerto' : 'acertos'}`
+        : a.pot !== b.pot
+          ? `maior potencial: ${round2(Math.max(a.pot, b.pot))} pts`
+          : String(a.r.created_at) !== String(b.r.created_at)
+            ? 'conta mais antiga'
+            : String(a.r.data_nascimento) !== String(b.r.data_nascimento)
+              ? 'mais velho'
+              : null;
   lista.sort(
     (a, b) =>
       b.pontos - a.pontos ||
-      b.pot - a.pot ||
       b.maior - a.maior ||
       b.n - a.n ||
+      b.pot - a.pot ||
+      Date.parse(String(a.r.created_at)) - Date.parse(String(b.r.created_at)) ||
+      String(a.r.data_nascimento).localeCompare(String(b.r.data_nascimento)) ||
       String(a.r.id).localeCompare(String(b.r.id)),
   );
   return lista.map((x, i) => {
