@@ -111,6 +111,9 @@ function RootNavigator() {
             <Stack.Screen name="nova-senha" />
             <Stack.Screen name="codigo" />
             <Stack.Screen name="palpiteiros" />
+            <Stack.Screen name="termos" />
+            <Stack.Screen name="privacidade" />
+            <Stack.Screen name="regulamento" />
           </Stack>
         </View>
       </View>

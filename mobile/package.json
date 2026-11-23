@@ -47,7 +47,9 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "legal": "node scripts/gen-legal.mjs",
+    "legal:check": "node scripts/gen-legal.mjs --check"
   },
   "private": true
 }

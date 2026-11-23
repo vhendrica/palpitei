@@ -46,7 +46,7 @@
 
 4.2. Em cada RODADA, o participante registra palpites nos mercados oferecidos pelo APLICATIVO dentro do prazo indicado em cada evento. Palpites registrados após o encerramento do mercado não são aceitos.
 
-4.3. **Pontuação**: [definir a regra objetiva — ex.: soma de pontos por palpite correto segundo a tabela de pontuação publicada no APLICATIVO; critérios de desempate: (a) maior nº de acertos; (b) maior odd média acertada; (c) palpite registrado primeiro].
+4.3. Pontuação e desempate: a pontuação da RODADA é a soma das FICHAS retornadas pelos palpites certos. Em caso de empate, aplicam-se sucessivamente: (a) maior multiplicador acertado; (b) maior número de acertos; (c) maior potencial de pontuação em bilhetes abertos; (d) conta criada primeiro; (e) participante mais velho. Persistindo o empate, o prêmio será dividido igualmente (cláusula 5.2).
 
 4.4. A apuração é automática, com base nos resultados oficiais dos eventos, conforme fonte de dados declarada no APLICATIVO. ⚖️ *Descrever a fonte de resultados e o tratamento de eventos adiados/cancelados/suspensos (sugestão: evento não realizado em 48h = mercado anulado, sem pontuação).*
 

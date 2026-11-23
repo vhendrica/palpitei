@@ -12,6 +12,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppHeader } from "../components/AppHeader";
+import { LinkDoc } from "../components/Documento";
 import { Checkbox, ErrorBox, Field } from "../components/Form";
 import { Button, T } from "../components/ui";
 import { api } from "../lib/api";
@@ -279,7 +280,13 @@ export default function Cadastro() {
         <Checkbox
           checked={termos}
           onChange={setTermos}
-          label="Concordo com os Termos de Uso e a Política de Privacidade"
+          label={
+            <>
+              Concordo com os <LinkDoc href="/termos">Termos de Uso</LinkDoc>, o{" "}
+              <LinkDoc href="/regulamento">Regulamento de Mercados</LinkDoc> e a{" "}
+              <LinkDoc href="/privacidade">Política de Privacidade</LinkDoc>
+            </>
+          }
         />
         <Checkbox
           checked={dados}
