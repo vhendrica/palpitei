@@ -1,4 +1,4 @@
-import { router, type Href } from "expo-router";
+import { Link, type Href } from "expo-router";
 import type { ReactNode } from "react";
 import { ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -122,16 +122,12 @@ export function LinkDoc({
   children: ReactNode;
   className?: string;
 }) {
+  // Link renderiza <a href> no web (Enter e leitor de tela funcionam); stopPropagation evita marcar o checkbox pai.
   return (
-    <T
-      accessibilityRole="link"
-      onPress={(e) => {
-        e.stopPropagation();
-        router.push(href);
-      }}
-      className={`font-mont-b text-primary underline ${className}`}
-    >
-      {children}
-    </T>
+    <Link href={href} asChild onPress={(e) => e.stopPropagation()}>
+      <T className={`font-mont-b text-primary underline ${className}`}>
+        {children}
+      </T>
+    </Link>
   );
 }
