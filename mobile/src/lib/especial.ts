@@ -21,35 +21,26 @@ const FRASE: Record<string, string> = {
   'COMETE 2+ FALTAS': '2+ faltas',
 };
 
-/** [singular, plural, feminino] */
-const CONTAGEM: Record<string, [string, string, boolean?]> = {
-  'GOLS DO JOGADOR': ['gol', 'gols'],
-  'ASSISTÊNCIAS DO JOGADOR': ['assistência', 'assistências', true],
-  'CHUTES DO JOGADOR': ['chute', 'chutes'],
-  'CHUTES NO GOL DO JOGADOR': ['chute no gol', 'chutes no gol'],
-  'CARTÕES DO JOGADOR': ['cartão', 'cartões'],
-  'DESARMES DO JOGADOR': ['desarme', 'desarmes'],
-  'DEFESAS DO GOLEIRO': ['defesa', 'defesas', true],
-  'FALTAS DO JOGADOR': ['falta', 'faltas', true],
-  'IMPEDIMENTOS DO JOGADOR': ['impedimento', 'impedimentos'],
-};
+const CONTAGEM = new Set([
+  'GOLS DO JOGADOR',
+  'ASSISTÊNCIAS DO JOGADOR',
+  'CHUTES DO JOGADOR',
+  'CHUTES NO GOL DO JOGADOR',
+  'CARTÕES DO JOGADOR',
+  'DESARMES DO JOGADOR',
+  'DEFESAS DO GOLEIRO',
+  'FALTAS DO JOGADOR',
+  'IMPEDIMENTOS DO JOGADOR',
+]);
 
 const LINHA = /\s+(-?\d+(?:\.\d+)?)$/;
 
+/** "DESARMES DO JOGADOR" + "MAIS DE 2.5" → "Desarmes do jogador 2.5+". */
 function contagem(base: string, lado: string): string | null {
-  const nomes = CONTAGEM[base];
   const m = lado.match(/^(MAIS|MENOS) DE (\d+(?:\.\d+)?)$/);
-  if (!nomes || !m) return null;
-  const h = Number(m[2]);
-  const [um, varios, fem] = nomes;
-  if (m[1] === 'MAIS') {
-    const n = Math.floor(h) + 1;
-    if (n === 1 && base === 'CARTÕES DO JOGADOR') return 'Leva cartão';
-    return `${n}+ ${n === 1 ? um : varios}`;
-  }
-  const n = Math.ceil(h) - 1;
-  if (n <= 0) return `${fem ? 'Nenhuma' : 'Nenhum'} ${um}`;
-  return `Até ${n} ${n === 1 ? um : varios}`;
+  if (!m) return null;
+  const nome = base.charAt(0) + base.slice(1).toLowerCase();
+  return `${nome} ${m[2]}${m[1] === 'MAIS' ? '+' : '-'}`;
 }
 
 const frasePadrao = (s: string) =>
@@ -65,7 +56,7 @@ export function textoEspecial(grupo: string, descricao: string): { titulo: strin
   const partes = descricao.split(/\s+—\s+/);
   const [quem, lado] = partes;
   const jogador =
-    partes.length === 1 ? FRASE[g] : partes.length === 2 && CONTAGEM[base] ? contagem(base, lado.trim().toUpperCase()) : null;
+    partes.length === 1 ? FRASE[g] : partes.length === 2 && CONTAGEM.has(base) ? contagem(base, lado.trim().toUpperCase()) : null;
   if (jogador) {
     const tag = quem.match(/\s*\(([^)]+)\)\s*$/);
     const nome = tag ? quem.slice(0, tag.index).trim() : quem.trim();
