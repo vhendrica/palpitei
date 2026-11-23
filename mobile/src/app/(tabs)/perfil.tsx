@@ -5,6 +5,7 @@ import { Modal, Pressable, ScrollView, Switch, View } from "react-native";
 
 import { AppHeader } from "../../components/AppHeader";
 import { AuthGate } from "../../components/AuthGate";
+import { DOCUMENTOS } from "../../components/Documento";
 import { ErrorBox, Field } from "../../components/Form";
 import { fmtReais } from "../../components/PremioBar";
 import { useToast } from "../../components/Toast";
@@ -91,6 +92,26 @@ export default function Perfil() {
     </Card>
   );
 
+  const documentos = (
+    <>
+      <Titulo>Regras e documentos</Titulo>
+      <Card className="py-1">
+        {DOCUMENTOS.map((d, i) => (
+          <Pressable
+            key={d.label}
+            onPress={() => router.push(d.href)}
+            accessibilityRole="link"
+            className={`flex-row items-center py-3 ${i > 0 ? "border-t border-line" : ""}`}
+          >
+            <Ionicons name="document-text-outline" size={18} color={C.muted} />
+            <T className="ml-3 flex-1 font-mont-b text-sm">{d.label}</T>
+            <Ionicons name="chevron-forward" size={18} color={C.muted} />
+          </Pressable>
+        ))}
+      </Card>
+    </>
+  );
+
   if (!user) {
     return (
       <View className="flex-1 bg-bg">
@@ -101,6 +122,7 @@ export default function Perfil() {
             subtitle="Crie sua conta e ganhe PONTOS de boas-vindas."
           />
           {tema}
+          {documentos}
         </ScrollView>
       </View>
     );
@@ -326,6 +348,7 @@ export default function Perfil() {
               {vouchers}
               {adminLink}
               {tema}
+              {documentos}
               {sairBtn}
             </View>
             <View style={{ flex: 1, marginTop: perfil ? -20 : 0 }}>
@@ -345,6 +368,7 @@ export default function Perfil() {
             {perfil ? vouchers : null}
             {adminLink}
             {tema}
+            {documentos}
             {sairBtn}
           </View>
         )}

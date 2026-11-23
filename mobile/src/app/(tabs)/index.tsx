@@ -21,6 +21,7 @@ import { Bilhete, type OpcaoBilhete } from "../../components/Bilhete";
 import { ResumoBilhete } from "../../components/ResumoBilhete";
 import { EntradaModal } from "../../components/EntradaModal";
 import { StreakModal } from "../../components/StreakModal";
+import { RodapeLegal } from "../../components/Documento";
 import { ErrorBox } from "../../components/Form";
 import { Ficha } from "../../components/Ficha";
 import { PremioBar, fmtReais } from "../../components/PremioBar";
@@ -1136,6 +1137,7 @@ export default function HomeMultipla() {
             </View>
           ) : null}
         </View>
+        <RodapeLegal className="mt-8" />
       </ScrollView>
       {streak ? (
         <StreakModal
