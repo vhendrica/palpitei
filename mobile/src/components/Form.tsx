@@ -1,5 +1,5 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
-import type { ComponentProps, ReactNode } from "react";
+import { useId, type ComponentProps, type ReactNode } from "react";
 import { Pressable, TextInput, View } from "react-native";
 
 import { Ficha } from "./Ficha";
@@ -56,6 +56,7 @@ export function Checkbox({
   label: ReactNode;
 }) {
   const { palette: C } = useTheme();
+  const labelId = useId();
   // O texto também marca/desmarca; links aninhados no label (LinkDoc) param o toque.
   return (
     <View className="mb-3 flex-row items-center">
@@ -64,6 +65,7 @@ export function Checkbox({
         accessibilityRole="checkbox"
         accessibilityState={{ checked }}
         aria-checked={checked}
+        aria-labelledby={labelId}
         hitSlop={8}
         className={`h-6 w-6 items-center justify-center rounded-md border-2 ${checked ? "border-primary bg-primary" : "border-line bg-card"}`}
       >
@@ -72,6 +74,7 @@ export function Checkbox({
         ) : null}
       </Pressable>
       <T
+        nativeID={labelId}
         onPress={() => onChange(!checked)}
         className="ml-3 flex-1 font-mont-sb text-sm"
       >
