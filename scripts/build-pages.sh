@@ -16,7 +16,7 @@ rm -rf "$DECK/public/app"
 (cd "$DECK" && rm -rf out .next && PAGES_BASE_PATH="/$REPO" npx next build)
 touch "$DECK/out/.nojekyll"
 # App em modo "single": copia o index.html para cada rota, para links diretos/F5 funcionarem no Pages.
-for r in entrar cadastro codigo palpiteiros ranking perfil admin historico simulador desafio/criar desafio/convite; do
+for r in entrar cadastro termos privacidade regulamento codigo palpiteiros ranking perfil admin historico simulador desafio/criar desafio/convite; do
   mkdir -p "$DECK/out/app/$r" && cp "$DECK/out/app/index.html" "$DECK/out/app/$r/index.html"
 done
 # Fallback SPA: F5/link direto em rota dinâmica (desafio/<id>, historico/<id> etc.) carrega o app.
